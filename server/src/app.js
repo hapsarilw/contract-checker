@@ -7,6 +7,7 @@ import { requestIdMiddleware } from "./middleware/requestId.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { AppError } from "./lib/AppError.js";
 import opsRouter from "./routes/ops.js";
+import authRouter from "./routes/auth.js";
 
 const app = express();
 
@@ -121,10 +122,9 @@ app.use(express.json({ limit: "1mb" }));
 // Ops routes — outside the /api/v1 prefix (§4): health, ready, version.
 app.use("/api", opsRouter);
 
-/**
- * Product routes — under /api/v1 (§4): auth, documents, account.
- * Mounted here once they exist (steps 12, 18, ...).
- */
+// Product routes — under /api/v1 (§4). Documents and account follow at
+// steps 18 and 57.
+app.use("/api/v1/auth", authRouter);
 
 // Catch-all for any path that reaches here unmatched by a real route.
 app.use((req, res, next) => {
