@@ -13,3 +13,6 @@ process.env.ANTHROPIC_API_KEY ??= "sk-ant-test-key";
 process.env.ANTHROPIC_MODEL ??= "claude-haiku-4-5";
 process.env.JWT_SECRET ??= "test-jwt-secret-at-least-32-bytes-long-ok";
 process.env.FRONTEND_ORIGIN ??= "http://localhost:5173";
+// Tests that deliberately exercise error paths (errorHandler.test.js)
+// would otherwise flood stdout with real pino log lines on every run.
+process.env.LOG_LEVEL ??= "silent";

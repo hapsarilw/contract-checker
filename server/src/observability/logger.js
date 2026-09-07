@@ -80,6 +80,10 @@ const logger = pino({
   redact: redactConfig,
   mixin: requestIdMixin,
   timestamp: pino.stdTimeFunctions.isoTime,
+  // Structured error serialization (type, message, stack, cause) under the
+  // canonical `err` key. NFR-3.2: stack traces are logged server-side —
+  // this is where — and never returned to a client response.
+  serializers: { err: pino.stdSerializers.err },
 });
 
 export default logger;

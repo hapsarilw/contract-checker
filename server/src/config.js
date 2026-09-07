@@ -106,7 +106,10 @@ const envSchema = z
 
     SENTRY_DSN: z.string().min(1).optional(),
     LOG_LEVEL: z
-      .enum(["trace", "debug", "info", "warn", "error", "fatal"])
+      // "silent" is a real pino level (suppresses all output) — useful in
+      // tests and CI so a deliberately-triggered error path doesn't flood
+      // stdout with the log lines it's correctly producing.
+      .enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
       .default("info"),
     ANALYSIS_ENABLED: booleanString().default(true),
     GIT_SHA: z.string().min(1).optional(),
