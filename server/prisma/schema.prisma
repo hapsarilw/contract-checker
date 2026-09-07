@@ -1,23 +1,195 @@
-// SRS §5.1 — the complete model list (User, AuthToken, Document, Analysis,
-// Finding, AuditEvent, and their enums) is transcribed exactly in step 9.
-// This file is intentionally bootstrapped one step early, minimally: only
-// the generator and datasource blocks, no models. Step 8 (ops.js) needs a
-// real, queryable Prisma client for the /api/ready Postgres check —
-// prisma.$queryRaw works against an empty-but-valid schema, so this is
-// not a placeholder that gets thrown away; step 9 adds models on top of
-// exactly this file.
+// SRS §5.1 — transcribed exactly. Every field, default and @@index here
+// comes from that section; if this file and §5.1 disagree, §5.1 wins and
+// this file is the bug.
+//
+// The FR-3.8 concurrency guard (a partial unique index Prisma cannot
+// express) is NOT here — it is a hand-written raw SQL migration, added in
+// step 10.
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   // PostgreSQL 15 (§2.1). SQLite is acceptable for local dev only, but
-  // CI and staging run Postgres — see §5.1's note on String[] columns,
-  // which SQLite cannot represent.
+  // CI and staging run Postgres — see the note on Analysis.missingClauses
+  // below, which SQLite cannot represent.
   //
   // No `url` here — Prisma 7 rejects it in schema.prisma (P1012). The
   // connection string lives in prisma.config.js for the CLI, and is
   // passed to the `adapter` at PrismaClient construction time for the
   // running application (server/src/lib/prisma.js).
   provider = "postgresql"
+}
+
+model User {
+  id               String      @id @default(cuid())
+  email            String      @unique
+  passwordHash     String
+  state            UserState   @default(UNVERIFIED)
+  emailVerifiedAt  DateTime?
+  tokenVersion     Int         @default(0) // FR-1.9
+  failedLoginCount Int         @default(0) // FR-1.10
+  lockedUntil      DateTime?
+  monthlyAnalyses  Int         @default(0) // FR-5.1 fallback of record
+  quotaPeriodStart DateTime    @default(now())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  documents        Document[]
+  tokens           AuthToken[]
+}
+
+// Verification and password-reset tokens. Stored hashed; the plaintext
+// exists only in the email that was sent.
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      AuthTokenType
+  tokenHash String        @unique // sha256 of a 32-byte CSPRNG value
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([userId, type])
+  @@index([expiresAt])
+}
+
+model Document {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename   String?
+  sourceType SourceType
+  rawText    String     @db.Text
+  // Phase 2 cache key, computed now. Shipping the column with the initial
+  // schema is deliberate (PRD §9): adding it later means a migration over
+  // a populated table for a field that costs nothing to carry now.
+  textSha256 String
+  wordCount  Int
+  byteSize   Int // FR-2.13 storage quota
+  createdAt  DateTime   @default(now())
+  analyses   Analysis[]
+
+  @@index([userId, createdAt])
+  @@index([createdAt]) // retention job (FR-4.4)
+}
+
+model Analysis {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  status      Status
+  overallRisk Risk? // server-derived (FR-3.9)
+  modelRisk   Risk? // model's claim, for drift measurement
+  summary     String?  @db.Text
+  // String[] is a native Postgres array. SQLite has no array type — a
+  // SQLite dev environment must JSON-encode this into a String instead
+  // (§5.1's note). CI and staging run Postgres, so this is the shape of
+  // record.
+  missingClauses    String[]
+  // Non-nullable, and written at INSERT time while status is PENDING —
+  // before the LLM call, never patched in afterwards (FR-3.14). An
+  // analysis that failed still records which model was asked.
+  model             String
+  inputTokens       Int?
+  outputTokens      Int?
+  durationMs        Int?
+  retryCount        Int       @default(0)
+  providerRequestId String?
+  discardedFindings Int       @default(0)
+  errorCode         String?
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
+  findings          Finding[]
+
+  @@index([documentId, createdAt])
+  @@index([status, createdAt]) // stale-PENDING reaper (§12.3)
+}
+
+model Finding {
+  id              String   @id @default(cuid())
+  analysisId      String
+  analysis        Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  category        Category
+  severity        Severity
+  clauseExcerpt   String   @db.Text
+  explanation     String   @db.Text
+  suggestedChange String   @db.Text
+
+  @@index([analysisId])
+}
+
+// Security-relevant events. Contains no document content and no personal
+// data beyond a non-reversible subject reference, so it survives account
+// deletion as evidence that the deletion happened (FR-4.6).
+//
+// DELIBERATELY has no userId foreign key and no relation to User. Every
+// other model here cascades from User, and adding that same pattern to
+// this one would delete the audit trail at exactly the moment it matters
+// most — the record that an account was deleted would be destroyed by
+// the deletion it records. subjectHash is hmac(userId, AUDIT_SALT):
+// enough to correlate one subject's events, not enough to recover who
+// they were.
+model AuditEvent {
+  id          String   @id @default(cuid())
+  subjectHash String // hmac(userId, AUDIT_SALT)
+  action      String // LOGIN_FAILED, PASSWORD_RESET, ACCOUNT_DELETED, ...
+  requestId   String?
+  ipHash      String? // hmac(ip, AUDIT_SALT)
+  createdAt   DateTime @default(now())
+
+  @@index([subjectHash, createdAt])
+  @@index([createdAt])
+}
+
+// Four states, not five. PRD §8.1's table also lists DELETED, but says of
+// it: "Not a flag — the row is gone." Deletion is the absence of the row
+// (FR-4.6, §12.5); adding DELETED here would quietly convert a hard
+// delete into a soft one and break that guarantee.
+enum UserState {
+  UNVERIFIED
+  ACTIVE
+  LOCKED
+  SUSPENDED
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum SourceType {
+  UPLOAD_PDF
+  UPLOAD_DOCX
+  PASTE
+}
+
+enum Status {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Risk {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Category {
+  PAYMENT
+  IP
+  SCOPE
+  TERMINATION
+  LIABILITY
+  CONFIDENTIALITY
+  DISPUTE
+  OTHER
 }
