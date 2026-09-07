@@ -1207,6 +1207,7 @@ All are validated by a Zod schema at boot (§8); a missing or malformed required
 | `REDIS_URL` | ✓ [P1.5] | — | Rate limits, quota and spend counters |
 | `ANTHROPIC_API_KEY` | ✓ | — | Server-side only |
 | `ANTHROPIC_MODEL` | ✓ | — | Model identifier; recorded per analysis; changes gated by §10.4. Must match a known parameter profile (§5.4) or boot fails |
+| `LLM_PROVIDER` | | `anthropic` | `mock` selects the scripted provider (§2.3) — the value CI is configured with, so tests never reach the network. `anthropic` (or unset) calls the real API |
 | `LLM_TIMEOUT_MS` | | 60000 | FR-3.6 |
 | `LLM_MAX_RETRIES` | | 2 | FR-3.10 |
 | `LLM_PRICE_INPUT_PER_MTOK` | ✓ [P1.5] | — | Spend estimation (FR-5.3) |

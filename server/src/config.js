@@ -95,6 +95,10 @@ const envSchema = z
         });
       }
     }),
+    // §2.3: ci uses the mock provider only — no network calls to the
+    // real provider from CI. `anthropic` calls the real API; `mock`
+    // selects server/src/services/llm/mockProvider.js.
+    LLM_PROVIDER: z.enum(["anthropic", "mock"]).default("anthropic"),
     LLM_TIMEOUT_MS: positiveInt(60_000),
     LLM_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
     LLM_PRICE_INPUT_PER_MTOK: nonNegativeNumber().optional(),

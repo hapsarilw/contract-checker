@@ -11,6 +11,9 @@ process.env.NODE_ENV ??= "test";
 process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/clausecheck_test";
 process.env.ANTHROPIC_API_KEY ??= "sk-ant-test-key";
 process.env.ANTHROPIC_MODEL ??= "claude-haiku-4-5";
+// §2.3: "ci: mock only — no network calls to the provider from CI." This
+// is what enforces that for every test run, not just CI's own env config.
+process.env.LLM_PROVIDER ??= "mock";
 process.env.JWT_SECRET ??= "test-jwt-secret-at-least-32-bytes-long-ok";
 process.env.FRONTEND_ORIGIN ??= "http://localhost:5173";
 // Tests that deliberately exercise error paths (errorHandler.test.js)

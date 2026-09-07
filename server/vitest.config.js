@@ -30,9 +30,22 @@ export default defineConfig({
           name: "integration",
           include: ["tests/integration/**/*.test.js"],
           environment: "node",
-          setupFiles: ["./tests/setup.js"],
-          // Step 11 adds globalSetup here to start the ephemeral Postgres,
-          // run migrations, and truncate between tests.
+          // Runs once, before any integration test file: starts the
+          // ephemeral Postgres and applies migrations against it.
+          globalSetup: "./tests/integration/globalSetup.js",
+          // tests/setup.js: the shared env bootstrap every project uses.
+          // tests/integration/setup.js: truncates every table after each
+          // test, so state never leaks between them.
+          setupFiles: ["./tests/setup.js", "./tests/integration/setup.js"],
+          // Every integration file shares ONE ephemeral Postgres and
+          // truncates it after each test (tests/integration/setup.js).
+          // Running files in parallel means one file's TRUNCATE (an
+          // ACCESS EXCLUSIVE lock) collides with another file's
+          // in-flight writes — observed directly as both deadlock
+          // errors and silently-vanished rows, not a hypothetical.
+          // Integration tests trade file-level parallelism for
+          // correctness against a shared resource; unit tests keep it.
+          maxWorkers: 1,
           testTimeout: 30_000,
           hookTimeout: 60_000,
         },
