@@ -963,6 +963,7 @@ Create client/src/api/client.js:
 Create client/src/components/ErrorBoundary.jsx wrapping each route (FR-7.11): renders a recoverable error showing the requestId when one is known, instead of a blank page. Client errors are reported without any document content attached.
 
 Write tests: a 401 SESSION_REVOKED redirects to login with a message and a return path; nothing the client stores appears in localStorage or sessionStorage after a full report render; a thrown render error shows the boundary with the requestId, not a blank page.
+- Set `Content-Type: application/json` on EVERY state-changing request, including bodyless ones like logout. FR-1.12(c) applies to all of them, and step 14's guard rejects a bodyless `fetch(url, {method:'POST'})` with 403 CSRF_CHECK_FAILED because fetch sends no Content-Type when there is no body. This is the one CSRF consequence that reaches the client.
 ```
 
 **Done when**

@@ -3,10 +3,11 @@
  * source of truth the OpenAPI contract test (step 59) asserts against, so
  * it must be complete and must not drift from the spec.
  *
- * Note: §4.2's own closing text says "25 codes" but the table itself lists
- * 26 rows. This module follows the table (the actual specification), not
- * the prose count — the table is what step 59's contract test and the
- * client both depend on.
+ * Note: §4.2's own closing text says "25 codes" and the table originally
+ * listed 26 rows — this module follows the table, not the prose count,
+ * since the table is what step 59's contract test and the client both
+ * depend on. CSRF_CHECK_FAILED was added to both the table and this file
+ * at step 14 (FR-1.12 needed a code and §4.2 had none), bringing it to 27.
  *
  * `message` is the default, NFR-4.3-compliant user-facing text ("what to
  * do next", not only what failed). A call site MAY supply a more specific
@@ -46,6 +47,14 @@ export const ERROR_CODES = Object.freeze({
   ACCOUNT_SUSPENDED: Object.freeze({
     status: 403,
     message: "Your account has been suspended. Contact support if you believe this is a mistake.",
+  }),
+  CSRF_CHECK_FAILED: Object.freeze({
+    status: 403,
+    // FR-1.12(c). Deliberately its own code rather than VALIDATION_ERROR:
+    // a security control that cannot be told apart from a schema failure
+    // in logs is a control nobody can alert on.
+    message:
+      "That request was blocked for security reasons. Reload the page and try again from the app itself.",
   }),
   NOT_FOUND: Object.freeze({
     status: 404,

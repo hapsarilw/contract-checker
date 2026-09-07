@@ -330,6 +330,7 @@ Upload and analyze stay separate even though Phase 1 could combine them: Phase 2
 | `SESSION_REVOKED` | 401 | Token version stale — password changed or signed out everywhere |
 | `EMAIL_NOT_VERIFIED` | 403 | Account is `UNVERIFIED`; analysis blocked |
 | `ACCOUNT_SUSPENDED` | 403 | Operator action under PRD §16 |
+| `CSRF_CHECK_FAILED` | 403 | FR-1.12(c): a state-changing request carrying a foreign `Origin`, or a `Content-Type` a cross-site form could produce. Distinct from `VALIDATION_ERROR` so the control is visible in logs and alertable — a spike is someone probing, not a client bug |
 | `NOT_FOUND` | 404 | Missing or not owned |
 | `EMAIL_TAKEN` | 409 | Registration email exists |
 | `ANALYSIS_IN_PROGRESS` | 409 | A PENDING analysis exists for this document |

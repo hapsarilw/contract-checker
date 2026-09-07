@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import config from "./config.js";
 import { requestIdMiddleware } from "./middleware/requestId.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { csrfGuard } from "./middleware/csrf.js";
 import { AppError } from "./lib/AppError.js";
 import opsRouter from "./routes/ops.js";
 import authRouter from "./routes/auth.js";
@@ -76,6 +77,16 @@ app.use(
 );
 
 app.use(cookieParser());
+
+/**
+ * FR-1.12(c) — mounted globally rather than per-route, on purpose. A
+ * security control a new route has to remember to opt into is a control
+ * that will eventually be forgotten; this one applies to every
+ * state-changing request by default and skips safe methods itself.
+ *
+ * Sits before the body parser so a rejected request is never parsed.
+ */
+app.use(csrfGuard);
 
 /**
  * FR-2.2: pasted text is capped at 1 MB of JSON body. File uploads carry

@@ -287,7 +287,10 @@ describe("POST /api/v1/auth/logout", () => {
 
     const res = await request(app)
       .post("/api/v1/auth/logout")
-      .set("Cookie", sessionCookieValue(login));
+      .set("Cookie", sessionCookieValue(login))
+      // Required even though there is no body: FR-1.12(c) applies to
+      // every state-changing request. See csrf.js.
+      .set("Content-Type", "application/json");
 
     expect(res.status).toBe(200);
     const cleared = sessionCookieHeader(res);
@@ -299,7 +302,9 @@ describe("POST /api/v1/auth/logout", () => {
   });
 
   it("requires a session (FR-1.4)", async () => {
-    const res = await request(app).post("/api/v1/auth/logout");
+    const res = await request(app)
+      .post("/api/v1/auth/logout")
+      .set("Content-Type", "application/json");
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });

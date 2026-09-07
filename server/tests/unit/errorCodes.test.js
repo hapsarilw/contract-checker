@@ -13,6 +13,7 @@ const SPEC_TABLE = {
   SESSION_REVOKED: 401,
   EMAIL_NOT_VERIFIED: 403,
   ACCOUNT_SUSPENDED: 403,
+  CSRF_CHECK_FAILED: 403,
   NOT_FOUND: 404,
   EMAIL_TAKEN: 409,
   ANALYSIS_IN_PROGRESS: 409,
@@ -36,7 +37,7 @@ const SPEC_TABLE = {
 };
 
 describe("errorCodes.js (SRS §4.2)", () => {
-  it("has exactly the 26 codes the spec table lists, no more, no fewer", () => {
+  it("has exactly the 27 codes the spec table lists, no more, no fewer", () => {
     expect(Object.keys(ERROR_CODES).sort()).toEqual(Object.keys(SPEC_TABLE).sort());
   });
 
