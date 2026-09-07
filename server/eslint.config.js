@@ -90,6 +90,10 @@ export default [
       "src/config.js",
       "tests/unit/config.test.js",
       "tests/integration/ops.test.js",
+      // Spawns `prisma migrate deploy` against an ephemeral container,
+      // which needs an env built from process.env plus its own
+      // DATABASE_URL — the container's, not config.js's.
+      "tests/integration/pendingAnalysisGuard.test.js",
       "tests/setup.js",
     ],
     rules: {

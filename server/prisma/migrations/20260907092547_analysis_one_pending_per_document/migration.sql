@@ -1,0 +1,22 @@
+-- FR-3.8 — at most one PENDING analysis per document.
+--
+-- Hand-written because Prisma's schema language cannot express a PARTIAL
+-- unique index (one with a WHERE clause). Do not try to replace this with
+-- an @@unique in schema.prisma: a plain unique index on documentId would
+-- allow only one analysis per document ever, not one PENDING one.
+--
+-- This index — not an application-level read-then-write check — is the
+-- authoritative guard. FR-3.8 is emphatic about why: with two or more
+-- instances, a check-then-insert is a race, and the loser silently
+-- double-spends an LLM call. The application catches the resulting
+-- unique-constraint violation and maps it to 409 ANALYSIS_IN_PROGRESS.
+--
+-- Lock behaviour (§5.5, §12.2): CREATE INDEX takes an ACCESS EXCLUSIVE
+-- lock that blocks writes to Analysis for its duration. That is
+-- acceptable here and only here, because this migration runs against an
+-- empty table on initial deploy. Any LATER index on Analysis or Document
+-- must use CREATE INDEX CONCURRENTLY instead — see docs/migrations.md,
+-- which also covers the Prisma transaction wrapper that CONCURRENTLY
+-- cannot run inside.
+CREATE UNIQUE INDEX analysis_one_pending_per_document
+  ON "Analysis" ("documentId") WHERE status = 'PENDING';
