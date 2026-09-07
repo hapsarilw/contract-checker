@@ -47,10 +47,19 @@ export const REDACTED_PATHS = [
 
   // Credentials and secrets.
   "password",
+  "passwordHash",
   "token",
   "req.headers.authorization",
   "req.headers.cookie",
   "res.headers[\"set-cookie\"]",
+
+  // Auth middleware attaches the authenticated user to the request
+  // (step 13). That object is built with passwordHash omitted at the
+  // query, so the hash should never be here to begin with — this is the
+  // second line of defence for the day someone loads a user a different
+  // way and logs it.
+  "user.passwordHash",
+  "req.user.passwordHash",
 
   // Full request bodies are never logged, not just on document routes —
   // a blanket ban is simpler to reason about and strictly safer than a

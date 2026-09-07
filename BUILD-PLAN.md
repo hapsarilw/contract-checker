@@ -599,7 +599,7 @@ Two things that are easy to get wrong:
 
 All timestamps are UTC ISO-8601 (FR-4.2); formatting is the client's job.
 
-Write integration tests: paste intake returns the section 4.3 shape; upload intake stores the right sourceType; the serializer never emits modelRisk; delete removes the document, its analyses and its findings (count rows directly, do not trust the API); deleting another user's document returns 404.
+Write integration tests: paste intake returns the section 4.3 shape; upload intake stores the right sourceType; the serializer never emits modelRisk; delete removes the document, its analyses and its findings (count rows directly, do not trust the API); deleting another user's document returns 404, and GETting one returns 404 too — these two are TR-4's GET and DELETE verbs, which step 13 could not assert because these routes did not exist yet.
 ```
 
 **Done when**
@@ -771,6 +771,8 @@ Read docs/SRS.md section 2.2 — the twelve-step analyze sequence — and FR-3.2
 Create server/src/services/analysis.js implementing the sequence exactly, and wire POST /api/v1/documents/:id/analyze to it. Steps 2 (quota) and 11 (counters) are stubbed until step 45 — leave clearly-marked slots.
 
 The order of the sequence is not arbitrary. Authenticate and ownership-check BEFORE the quota check BEFORE the PENDING guard BEFORE any LLM spend: checking quota before ownership leaks the existence of another user's document through a rate-limit response.
+
+Assert TR-4's remaining verb here: analyzing another user's document returns 404, never 403. Step 13 built and tested the ownership helper itself but could not assert it through this route, and a route that forgets to CALL the helper is precisely what a helper-level test cannot catch.
 
 Points where a natural implementation is wrong:
 
