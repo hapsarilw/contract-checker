@@ -69,6 +69,28 @@ describe("config.js — validated at boot (SRS §8, Appendix B)", () => {
     expect(config.ANALYSIS_ENABLED).toBe(false);
   });
 
+  it("rejects an LLM_TIMEOUT_MS at or above the analyze ceiling (FR-3.7)", () => {
+    // The timeout chain (proxy > server > analyze ceiling > LLM) has
+    // exactly one env-tunable link, so it is the only one that can break
+    // it. An LLM timeout above the ceiling means the ceiling cuts off an
+    // analysis the provider was still answering.
+    const result = runConfig({ LLM_TIMEOUT_MS: "120000" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("LLM_TIMEOUT_MS");
+    expect(result.stderr).toContain("analyze ceiling");
+  });
+
+  it("exposes the full resolved timeout chain in ascending order", () => {
+    const result = runConfig({});
+    expect(result.status).toBe(0);
+    const { timeouts } = JSON.parse(result.stdout);
+
+    expect(timeouts.llm).toBeLessThan(timeouts.analyzeCeiling);
+    expect(timeouts.analyzeCeiling).toBeLessThan(timeouts.serverRequest);
+    expect(timeouts.serverRequest).toBeLessThan(timeouts.keepAlive);
+    expect(timeouts.keepAlive).toBeLessThan(timeouts.headers);
+  });
+
   it("resolves the SRS §5.4 parameter profile for the configured model", () => {
     const result = runConfig({ ANTHROPIC_MODEL: "claude-opus-5" });
     expect(result.status).toBe(0);

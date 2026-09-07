@@ -18,6 +18,32 @@ const MODEL_PARAM_PROFILES = Object.freeze({
 });
 
 /**
+ * The timeout chain that must hold end to end (FR-3.6, FR-3.7, NFR-3.5):
+ *
+ *   platform proxy > server request timeout > analyze ceiling > LLM timeout
+ *
+ * Only the LLM timeout is env-tunable (Appendix B's LLM_TIMEOUT_MS). The
+ * rest are fixed here because moving one independently silently breaks the
+ * chain: raise the LLM timeout past the analyze ceiling and every long
+ * analysis is cut off by the layer above it instead of completing. The
+ * `superRefine` on the schema below enforces that ordering at boot rather
+ * than leaving it to a comment nobody reads.
+ *
+ * The platform proxy is the one link this process cannot verify — FR-3.7
+ * requires checking it in staging, which is why index.js logs these values
+ * at boot instead of assuming them.
+ */
+const ANALYZE_CEILING_MS = 90_000;
+const SHUTDOWN_DRAIN_MS = 90_000;
+const SERVER_REQUEST_TIMEOUT_MS = 120_000;
+// Node closes idle keep-alive sockets at keepAliveTimeout; headersTimeout
+// must exceed it, or a request arriving just as the socket is being closed
+// is dropped as a 502 by the proxy in front of it. Both sit above the
+// server request timeout so neither cuts a slow analysis short.
+const KEEP_ALIVE_TIMEOUT_MS = 121_000;
+const HEADERS_TIMEOUT_MS = 125_000;
+
+/**
  * z.coerce.boolean() treats any non-empty string as true — "false" would be
  * truthy. This accepts only the literal strings "true" / "false"
  * (case-insensitive) and rejects everything else.
@@ -113,6 +139,20 @@ const envSchema = z
       .default("info"),
     ANALYSIS_ENABLED: booleanString().default(true),
     GIT_SHA: z.string().min(1).optional(),
+  })
+  .superRefine((env, ctx) => {
+    // FR-3.7 / NFR-3.5: LLM_TIMEOUT_MS is the one env-tunable link in the
+    // timeout chain, so it is the one that can break it. A value at or
+    // above the analyze ceiling means the ceiling cuts off an analysis the
+    // provider was still answering — a silent, intermittent failure that
+    // looks like a provider problem. Fail at boot instead.
+    if (env.LLM_TIMEOUT_MS >= ANALYZE_CEILING_MS) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["LLM_TIMEOUT_MS"],
+        message: `must be below the ${ANALYZE_CEILING_MS} ms analyze ceiling (got ${env.LLM_TIMEOUT_MS}) — see the timeout chain in config.js`,
+      });
+    }
   });
 /**
  * Deliberately NOT .strict(): process.env always carries dozens of
@@ -142,15 +182,15 @@ export function parseConfig(rawEnv) {
     ...parsed,
     isProduction: parsed.NODE_ENV === "production",
     llmParamProfile: Object.freeze({ ...llmParamProfile, model: parsed.ANTHROPIC_MODEL }),
-    // Ordering constraint (SRS NFR-3.5, FR-3.6, BUILD-PLAN step 7/16):
-    //   platform proxy > server request timeout > analyzeCeiling > llm
-    // analyzeCeiling and shutdownDrain are fixed constants, not env-tunable —
-    // moving either independently breaks the chain the comment in step 7
-    // records, so they live here instead of in Appendix B.
+    // The timeout chain, resolved. See the constants above for why only
+    // `llm` is env-tunable and why the ordering is enforced at boot.
     timeouts: Object.freeze({
       llm: parsed.LLM_TIMEOUT_MS,
-      analyzeCeiling: 90_000,
-      shutdownDrain: 90_000,
+      analyzeCeiling: ANALYZE_CEILING_MS,
+      shutdownDrain: SHUTDOWN_DRAIN_MS,
+      serverRequest: SERVER_REQUEST_TIMEOUT_MS,
+      keepAlive: KEEP_ALIVE_TIMEOUT_MS,
+      headers: HEADERS_TIMEOUT_MS,
     }),
   });
 }
