@@ -79,11 +79,12 @@ export default [
     },
   },
   {
-    // The only two places allowed to touch process.env: the module that
-    // validates it (config.js) and the test helper that spawns config.js in
-    // a child process with a controlled env, which needs process.env.PATH
-    // to build a working child environment.
-    files: ["src/config.js", "tests/unit/config.test.js"],
+    // The only places allowed to touch process.env: the module that
+    // validates it (config.js); the test helper that spawns config.js in a
+    // child process with a controlled env, which needs process.env.PATH to
+    // build a working child environment; and the shared test bootstrap that
+    // seeds a valid environment before config.js runs for every other test.
+    files: ["src/config.js", "tests/unit/config.test.js", "tests/setup.js"],
     rules: {
       ...noDangerousHtml,
     },

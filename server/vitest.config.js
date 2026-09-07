@@ -22,6 +22,7 @@ export default defineConfig({
           name: "unit",
           include: ["tests/unit/**/*.test.js"],
           environment: "node",
+          setupFiles: ["./tests/setup.js"],
         },
       },
       {
@@ -29,6 +30,7 @@ export default defineConfig({
           name: "integration",
           include: ["tests/integration/**/*.test.js"],
           environment: "node",
+          setupFiles: ["./tests/setup.js"],
           // Step 11 adds globalSetup here to start the ephemeral Postgres,
           // run migrations, and truncate between tests.
           testTimeout: 30_000,

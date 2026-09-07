@@ -1,0 +1,15 @@
+// Populates process.env with a valid, harmless configuration before any
+// test module runs. Past step 3, importing almost anything transitively
+// imports src/config.js, which validates process.env and calls
+// process.exit(1) at module load on an invalid environment — without
+// this file, every such test would fail to even import its subject.
+//
+// Tests that need to exercise config.js's OWN validation behavior do so
+// out-of-process instead (see tests/unit/config.test.js), so mutating
+// this shared environment here never conflicts with those.
+process.env.NODE_ENV ??= "test";
+process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/clausecheck_test";
+process.env.ANTHROPIC_API_KEY ??= "sk-ant-test-key";
+process.env.ANTHROPIC_MODEL ??= "claude-haiku-4-5";
+process.env.JWT_SECRET ??= "test-jwt-secret-at-least-32-bytes-long-ok";
+process.env.FRONTEND_ORIGIN ??= "http://localhost:5173";
