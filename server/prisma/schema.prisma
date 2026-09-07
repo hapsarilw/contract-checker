@@ -1,0 +1,23 @@
+// SRS §5.1 — the complete model list (User, AuthToken, Document, Analysis,
+// Finding, AuditEvent, and their enums) is transcribed exactly in step 9.
+// This file is intentionally bootstrapped one step early, minimally: only
+// the generator and datasource blocks, no models. Step 8 (ops.js) needs a
+// real, queryable Prisma client for the /api/ready Postgres check —
+// prisma.$queryRaw works against an empty-but-valid schema, so this is
+// not a placeholder that gets thrown away; step 9 adds models on top of
+// exactly this file.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // PostgreSQL 15 (§2.1). SQLite is acceptable for local dev only, but
+  // CI and staging run Postgres — see §5.1's note on String[] columns,
+  // which SQLite cannot represent.
+  //
+  // No `url` here — Prisma 7 rejects it in schema.prisma (P1012). The
+  // connection string lives in prisma.config.js for the CLI, and is
+  // passed to the `adapter` at PrismaClient construction time for the
+  // running application (server/src/lib/prisma.js).
+  provider = "postgresql"
+}

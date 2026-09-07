@@ -241,7 +241,7 @@ Normalization is a pure function in `services/extraction.js` with its own unit t
 
 **FR-4.7 Health and readiness. [P1.5]** `GET /api/health` is a **liveness** probe: process responsiveness only, no dependency checks, always fast. `GET /api/ready` is a **readiness** probe: verifies database connectivity and Redis, returns 503 with a per-dependency breakdown when either is unavailable. Conflating the two causes a database blip to restart every healthy application instance.
 
-**FR-4.8 Version endpoint. [P1.5]** `GET /api/version` returns the build's git SHA and build timestamp. Without it, "which code is actually running" is guesswork during an incident.
+**FR-4.8 Version endpoint. [P1.5]** `GET /api/version` returns the build's git SHA and build timestamp, sourced from `GIT_SHA` and `BUILD_TIMESTAMP` (Appendix B) — both set by CI at build time, never computed by the running process, since a process only knows when it started, not when its code was built. Without this endpoint, "which code is actually running" is guesswork during an incident.
 
 ### 3.5 Quotas, metering, and spend control **[P1.5]**
 
@@ -1230,6 +1230,7 @@ All are validated by a Zod schema at boot (§8); a missing or malformed required
 | `LOG_LEVEL` | | `info` | §6.5 |
 | `ANALYSIS_ENABLED` | | `true` | Feature flag behind FR-5.4 and PRD §15 rollback |
 | `GIT_SHA` | ✓ [P1.5] | — | Reported by `/api/version` |
+| `BUILD_TIMESTAMP` | ✓ [P1.5] | — | Reported by `/api/version` (FR-4.8); set by CI at build time, ISO 8601 |
 
 ## Appendix C — Alert catalogue **[P1.5]**
 

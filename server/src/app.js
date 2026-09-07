@@ -6,6 +6,7 @@ import config from "./config.js";
 import { requestIdMiddleware } from "./middleware/requestId.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { AppError } from "./lib/AppError.js";
+import opsRouter from "./routes/ops.js";
 
 const app = express();
 
@@ -117,10 +118,8 @@ app.use(express.json({ limit: "1mb" }));
  * exists.
  */
 
-/**
- * Ops routes — outside the /api/v1 prefix (§4): health, ready, version.
- * Mounted here once they exist (step 8).
- */
+// Ops routes — outside the /api/v1 prefix (§4): health, ready, version.
+app.use("/api", opsRouter);
 
 /**
  * Product routes — under /api/v1 (§4): auth, documents, account.

@@ -67,7 +67,7 @@ const nonNegativeNumber = () => z.coerce.number().nonnegative();
 
 /**
  * Appendix B marks REDIS_URL, LLM_PRICE_*, MONTHLY_SPEND_CEILING_USD,
- * AUDIT_SALT, EMAIL_PROVIDER_KEY, EMAIL_FROM and GIT_SHA "✓ [P1.5]" — required,
+ * AUDIT_SALT, EMAIL_PROVIDER_KEY, EMAIL_FROM, GIT_SHA and BUILD_TIMESTAMP "✓ [P1.5]" — required,
  * but only once the P1.5 features that consume them exist (Redis in step 44,
  * spend metering in step 46, email in step 51, the P1.5 gate in step 75).
  * Phase 1 (steps 1-43) has to boot without them, so they are optional here
@@ -139,6 +139,7 @@ const envSchema = z
       .default("info"),
     ANALYSIS_ENABLED: booleanString().default(true),
     GIT_SHA: z.string().min(1).optional(),
+    BUILD_TIMESTAMP: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     // FR-3.7 / NFR-3.5: LLM_TIMEOUT_MS is the one env-tunable link in the

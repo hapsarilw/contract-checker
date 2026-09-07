@@ -80,11 +80,18 @@ export default [
   },
   {
     // The only places allowed to touch process.env: the module that
-    // validates it (config.js); the test helper that spawns config.js in a
-    // child process with a controlled env, which needs process.env.PATH to
-    // build a working child environment; and the shared test bootstrap that
-    // seeds a valid environment before config.js runs for every other test.
-    files: ["src/config.js", "tests/unit/config.test.js", "tests/setup.js"],
+    // validates it (config.js); test helpers that spawn a child process
+    // needing an env built from process.env (config.js's own tests, and
+    // ops.js's version-endpoint test, which needs a GIT_SHA/BUILD_TIMESTAMP
+    // config.js never had at import time); and the shared test bootstrap
+    // that seeds a valid environment before config.js runs for every
+    // other test.
+    files: [
+      "src/config.js",
+      "tests/unit/config.test.js",
+      "tests/integration/ops.test.js",
+      "tests/setup.js",
+    ],
     rules: {
       ...noDangerousHtml,
     },
