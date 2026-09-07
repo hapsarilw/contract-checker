@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+client/dist/
+
+# Test and coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS junk
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Editor
+.idea/
+*.swp

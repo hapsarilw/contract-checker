@@ -1,0 +1,251 @@
+{
+  "$schema": "ClauseCheck fixture answer key v1",
+  "note": "severity/category use the LLM contract vocabulary from SRS §5.2 (lowercase). overall_risk is what the server rule in FR-3.9 must derive, not the model claim.",
+  "documents": [
+    {
+      "file": "01-design-services-hostile",
+      "formats": [
+        "docx",
+        "pdf",
+        "txt"
+      ],
+      "intake": "accept",
+      "overall_risk": "high",
+      "findings": [
+        {
+          "category": "scope",
+          "severity": "high",
+          "excerpt": "Contractor shall provide revisions until Client is fully satisfied with the deliverables.",
+          "why": "Unlimited revisions with client as sole judge of satisfaction."
+        },
+        {
+          "category": "ip",
+          "severity": "high",
+          "excerpt": "All work product, including preliminary concepts, sketches, and materials created by Contractor prior to the Effective Date, shall become the sole and exclusive property of Client upon creation.",
+          "why": "Assigns work created BEFORE the contract, and vests on creation rather than on payment."
+        },
+        {
+          "category": "liability",
+          "severity": "high",
+          "excerpt": "Contractor shall indemnify, defend, and hold harmless Client against any and all claims, damages, and expenses of any kind whatsoever arising from the Services, without limitation as to amount.",
+          "why": "Uncapped indemnity, explicitly without limitation as to amount."
+        },
+        {
+          "category": "confidentiality",
+          "severity": "high",
+          "excerpt": "For a period of twenty-four (24) months following termination, Contractor shall not provide design services to any business operating in the Client’s industry.",
+          "why": "24-month industry-wide non-compete against a solo freelancer."
+        },
+        {
+          "category": "termination",
+          "severity": "high",
+          "excerpt": "Client may terminate this Agreement at any time, for any reason or no reason, upon written notice, and shall have no obligation to pay for work in progress.",
+          "why": "Termination for convenience with no payment for work in progress."
+        },
+        {
+          "category": "payment",
+          "severity": "medium",
+          "excerpt": "Payment shall be due within ninety (90) days of Client’s acceptance of the final deliverables.",
+          "why": "Net-90, and the clock starts on acceptance rather than invoice."
+        },
+        {
+          "category": "payment",
+          "severity": "low",
+          "excerpt": "Contractor shall bear all costs of software, fonts, stock imagery, and other materials required to perform the Services.",
+          "why": "All materials costs absorbed by contractor with no reimbursement."
+        }
+      ],
+      "missing_protections": [
+        "deposit",
+        "late_payment_interest",
+        "revision_limit",
+        "kill_fee",
+        "liability_cap"
+      ],
+      "word_count": 980
+    },
+    {
+      "file": "02-dev-retainer-moderate",
+      "formats": [
+        "docx",
+        "pdf",
+        "txt"
+      ],
+      "intake": "accept",
+      "overall_risk": "medium",
+      "findings": [
+        {
+          "category": "payment",
+          "severity": "medium",
+          "excerpt": "Client shall pay all undisputed invoices within sixty (60) days of receipt.",
+          "why": "Net-60 financing of the client, and \"undisputed\" can stall a whole invoice."
+        },
+        {
+          "category": "confidentiality",
+          "severity": "medium",
+          "excerpt": "Developer shall not disclose the existence of this engagement, the identity of Client, or the nature of the Services to any third party without Client’s prior written consent.",
+          "why": "Indefinite duration and bars naming the client — blocks portfolio use."
+        },
+        {
+          "category": "payment",
+          "severity": "medium",
+          "excerpt": "The hourly rate may be adjusted by Client upon sixty (60) days written notice to Developer.",
+          "why": "Client can unilaterally cut the rate on notice."
+        },
+        {
+          "category": "scope",
+          "severity": "low",
+          "excerpt": "Developer shall address bug reports submitted by Client relating to the Services for a period of six (6) months following delivery at no additional charge.",
+          "why": "Six months of unpaid bug fixing with no defect definition."
+        }
+      ],
+      "also_acceptable": [
+        {
+          "category": "termination",
+          "severity": "low",
+          "excerpt": "Either party may terminate this Agreement upon thirty (30) days written notice. Client shall pay for hours worked through the effective date of termination.",
+          "why": "Symmetric 30-day notice with payment for hours worked is fair; flagging it low is defensible, missing it is not an error."
+        }
+      ],
+      "missing_protections": [
+        "deposit",
+        "late_payment_interest",
+        "kill_fee"
+      ],
+      "word_count": 849
+    },
+    {
+      "file": "03-copywriting-clean",
+      "formats": [
+        "docx",
+        "pdf",
+        "txt"
+      ],
+      "intake": "accept",
+      "overall_risk": "low",
+      "findings": [],
+      "findings_note": "ZERO findings expected. This fixture exists to catch a model that invents problems to look useful, and to exercise the empty-report UI state. Any high or medium finding here is a false positive and a test failure.",
+      "missing_protections": [],
+      "missing_note": "Deposit, late-payment interest, revision limit, kill fee, IP-on-payment, liability cap, scope-change process and portfolio rights are ALL present. An empty missing_clauses array is the correct output.",
+      "word_count": 895
+    },
+    {
+      "file": "04-video-production-mixed",
+      "formats": [
+        "docx",
+        "pdf",
+        "txt"
+      ],
+      "intake": "accept",
+      "overall_risk": "high",
+      "findings": [
+        {
+          "category": "scope",
+          "severity": "high",
+          "excerpt": "In the event Client requests reshooting of any footage for reasons other than technical defect, Producer shall reshoot at no additional charge.",
+          "why": "Unlimited free reshoots at client discretion — the expensive twin of unlimited revisions."
+        },
+        {
+          "category": "liability",
+          "severity": "high",
+          "excerpt": "Producer shall pay Client a penalty of five percent (5%) of the total fee for each day of delay in delivery beyond the agreed date.",
+          "why": "5% per day compounds to the entire fee in 20 days, with no cap and no carve-out for client-caused delay."
+        },
+        {
+          "category": "confidentiality",
+          "severity": "medium",
+          "excerpt": "Producer may not display, reproduce, or reference the work in any portfolio, showreel, or promotional material.",
+          "why": "Absolute portfolio ban — for a video producer this is a career cost, not an admin detail."
+        }
+      ],
+      "fair_clauses_do_not_flag": [
+        {
+          "excerpt": "Client shall own all right, title, and interest in the final edited video upon full payment of all amounts due under this Agreement.",
+          "why": "IP transfers only on full payment. This is the correct arrangement."
+        },
+        {
+          "excerpt": "The fee includes two (2) rounds of revisions. Additional rounds shall be billed at Producer’s standard hourly rate of $95 per hour.",
+          "why": "Two rounds then hourly. This is the standard being recommended elsewhere."
+        },
+        {
+          "excerpt": "Fifty percent (50%) of the total fee is due upon execution of this Agreement, with the balance due within thirty (30) days of final delivery.",
+          "why": "50% deposit, net-30 balance. Favourable."
+        }
+      ],
+      "fair_note": "This fixture pairs genuinely bad clauses with genuinely good ones in the same document. Flagging anything in fair_clauses_do_not_flag is a false positive.",
+      "missing_protections": [
+        "liability_cap_on_late_delivery"
+      ],
+      "word_count": 876
+    },
+    {
+      "file": "05-oversized-msa",
+      "formats": [
+        "docx",
+        "pdf",
+        "txt"
+      ],
+      "intake": "reject",
+      "expect_error": {
+        "code": "DOCUMENT_TOO_LONG",
+        "http": 422
+      },
+      "note": "Exercises FR-2.6. Word count is above the 4,000 Phase 1 cap, so no analysis should run and no LLM call should be made.",
+      "word_count": 4468
+    },
+    {
+      "file": "06-scanned-no-text-layer",
+      "formats": [
+        "pdf"
+      ],
+      "intake": "reject",
+      "expect_error": {
+        "code": "DOCUMENT_TOO_SHORT",
+        "http": 422
+      },
+      "note": "Rasterised pages, zero text layer. pdf-parse returns effectively nothing, so this trips the 200-word floor (FR-2.5). The user-facing message must mention a scanned image, since this is the most common real-world intake failure."
+    },
+    {
+      "file": "07-too-short",
+      "formats": [
+        "txt"
+      ],
+      "intake": "reject",
+      "expect_error": {
+        "code": "DOCUMENT_TOO_SHORT",
+        "http": 422
+      },
+      "note": "38 words. Paste-path equivalent of the scanned-PDF case.",
+      "word_count": 38
+    },
+    {
+      "file": "08-not-really-a-pdf",
+      "formats": [
+        "pdf"
+      ],
+      "intake": "reject",
+      "expect_error": {
+        "code": "UNSUPPORTED_FILE_TYPE",
+        "http": 422
+      },
+      "note": "Plain text renamed to .pdf. Magic bytes are 46 52 45 45, not 25 50 44 46. Exercises FR-2.3 — extension and client MIME type both lie."
+    }
+  ],
+  "fabricated_excerpts": [
+    {
+      "against": "01-design-services-hostile",
+      "excerpt": "Contractor shall be paid a mandatory kill fee of forty percent (40%) upon termination for convenience.",
+      "why": "Plausible, well-formed, and entirely absent. The clean case of a hallucinated protective clause."
+    },
+    {
+      "against": "03-copywriting-clean",
+      "excerpt": "Writer shall provide unlimited revisions until Client is fully satisfied.",
+      "why": "Lifted from fixture 01. Catches cross-document contamination."
+    },
+    {
+      "against": "02-dev-retainer-moderate",
+      "excerpt": "Client shall pay all undisputed invoices within sixty days of receipt.",
+      "why": "PARAPHRASE of a real clause — drops \"(60)\" parentheses. Must be discarded. Documents the deliberate strictness of §5.3: near-misses are the hole a paraphrasing model slips through."
+    }
+  ]
+}
