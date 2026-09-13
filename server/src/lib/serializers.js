@@ -82,3 +82,29 @@ export function serializeAnalysis(analysis) {
     createdAt: analysis.createdAt,
   };
 }
+
+/**
+ * FR-4.1's list-row shape: filename (or "Pasted text"), word count,
+ * overall risk of the latest COMPLETED analysis, finding count, created
+ * date — plus `id`, which the field list doesn't name but which a
+ * history list cannot function without: there is no way to link a row
+ * to GET /documents/:id (or to key it in a client list) without one.
+ *
+ * `latestCompletedAnalysis` is deliberately a separate parameter rather
+ * than read off `document.analyses[0]` here — it makes explicit, at the
+ * call site, that this is the latest COMPLETED one specifically, not
+ * "whatever the query happened to attach." GET /documents/:id (step 18)
+ * uses the latest analysis of ANY status; this list view does not, per
+ * FR-4.1's own wording, and conflating the two would misreport a
+ * document's risk while an analysis is still PENDING or has FAILED.
+ */
+export function serializeDocumentListRow(document, latestCompletedAnalysis) {
+  return {
+    id: document.id,
+    filename: document.filename ?? "Pasted text",
+    wordCount: document.wordCount,
+    overallRisk: latestCompletedAnalysis?.overallRisk ?? null,
+    findingCount: latestCompletedAnalysis?._count?.findings ?? 0,
+    createdAt: document.createdAt,
+  };
+}

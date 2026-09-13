@@ -2,7 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { AppError } from "../lib/AppError.js";
 import { loadOwnedDocument } from "../lib/ownership.js";
-import { serializeDocument, serializeAnalysis } from "../lib/serializers.js";
+import { serializeDocument, serializeAnalysis, serializeDocumentListRow } from "../lib/serializers.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
   rejectOversizeByContentLength,
@@ -11,6 +11,7 @@ import {
 } from "../middleware/upload.js";
 import { intakeUpload, intakePastedText } from "../services/intake.js";
 import { pasteDocumentSchema } from "../schemas/document.js";
+import { decodeCursor, encodeCursor, resolvePageLimit } from "../lib/pagination.js";
 
 const router = Router();
 
@@ -78,6 +79,78 @@ router.post(
     }
   },
 );
+
+/**
+ * GET /api/v1/documents — FR-4.1, §4.4. Reverse chronological, cursor
+ * paginated. Each row is filename (or "Pasted text"), word count, the
+ * overall risk of the latest COMPLETED analysis specifically (not the
+ * latest analysis of any status — see serializeDocumentListRow), a
+ * finding count, and the created date.
+ *
+ * A malformed or tampered cursor is 400 VALIDATION_ERROR, decided
+ * entirely inside decodeCursor (pagination.js) — this handler never
+ * sees the raw decode failure, only a clean null.
+ *
+ * The keyset WHERE clause below is the entire reason deleting a
+ * document between two page fetches causes neither a skipped nor a
+ * duplicated row: "the next page" is defined as "documents before THIS
+ * (createdAt, id) tuple", never as "skip N rows from the top". Deleting
+ * an unrelated document changes nothing about what that comparison
+ * means.
+ */
+router.get("/", requireAuth, async (req, res, next) => {
+  try {
+    let cursor;
+    if (req.query.cursor !== undefined) {
+      cursor = decodeCursor(req.query.cursor);
+      if (!cursor) {
+        throw new AppError("VALIDATION_ERROR", { details: { field: "cursor" } });
+      }
+    }
+
+    const limit = resolvePageLimit(req.query.limit);
+
+    // Fetch one extra row past `limit` — its presence, not a second
+    // COUNT query, is what tells us hasMore.
+    const rows = await prisma.document.findMany({
+      where: {
+        userId: req.auth.userId,
+        ...(cursor
+          ? {
+              OR: [
+                { createdAt: { lt: cursor.createdAt } },
+                { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      include: {
+        analyses: {
+          where: { status: "COMPLETED" },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          include: { _count: { select: { findings: true } } },
+        },
+      },
+    });
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+
+    res.status(200).json({
+      documents: page.map((document) => serializeDocumentListRow(document, document.analyses[0])),
+      page: {
+        nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : null,
+        hasMore,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * GET /api/v1/documents/:id — the document plus its LATEST analysis

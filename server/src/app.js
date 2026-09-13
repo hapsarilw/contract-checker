@@ -131,7 +131,6 @@ app.use(express.json({ limit: "1mb" }));
  * An AppError (register, login, ...) never has a `.type` property, so
  * this can't misclassify an application error as a body-parser one.
  */
-// eslint-disable-next-line no-unused-vars -- Express identifies error middleware by arity (4 params).
 app.use((err, req, res, next) => {
   const type = typeof err?.type === "string" ? err.type : "";
   const isBodyParserError =
