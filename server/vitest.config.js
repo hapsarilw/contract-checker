@@ -60,13 +60,14 @@ export default defineConfig({
         // SRS §10.5: line coverage over server/src.
         lines: 80,
 
-        // SRS §10.5: 100% BRANCH coverage on the excerpt verifier. Not a
-        // vanity number — an untested branch in it is an untested path to
-        // showing a user a fabricated clause — but not sufficient either:
-        // tests/unit/verify.test.js explains why TR-3's cases, not this
-        // percentage, are the real gate. src/services/risk.js carries the
-        // same requirement and joins this list when step 21 creates it.
+        // SRS §10.5: 100% BRANCH coverage on the excerpt verifier and the
+        // risk-derivation rule. Not a vanity number — an untested branch in
+        // verify.js is an untested path to showing a user a fabricated
+        // clause — but not sufficient either: the two test files explain
+        // why TR-3's and TR-6's cases, not this percentage, are the real
+        // gate.
         "src/services/verify.js": { branches: 100 },
+        "src/services/risk.js": { branches: 100 },
       },
     },
   },
