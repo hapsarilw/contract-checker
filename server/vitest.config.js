@@ -60,16 +60,13 @@ export default defineConfig({
         // SRS §10.5: line coverage over server/src.
         lines: 80,
 
-        // SRS §10.5 also requires 100% BRANCH coverage on
-        // src/services/verify.js and src/services/risk.js. Those files do not
-        // exist yet (steps 20 and 21). Once they do, add per-file thresholds:
-        //
-        //   "src/services/verify.js": { branches: 100 },
-        //   "src/services/risk.js":   { branches: 100 },
-        //
-        // This is not a vanity number. The verifier is the control that makes
-        // the product's verifiability claim true, and an untested branch in it
-        // is an untested path to showing a user a fabricated clause.
+        // SRS §10.5: 100% BRANCH coverage on the excerpt verifier. Not a
+        // vanity number — an untested branch in it is an untested path to
+        // showing a user a fabricated clause — but not sufficient either:
+        // tests/unit/verify.test.js explains why TR-3's cases, not this
+        // percentage, are the real gate. src/services/risk.js carries the
+        // same requirement and joins this list when step 21 creates it.
+        "src/services/verify.js": { branches: 100 },
       },
     },
   },

@@ -48,6 +48,24 @@ const noProcessEnv = {
   "no-restricted-syntax": ["error", ...domSafetySelectors, processEnvSelector],
 };
 
+/**
+ * SRS §5.3: the excerpt verifier "shall live in its own module with no
+ * dependencies". A rule rather than a comment, because an import is how the
+ * safety control's behaviour could change through a file nobody reviewed as
+ * part of it. These are every way an ES module — or a stray CommonJS call —
+ * can pull in another module.
+ */
+const noDependencySelectors = [
+  "ImportDeclaration",
+  "ImportExpression",
+  "ExportAllDeclaration",
+  "ExportNamedDeclaration[source]",
+  "CallExpression[callee.name='require']",
+].map((selector) => ({
+  selector,
+  message: "SRS §5.3: verify.js is the central safety control and must import nothing.",
+}));
+
 export default [
   {
     ignores: ["node_modules/**", "coverage/**", "dist/**", "prisma/migrations/**"],
@@ -98,6 +116,19 @@ export default [
     ],
     rules: {
       ...noDangerousHtml,
+    },
+  },
+  {
+    // Flat config replaces a rule's options rather than merging them, so the
+    // repository-wide selectors are restated alongside the new ones.
+    files: ["src/services/verify.js"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...domSafetySelectors,
+        processEnvSelector,
+        ...noDependencySelectors,
+      ],
     },
   },
 ];
