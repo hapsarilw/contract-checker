@@ -125,9 +125,11 @@ app.use(express.json({ limit: "1mb" }));
  */
 
 /**
- * Multer slot — step 16 (INTAKE-2). Only the document-upload route needs
- * multipart parsing, so it is mounted there, not globally, once it
- * exists.
+ * Multer slot — deliberately still empty. middleware/upload.js exists
+ * (step 16), but only the document-upload route needs multipart
+ * parsing, so it mounts there rather than globally, at step 18. A
+ * global multer would run busboy over every request that never carries
+ * a file.
  */
 
 // Ops routes — outside the /api/v1 prefix (§4): health, ready, version.
