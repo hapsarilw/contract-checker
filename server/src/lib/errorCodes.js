@@ -92,9 +92,9 @@ export const ERROR_CODES = Object.freeze({
   DOCUMENT_TOO_LONG: Object.freeze({
     status: 422,
     // §4's own example: "Document is 6,200 words. Phase 1 supports up to
-    // 4,000." — the call site in the intake service (step 16) should pass
-    // the actual word count as an explicit message following that
-    // template. This is the fallback when it doesn't.
+    // 4,000." — services/intake.js (step 17) passes the actual word
+    // count as an explicit message following that template. This is the
+    // fallback for a DOCUMENT_TOO_LONG thrown anywhere else.
     message: "This document is too long for Phase 1's 4,000-word limit. Try a shorter document, or split it into sections.",
   }),
   STORAGE_QUOTA_EXCEEDED: Object.freeze({
