@@ -177,6 +177,7 @@ const AUDITED_SIDE_EFFECT_FREE_GET_ROUTES = [
   "GET /api/ready", // SELECT 1 against Postgres; reads only
   "GET /api/version", // reads config
   "GET /api/v1/auth/me", // findUnique on the session's own user
+  "GET /api/v1/documents/:id", // findFirst on the document and its latest analysis; reads only
 ];
 
 function registeredRoutes(expressApp) {

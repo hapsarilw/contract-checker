@@ -9,6 +9,7 @@ import { csrfGuard } from "./middleware/csrf.js";
 import { AppError } from "./lib/AppError.js";
 import opsRouter from "./routes/ops.js";
 import authRouter from "./routes/auth.js";
+import documentsRouter from "./routes/documents.js";
 
 const app = express();
 
@@ -94,15 +95,74 @@ app.use(csrfGuard);
  * accepts them (step 16) — JSON and multipart bodies are mutually
  * exclusive per request, so the two limits never compete.
  *
- * A body over this limit is rejected by body-parser before any route
- * runs, as a generic (non-AppError) error — it currently falls through
- * errorHandler's default 500 INTERNAL mapping. The spec's error-code
- * table (§4.2) has no code for "pasted text too large" distinct from
- * FILE_TOO_LARGE's file-upload meaning; the intake steps (15-16) are
- * where FR-2.2's real word/byte-count validation lives, so a more
- * precise mapping belongs there if it turns out to matter.
+ * A body over this limit — or one that isn't valid JSON at all — is
+ * rejected by body-parser before any route runs. See jsonBodyErrors
+ * immediately below for why that needs its own translator.
  */
 app.use(express.json({ limit: "1mb" }));
+
+/**
+ * Translates body-parser's own errors into the API's error vocabulary.
+ * Mounted immediately after express.json(), matching how every other
+ * library-specific error is translated close to where it's thrown
+ * (upload.js's toAppError, pdf.js, docx.js) rather than centralised in
+ * the global handler.
+ *
+ * This exists because of a real, previously-undiscovered gap: malformed
+ * JSON (a client typo, a broken client library) and an oversized JSON
+ * body BOTH threw a raw, non-AppError exception straight through to
+ * errorHandler's default 500 INTERNAL — for every route that accepts a
+ * JSON body, not just this one. It surfaced writing step 18's tests,
+ * which happened to be the first ones in this codebase to send
+ * genuinely malformed JSON rather than structurally-valid JSON with
+ * semantically wrong values (which Zod already caught correctly). The
+ * comment this replaced had already flagged half of this — the
+ * oversized-body case — as a known gap; the unparseable-JSON case was
+ * not.
+ *
+ * body-parser and its own raw-body dependency mark every error they
+ * throw with a `.type` in one of three namespaces — verified against
+ * the installed package's source rather than assumed, since guessing
+ * wrong here would silently leave some of these still falling through
+ * to 500:
+ *   entity.*   — entity.parse.failed, entity.verify.failed, entity.too.large
+ *   charset.*  — charset.unsupported
+ *   encoding.* — encoding.unsupported
+ * An AppError (register, login, ...) never has a `.type` property, so
+ * this can't misclassify an application error as a body-parser one.
+ */
+// eslint-disable-next-line no-unused-vars -- Express identifies error middleware by arity (4 params).
+app.use((err, req, res, next) => {
+  const type = typeof err?.type === "string" ? err.type : "";
+  const isBodyParserError =
+    type.startsWith("entity.") || type.startsWith("charset.") || type.startsWith("encoding.");
+
+  if (!isBodyParserError) {
+    next(err);
+    return;
+  }
+
+  if (type === "entity.too.large") {
+    // FR-2.2's 1 MB paste cap. Reusing FILE_TOO_LARGE rather than a new
+    // code: it is the only 413 in the table, the HTTP status is what
+    // actually matters here, and the default message (about a 5 MB
+    // file) is wrong for this case — so it's overridden rather than
+    // left to imply the wrong limit.
+    next(
+      new AppError("FILE_TOO_LARGE", {
+        message: "That request body is over the 1 MB limit for pasted text. Try a shorter document, or split it into sections.",
+      }),
+    );
+    return;
+  }
+
+  // entity.parse.failed / entity.verify.failed / charset.unsupported /
+  // encoding.unsupported: the body could not be read as the JSON it
+  // claimed to be. Same bucket as a schema failure from the client's
+  // perspective — the request body doesn't work — just caught one step
+  // earlier than Zod would have.
+  next(new AppError("VALIDATION_ERROR", { details: { bodyParserType: type } }));
+});
 
 /**
  * Rate limiter slot — step 41 (OPS-2). Deliberately not wired yet: an
@@ -135,9 +195,9 @@ app.use(express.json({ limit: "1mb" }));
 // Ops routes — outside the /api/v1 prefix (§4): health, ready, version.
 app.use("/api", opsRouter);
 
-// Product routes — under /api/v1 (§4). Documents and account follow at
-// steps 18 and 57.
+// Product routes — under /api/v1 (§4). Account follows at step 57.
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/documents", documentsRouter);
 
 // Catch-all for any path that reaches here unmatched by a real route.
 app.use((req, res, next) => {

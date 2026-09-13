@@ -75,6 +75,19 @@ const memoryUpload = multer({
  * Without this a 6 MB upload that slips past the header check surfaces
  * as 500 INTERNAL — technically an unhandled error, practically a lie
  * about whose fault it is.
+ *
+ * The final `return new AppError("VALIDATION_ERROR", ...)` matters as
+ * much as the MulterError branch above it, and was missing until this
+ * was actually exercised: a multipart request whose part headers
+ * contain a control character (a NUL byte in a filename, for instance)
+ * makes the underlying busboy parser throw a plain `Error("Malformed
+ * part header")` — not a `multer.MulterError` — which used to fall
+ * through this function unchanged and surface as 500 INTERNAL. Every
+ * error this function can see originates from parsing the SAME
+ * multipart stream — there is no database call, no business logic, no
+ * legitimate server-side failure mode inside `memoryUpload.single()` —
+ * so any error reaching here, of whatever type, means the client's
+ * request was malformed, not that the server broke.
  */
 function toAppError(err) {
   if (err instanceof multer.MulterError) {
@@ -84,7 +97,9 @@ function toAppError(err) {
     // field-name nesting depth no real client produces.
     return new AppError("VALIDATION_ERROR", { details: { multerCode: err.code } });
   }
-  return err;
+  return new AppError("VALIDATION_ERROR", {
+    details: { multipartParseError: err instanceof Error ? err.message : String(err) },
+  });
 }
 
 /** Accepts exactly one file, on the field name §4 specifies: `file`. */

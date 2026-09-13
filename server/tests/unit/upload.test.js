@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import JSZip from "jszip";
-import multer from "multer";
 import {
   detectSourceType,
   sanitizeFilename,
@@ -178,11 +177,75 @@ describe("multer limits are translated into the API's error vocabulary", () => {
     expect(err.status).toBe(413);
   });
 
-  it("maps other multer limits to VALIDATION_ERROR rather than leaking the raw error", () => {
-    // LIMIT_UNEXPECTED_FILE and friends are malformed requests, not
-    // oversized ones — a different cause deserves a different code.
-    const unexpected = new multer.MulterError("LIMIT_UNEXPECTED_FILE", "avatar");
-    expect(unexpected.code).toBe("LIMIT_UNEXPECTED_FILE");
+  it("maps other multer limits to VALIDATION_ERROR rather than leaking the raw error", async () => {
+    // A file on a field named anything other than "file" is exactly
+    // what LIMIT_UNEXPECTED_FILE is for (singleFileUpload only accepts
+    // that one field name) — a different cause than an oversized file,
+    // deserving a different code.
+    const boundary = "----clausecheck-test-boundary-2";
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="avatar"; filename="x.pdf"\r\n` +
+          `Content-Type: application/pdf\r\n\r\n%PDF-1.4\r\n` +
+          `--${boundary}--\r\n`,
+        "utf8",
+      ),
+    ]);
+
+    const { Readable } = await import("node:stream");
+    const req = /** @type {any} */ (Readable.from([body]));
+    req.headers = {
+      "content-type": `multipart/form-data; boundary=${boundary}`,
+      "content-length": String(body.length),
+    };
+    req.method = "POST";
+
+    const err = await runUpload(req);
+
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.code).toBe("VALIDATION_ERROR");
+    expect(err.status).toBe(400);
+    expect(err.details).toEqual({ multerCode: "LIMIT_UNEXPECTED_FILE" });
+  });
+
+  it("maps a raw busboy parsing error (not a MulterError) to VALIDATION_ERROR, never 500", async () => {
+    // A control character inside a multipart part header is genuinely
+    // malformed per the multipart spec — busboy throws a plain
+    // Error("Malformed part header") here, not a multer.MulterError.
+    // Measured directly: before this was handled, that raw error passed
+    // through toAppError() unchanged and surfaced as 500 INTERNAL for
+    // ANY control character in an uploaded filename.
+    const boundary = "----clausecheck-test-boundary-3";
+    const filenameWithControlChar = "contract .pdf";
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="file"; filename="${filenameWithControlChar}"\r\n` +
+          `Content-Type: application/pdf\r\n\r\n`,
+        "binary",
+      ),
+      Buffer.from("%PDF-1.4 fake body"),
+      Buffer.from(`\r\n--${boundary}--\r\n`, "utf8"),
+    ]);
+
+    const { Readable } = await import("node:stream");
+    const req = /** @type {any} */ (Readable.from([body]));
+    req.headers = {
+      "content-type": `multipart/form-data; boundary=${boundary}`,
+      "content-length": String(body.length),
+    };
+    req.method = "POST";
+
+    const err = await runUpload(req);
+
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.code).toBe("VALIDATION_ERROR");
+    expect(err.status).toBe(400);
+    // The raw busboy error is captured in `details` (server-side only —
+    // errorHandler never serializes AppError.details into a response)
+    // rather than discarded, so this failure mode stays debuggable.
+    expect(err.details.multipartParseError).toMatch(/malformed/i);
   });
 });
 

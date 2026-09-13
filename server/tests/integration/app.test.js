@@ -88,4 +88,44 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
       expect(res.headers["access-control-allow-origin"]).not.toBe(attackerOrigin);
     });
   });
+
+  describe("malformed JSON bodies never reach the global handler as 500", () => {
+    // Exercised via /auth/login specifically because it's public — no
+    // session needed — and parses a JSON body, which is all this needs.
+    // The fix lives in app.js, immediately after express.json(), so it
+    // protects every JSON route, not just this one; step 18's own tests
+    // cover the same fix through /documents.
+
+    it("an unparseable JSON body returns 400 VALIDATION_ERROR, not 500", async () => {
+      const res = await request(app)
+        .post("/api/v1/auth/login")
+        .set("Content-Type", "application/json")
+        .send("{ this is not valid json");
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("an oversized JSON body returns 413 FILE_TOO_LARGE, not 500, with a message about the 1 MB paste limit", async () => {
+      const res = await request(app)
+        .post("/api/v1/auth/login")
+        .send({ email: "x@example.test", password: "x".repeat(2 * 1024 * 1024) });
+
+      expect(res.status).toBe(413);
+      expect(res.body.error.code).toBe("FILE_TOO_LARGE");
+      expect(res.body.error.message).toContain("1 MB");
+    });
+
+    it("does not misclassify a real AppError as a body-parser error", async () => {
+      // AppError never carries a `.type` property — this proves the
+      // detector in app.js can't accidentally intercept an application
+      // error and relabel it.
+      const res = await request(app)
+        .post("/api/v1/auth/login")
+        .send({ email: "nobody@example.test", password: "wrong-password" });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe("INVALID_CREDENTIALS");
+    });
+  });
 });
