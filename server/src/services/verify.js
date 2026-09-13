@@ -19,17 +19,14 @@
  */
 
 /**
- * §5.3's normaliser, transcribed — with one repair to the spec's text.
+ * §5.3's normaliser, transcribed.
  *
- * The code block in docs/SRS.md has lost its curly quotes: checked byte by
- * byte, its first two character classes are [''] and [""], plain ASCII
- * (FR-2.4's wording in §3.2 shows the same damage). Transcribed literally,
- * they replace a straight quote with itself, and curly-quote folding
- * silently disappears while every other case still passes. The intended
- * set — what §5.3 and FR-2.4 call curly quotes, what §11.3's typographic
- * fixtures exist to exercise, and what extraction.js's normalize() already
- * folds — is U+2018/U+2019 and U+201C/U+201D. Written as \u escapes so no
- * editor, formatter, or document export can flatten it again.
+ * The character classes are \u escapes, here and in the spec, on purpose.
+ * An earlier copy of §5.3 had its curly quotes flattened to ASCII, [''] and
+ * [""], which replace a straight quote with itself: curly-quote folding
+ * silently disappears while every other case still passes. U+2018/U+2019
+ * and U+201C/U+201D are also exactly what extraction.js's normalize() folds.
+ * Never retype them as literal characters.
  *
  * @param {string} s
  * @returns {NormalizedForMatch}
@@ -38,9 +35,9 @@ export const normalizeForMatch = (s) =>
   /** @type {NormalizedForMatch} */ (
     s
       .toLowerCase()
-      .replace(/[‘’]/g, "'")
-      .replace(/[“”]/g, '"')
-      .replace(/[–—]/g, "-")
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, "-")
       .replace(/\s+/g, " ")
       .trim()
   );
@@ -60,11 +57,10 @@ export const normalizeForMatch = (s) =>
  * strictness (PRD §11.1, alert discard_rate_high). Loosen it on that
  * review's data and a re-run benchmark, never on instinct.
  *
- * The empty-excerpt guard is the one addition to §5.3's expression, and it
- * can only discard. Every string includes "", so an excerpt that
- * normalises to nothing — ten spaces satisfy §5.2's .min(10) — would
- * "appear" in every document: a finding verified by vacuous truth, with no
- * quote behind it.
+ * The empty-excerpt guard (§5.3) can only discard. Every string includes
+ * "", so an excerpt that normalises to nothing — ten spaces satisfy §5.2's
+ * .min(10) — would "appear" in every document: a finding verified by
+ * vacuous truth, with no quote behind it.
  *
  * @param {NormalizedForMatch} normalizedExcerpt
  * @param {NormalizedForMatch} normalizedDocText

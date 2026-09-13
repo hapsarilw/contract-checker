@@ -166,7 +166,7 @@ The fourth boundary is the one most often forgotten: **model output is untrusted
 
 **FR-2.4** Extracted text shall be normalized, in this order:
 1. Line endings → `\n`; strip control characters other than `\n` and `\t`; strip zero-width and bidirectional-override characters (they are invisible in the interface and can be used to disguise injected instructions).
-2. Curly quotes → straight (`' ' → '`, `" " → "`); en/em dashes → `-`. (Models frequently normalize these when quoting; doing it here keeps excerpt verification honest.)
+2. Curly quotes → straight (U+2018 and U+2019 → `'`; U+201C and U+201D → `"`); en and em dashes (U+2013, U+2014) → `-`. Exactly §5.3's set, named by code point because literal curly quotes do not survive being copied between tools. (Models frequently normalize these when quoting; doing it here keeps excerpt verification honest.)
 3. Collapse runs of spaces/tabs to one space; collapse 3+ consecutive newlines to 2, preserving paragraph breaks.
 
 Normalization is a pure function in `services/extraction.js` with its own unit tests, because §5.3's correctness depends entirely on it.
@@ -612,17 +612,24 @@ Parsing is defensive: strip a leading/trailing markdown fence if present before 
 ```js
 const normalizeForMatch = (s) =>
   s.toLowerCase()
-   .replace(/['']/g, "'")
-   .replace(/[""]/g, '"')
-   .replace(/[–—]/g, '-')
+   .replace(/[\u2018\u2019]/g, "'")
+   .replace(/[\u201C\u201D]/g, '"')
+   .replace(/[\u2013\u2014]/g, '-')
    .replace(/\s+/g, ' ')
    .trim();
 
-const excerptAppears = (excerpt, docText) =>
-  normalizeForMatch(docText).includes(normalizeForMatch(excerpt));
+const excerptAppears = (excerpt, docText) => {
+  const needle = normalizeForMatch(excerpt);
+  if (needle === '') return false;
+  return normalizeForMatch(docText).includes(needle);
+};
 ```
 
 Case-insensitive, whitespace-collapsed, punctuation-variant-tolerant substring match. Deliberately strict beyond that: no fuzzy matching (PRD D9), because near-miss tolerance is exactly the hole a paraphrasing model would slip through. Expected cost: occasionally discarding a legitimate finding the model lightly rephrased — measured by `discardedFindings`, with the review threshold set in PRD §11.1.
+
+The character classes are `\u` escapes on purpose: an earlier copy of this section had its curly quotes flattened to ASCII (`['']` and `[""]`), which replace a straight quote with itself and silently disable curly-quote folding. Keep them as escapes, here and in the implementation.
+
+An excerpt that normalizes to the empty string is rejected. Every document contains the empty string, and ten spaces satisfy §5.2's `clause_excerpt` `.min(10)`, so without this check a finding with no quote behind it would pass verification. The check can only discard, never admit.
 
 **Implementation requirement:** the document side of the comparison is normalized **once per analysis**, not once per finding. With 25 findings against a 4,000-word document the naive version does 25 full-text normalizations for no benefit.
 
