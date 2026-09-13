@@ -7,7 +7,7 @@ import { z } from "zod";
  * runtime one: better to fail on deploy than to fail every analysis on the
  * first real document (step 24 depends on this).
  */
-const MODEL_PARAM_PROFILES = Object.freeze({
+export const MODEL_PARAM_PROFILES = Object.freeze({
   "claude-opus-5": Object.freeze({ temperature: false, effort: true }),
   "claude-sonnet-5": Object.freeze({ temperature: false, effort: true }),
   "claude-opus-4-8": Object.freeze({ temperature: false, effort: true }),

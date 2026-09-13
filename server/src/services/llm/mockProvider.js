@@ -151,10 +151,10 @@ export class MockLlmProvider {
    * (e.g. testing auth or quota wiring on the analyze route) doesn't have
    * to script one.
    */
-  /** @param {{ documentText?: string, requestId?: string }} [options] */
-  async analyze({ documentText, requestId } = {}) {
+  /** @param {{ documentText?: string, requestId?: string, correction?: { invalidResponse: string, errorSummary: string } }} [options] */
+  async analyze({ documentText, requestId, correction } = {}) {
     const startedAt = Date.now();
-    this.calls.push({ documentText, requestId, at: startedAt });
+    this.calls.push({ documentText, requestId, correction, at: startedAt });
 
     const script = this.#queue.shift();
 
