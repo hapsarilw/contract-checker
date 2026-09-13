@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import http from "node:http";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -145,17 +147,67 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
     expect(res.body.error.code).toBe("UNSUPPORTED_FILE_TYPE");
   });
 
-  it("returns 413 FILE_TOO_LARGE for an oversized upload, before intake runs", async () => {
+  it("returns 413 FILE_TOO_LARGE on the declared size alone, before reading the body", async () => {
+    // Declares a 6 MB multipart body but sends only its first bytes. The
+    // rejection happens on Content-Length (upload.js), so the server has to
+    // answer without the rest; a server that waited for the body would never
+    // respond, and the 5 s socket timeout below fails the test.
+    //
+    // Supertest cannot express this. It streams all 6 MB, and when the server
+    // answers and closes the socket mid-upload, the client's next write fails
+    // with EPIPE, sometimes before the response is read: 5 requests in 100
+    // when measured, which made this test flaky in full runs.
     const { cookie } = await loggedInCookie();
-    const oversized = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(6 * 1024 * 1024, "a")]);
+    const server = app.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const { port } = /** @type {import("node:net").AddressInfo} */ (server.address());
 
-    const res = await request(app)
-      .post("/api/v1/documents")
-      .set("Cookie", cookie)
-      .attach("file", oversized, "big.pdf");
+    try {
+      const { status, body } = await /** @type {Promise<{ status: number | undefined, body: any }>} */ (
+        new Promise((resolve, reject) => {
+          const req = http.request(
+            {
+              host: "127.0.0.1",
+              port,
+              method: "POST",
+              path: "/api/v1/documents",
+              headers: {
+                cookie: cookie.join("; "),
+                "content-type": "multipart/form-data; boundary=clausecheck",
+                "content-length": String(6 * 1024 * 1024),
+              },
+            },
+            (res) => {
+              let text = "";
+              res.setEncoding("utf8");
+              res.on("data", (chunk) => (text += chunk));
+              res.on("end", () => {
+                req.destroy();
+                resolve({ status: res.statusCode, body: JSON.parse(text) });
+              });
+            },
+          );
+          // A write after the server has answered and closed may fail; the
+          // response is what is under test.
+          req.on("error", (err) => {
+            const code = /** @type {NodeJS.ErrnoException} */ (err).code;
+            if (code !== "EPIPE" && code !== "ECONNRESET") reject(err);
+          });
+          req.setTimeout(5000, () =>
+            reject(new Error("no response on the declared size alone: the server is waiting for the body")),
+          );
+          req.write(
+            '--clausecheck\r\nContent-Disposition: form-data; name="file"; filename="big.pdf"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.4\n',
+          );
+        })
+      );
 
-    expect(res.status).toBe(413);
-    expect(res.body.error.code).toBe("FILE_TOO_LARGE");
+      expect(status).toBe(413);
+      expect(body.error.code).toBe("FILE_TOO_LARGE");
+    } finally {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
   });
 });
 
