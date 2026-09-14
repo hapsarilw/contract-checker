@@ -1,0 +1,24 @@
+.cc-error-boundary {
+  max-width: 544px;
+  margin: var(--cc-space-11) auto;
+  padding: 0 var(--cc-space-8);
+}
+
+.cc-error-boundary__title {
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-2xl);
+  letter-spacing: var(--cc-tracking-tight);
+  color: var(--cc-ink);
+  margin: 0 0 var(--cc-space-3);
+}
+
+.cc-error-boundary__request-id {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-ink-secondary);
+  margin: var(--cc-space-5) 0 0;
+}
+
+.cc-error-boundary__action {
+  margin-top: var(--cc-space-8);
+}
