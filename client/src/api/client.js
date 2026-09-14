@@ -63,6 +63,15 @@ export class ApiError extends Error {
  * only matters to a test asserting this happened, or to a future SPA
  * transition that intercepts the redirect.
  *
+ * `suppressAuthRedirect` (step 32) exists for exactly one caller so far:
+ * AuthProvider's own "am I signed in?" check on load, GET /api/v1/auth/me.
+ * A 401 UNAUTHENTICATED there is the ordinary, expected state for a
+ * visitor who has never signed in — nothing was "revoked." Without this
+ * escape hatch, loading /login itself would trigger this very redirect
+ * (AuthProvider wraps the whole app, so it runs on every route,
+ * including /login) and show a bewildering "your session expired"
+ * banner to someone who was never signed in to begin with.
+ *
  * @param {string} returnPath
  */
 function redirectToLogin(returnPath) {
@@ -83,11 +92,20 @@ function isPlainObject(body) {
 
 /**
  * @param {string} path e.g. "/api/v1/auth/login"
- * @param {Omit<RequestInit, "credentials" | "body"> & { body?: unknown }} [options]
+ * @param {Omit<RequestInit, "credentials" | "body"> & {
+ *   body?: unknown,
+ *   suppressAuthRedirect?: boolean,
+ * }} [options]
  * @returns {Promise<unknown>} the parsed JSON body, or null for an empty response
  */
 export async function apiFetch(path, options = {}) {
-  const { body, headers: headersInit, method: methodInit, ...rest } = options;
+  const {
+    body,
+    headers: headersInit,
+    method: methodInit,
+    suppressAuthRedirect = false,
+    ...rest
+  } = options;
   const method = (methodInit ?? "GET").toUpperCase();
   const headers = new Headers(headersInit);
   const isFormData = body instanceof FormData;
@@ -145,7 +163,8 @@ export async function apiFetch(path, options = {}) {
 
     if (
       response.status === 401 &&
-      (code === "UNAUTHENTICATED" || code === "SESSION_REVOKED")
+      (code === "UNAUTHENTICATED" || code === "SESSION_REVOKED") &&
+      !suppressAuthRedirect
     ) {
       redirectToLogin(window.location.pathname + window.location.search);
     }

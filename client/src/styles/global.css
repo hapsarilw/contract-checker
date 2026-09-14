@@ -95,6 +95,31 @@ textarea::placeholder {
   border: 0;
 }
 
+/**
+ * BUILD-PLAN step 32, SRS §7.15's Keyboard row: "a skip link to main."
+ * Also not from the prototype (a static comp has no keyboard user to
+ * skip ahead for). `.cc-sr-only`'s clip-based hiding, but WITHOUT
+ * `position: absolute` baked in as fixed off-screen — this needs to
+ * become visible in normal flow on focus, so it's redefined here rather
+ * than composed with `.cc-sr-only`.
+ */
+.cc-skip-link {
+  position: absolute;
+  top: -999px;
+  left: 0;
+  z-index: 100;
+  padding: var(--cc-space-4) var(--cc-space-6);
+  background: var(--cc-brand);
+  color: var(--cc-surface-card);
+  font-size: var(--cc-text-base);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cc-skip-link:focus-visible {
+  top: 0;
+}
+
 /* The prototype disables every animation and transition outright rather
    than substituting a reduced one — cc-pulse is a loading indicator and
    cc-fade is a tooltip/panel entrance, neither carries information that a

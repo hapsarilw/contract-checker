@@ -12,9 +12,14 @@ import "./Button.css";
  * `<form>` (later steps) never submits it by accident; pass
  * `type="submit"` explicitly where that IS the intent.
  *
+ * `fullWidth` (step 32 — the auth screens' submit buttons) is a boolean
+ * prop rather than something every call site reaches for `style` to do,
+ * so the primitive keeps a matching, testable class for it.
+ *
  * @param {{
  *   variant?: "primary" | "secondary" | "destructive",
  *   type?: "button" | "submit",
+ *   fullWidth?: boolean,
  *   className?: string,
  *   children: import("react").ReactNode,
  * } & Omit<import("react").ComponentPropsWithoutRef<"button">, "type">} props
@@ -22,13 +27,14 @@ import "./Button.css";
 export default function Button({
   variant = "primary",
   type = "button",
+  fullWidth = false,
   className = "",
   ...props
 }) {
   return (
     <button
       type={type}
-      className={`cc-button cc-button--${variant} ${className}`.trim()}
+      className={`cc-button cc-button--${variant} ${fullWidth ? "cc-button--full-width" : ""} ${className}`.trim()}
       {...props}
     />
   );

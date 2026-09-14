@@ -1,12 +1,15 @@
 .cc-field {
   display: flex;
   flex-direction: column;
-  gap: var(--cc-space-2);
+  /* The prototype's own label-to-control spacing (step 32's auth-screen
+     markup: "margin-bottom:7px" on every field label) — corrected here
+     from step 30's approximation now that the exact value is known. */
+  gap: 7px;
 }
 
 .cc-field__label {
-  font-size: var(--cc-text-base);
-  font-weight: 500;
+  font-size: var(--cc-text-sm); /* 12.5px, the prototype's exact field-label size */
+  font-weight: 600;
   color: var(--cc-ink);
 }
 

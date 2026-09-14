@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router";
 import App from "./App.jsx";
 import { I18nProvider } from "./i18n/index.js";
+import { AuthProvider } from "./auth/AuthProvider.jsx";
 import "./styles/fonts.js";
 import "./styles/tokens.css";
 import "./styles/global.css";
@@ -13,8 +15,12 @@ if (rootElement === null) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <I18nProvider>
-      <App />
-    </I18nProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <I18nProvider>
+          <App />
+        </I18nProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </StrictMode>,
 );

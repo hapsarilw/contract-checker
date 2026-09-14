@@ -53,3 +53,7 @@
 .cc-button--destructive:hover:not(:disabled) {
   background: var(--cc-danger-hover);
 }
+
+.cc-button--full-width {
+  width: 100%;
+}

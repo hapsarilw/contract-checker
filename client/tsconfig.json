@@ -26,7 +26,8 @@
     "tests/**/*.jsx",
     "tests/**/*.d.ts",
     "scripts/**/*.mjs",
+    "e2e/**/*.js",
     "*.config.js"
   ],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "playwright-report", "test-results"]
 }

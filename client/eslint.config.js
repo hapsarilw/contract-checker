@@ -34,7 +34,7 @@ const domSafetySelectors = [
 
 export default [
   {
-    ignores: ["node_modules/**", "dist/**"],
+    ignores: ["node_modules/**", "dist/**", "playwright-report/**", "test-results/**"],
   },
   js.configs.recommended,
   {
@@ -60,7 +60,7 @@ export default [
     },
   },
   {
-    files: ["*.config.js", "scripts/**/*.mjs"],
+    files: ["*.config.js", "scripts/**/*.mjs", "e2e/**/*.js"],
     languageOptions: {
       globals: {
         ...globals.node,
