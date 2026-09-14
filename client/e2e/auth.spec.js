@@ -147,6 +147,35 @@ test.describe("/login", () => {
       .analyze();
     expect(results.violations).toEqual([]);
   });
+
+  test("axe reports zero violations in the server-error banner state (the CODE · STATUS line specifically — a real contrast bug lived only here)", async ({
+    page,
+  }) => {
+    await page.route("**/api/v1/auth/login", (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message:
+              "The email or password you entered is incorrect. Check your details and try again.",
+            requestId: "req_axe",
+          },
+        }),
+      }),
+    );
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("nobody@example.com");
+    await page.getByLabel("Password").fill("wrongpasswordhere");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(results.violations).toEqual([]);
+  });
 });
 
 test.describe("/register", () => {
@@ -212,7 +241,13 @@ test.describe("/register", () => {
     await page.getByRole("button", { name: "Create account" }).click();
 
     await expect(page).toHaveURL("/");
-    await expect(page.getByText("Signed in.")).toBeVisible();
+    // "/" is the real upload screen as of BUILD-PLAN step 33 (it was a
+    // placeholder when this test was first written in step 32) —
+    // e2e/upload.spec.js is where that screen is actually tested; this
+    // assertion only needs to confirm the redirect landed somewhere real.
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      "Hand over the contract.",
+    );
   });
 
   test("a 409 EMAIL_TAKEN shows the failure banner", async ({ page }) => {
@@ -243,6 +278,35 @@ test.describe("/register", () => {
 
   test("axe reports zero violations", async ({ page }) => {
     await page.goto("/register");
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("axe reports zero violations in the server-error banner state", async ({
+    page,
+  }) => {
+    await page.route("**/api/v1/auth/register", (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "EMAIL_TAKEN",
+            message:
+              "An account with that email already exists. Try logging in, or reset your password if you've forgotten it.",
+            requestId: "req_axe_2",
+          },
+        }),
+      }),
+    );
+    await page.goto("/register");
+    await page.getByLabel("Email").fill("taken@example.com");
+    await page.getByLabel("Password").fill("a-perfectly-fine-password");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
       .analyze();

@@ -1,0 +1,215 @@
+/**
+ * BUILD-PLAN step 33 — the prototype's "1. UPLOAD" screen
+ * (docs/design/ClauseCheck.html), matched layout-for-layout. The
+ * jurisdiction selector between the tab content and the footer cards is
+ * deliberately NOT ported — BUILD-PLAN decision D-A, option A1.
+ */
+
+.cc-upload-page {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 52px 28px 64px;
+}
+
+.cc-upload-page__hero {
+  max-width: 620px;
+  margin-bottom: 34px;
+}
+
+.cc-upload-page__title {
+  margin: 0 0 var(--cc-space-7);
+  font-family: var(--cc-font-serif);
+  font-size: 42px;
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: -0.028em;
+  color: var(--cc-ink);
+}
+
+/* #6B736D: the prototype's one-off accent for the hero's second line —
+   not one of tokens.css's named palette entries, used nowhere else. */
+.cc-upload-page__title-accent {
+  color: #6b736d;
+}
+
+.cc-upload-page__intro {
+  margin: 0;
+  font-size: var(--cc-text-lg);
+  line-height: var(--cc-leading-relaxed);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-upload-card {
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-top: var(--cc-border-width-accent) solid var(--cc-brand);
+  box-shadow: var(--cc-shadow-card);
+}
+
+.cc-upload-card__panel {
+  padding: 26px 26px 24px;
+}
+
+.cc-upload-card__error {
+  margin-bottom: var(--cc-space-9);
+}
+
+.cc-upload-card__error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-3);
+  margin-top: var(--cc-space-6);
+}
+
+.cc-upload-card__error-code {
+  font-family: var(--cc-font-mono);
+  font-size: 10.5px;
+  /* The prototype's own #9A857A here clears only 3.02:1 against the
+     danger banner's tint background (--cc-severity-high-tint) — axe
+     caught it (color-contrast, WCAG 1.4.3, SRS §7.15's Contrast row
+     needs 4.5:1 for body text). --cc-ink-secondary clears 6.21:1
+     against the same background and is already the ink used for body
+     text everywhere else in this app. */
+  color: var(--cc-ink-secondary);
+  margin-top: var(--cc-space-6);
+}
+
+/* ---- Dropzone ------------------------------------------------------ */
+
+.cc-dropzone {
+  border: 1px dashed #bebbab;
+  background: var(--cc-surface-muted);
+  padding: 56px 26px;
+  text-align: center;
+}
+
+.cc-dropzone--dragging {
+  border-color: var(--cc-brand);
+  background: var(--cc-severity-low-tint);
+}
+
+.cc-dropzone__eyebrow {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: #5f6863;
+  margin-bottom: var(--cc-space-7);
+  letter-spacing: var(--cc-tracking-wider);
+  text-transform: uppercase;
+}
+
+.cc-dropzone__title {
+  font-family: var(--cc-font-serif);
+  font-size: 23px;
+  font-weight: 600;
+  color: var(--cc-ink);
+  margin-bottom: var(--cc-space-4);
+  letter-spacing: -0.016em;
+}
+
+.cc-dropzone__hint {
+  font-size: var(--cc-text-base);
+  line-height: 1.55;
+  color: var(--cc-ink-secondary);
+  margin-bottom: var(--cc-space-9);
+}
+
+.cc-dropzone__selected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cc-space-3);
+}
+
+.cc-dropzone__filename {
+  font-size: var(--cc-text-lg);
+  font-weight: 600;
+  color: var(--cc-ink);
+  word-break: break-all;
+}
+
+.cc-dropzone__filesize {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-ink-secondary);
+  margin-bottom: var(--cc-space-6);
+}
+
+.cc-dropzone__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-5);
+  justify-content: center;
+  align-items: center;
+}
+
+/* ---- Paste tab ------------------------------------------------------ */
+
+.cc-paste-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-7);
+  align-items: center;
+  margin-top: var(--cc-space-6);
+}
+
+.cc-paste-panel__count {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-ink-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Analyzing placeholder (BUILD-PLAN step 34 replaces this) ------ */
+
+.cc-upload-analyzing {
+  padding: 56px 26px;
+  text-align: center;
+}
+
+.cc-upload-analyzing__title {
+  font-family: var(--cc-font-serif);
+  font-size: 23px;
+  font-weight: 600;
+  color: var(--cc-ink);
+  margin-bottom: var(--cc-space-4);
+}
+
+.cc-upload-analyzing__note {
+  font-size: var(--cc-text-base);
+  color: var(--cc-ink-secondary);
+  max-width: 46ch;
+  margin: 0 auto;
+}
+
+/* ---- Footer info cards ----------------------------------------------- */
+
+.cc-upload-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+  background: var(--cc-surface-muted);
+}
+
+.cc-upload-card__footer-col {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 20px 26px;
+  border-left: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+.cc-upload-card__footer-col:first-child {
+  border-left: none;
+}
+
+.cc-upload-card__footer-title {
+  font-size: var(--cc-text-sm);
+  font-weight: 600;
+  color: var(--cc-ink);
+  margin-bottom: var(--cc-space-2);
+}
+
+.cc-upload-card__footer-body {
+  font-size: var(--cc-text-base);
+  line-height: 1.58;
+  color: var(--cc-ink-secondary);
+}

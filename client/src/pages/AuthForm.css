@@ -69,7 +69,13 @@
 .cc-auth-card__error-code {
   font-family: var(--cc-font-mono);
   font-size: 10.5px;
-  color: #9a857a;
+  /* The prototype's own #9A857A here clears only 3.02:1 against the
+     danger banner's tint background (--cc-severity-high-tint) — found
+     in step 33, axe-checking the same pattern on the upload screen; this
+     screen's own axe coverage never actually rendered this state (see
+     e2e/auth.spec.js's added banner-state axe check). Fixed the same way:
+     --cc-ink-secondary clears 6.21:1 against the same background. */
+  color: var(--cc-ink-secondary);
   margin-top: var(--cc-space-3);
 }
 
