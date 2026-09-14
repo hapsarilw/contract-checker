@@ -135,6 +135,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* NFR-4.1's locked disclaimer — body text, not fine print: the same size
+   and weight as the summary paragraph beside it in the masthead, not a
+   smaller/quieter treatment that would read as a footnote. */
+.cc-report__disclaimer {
+  margin: 0;
+  padding: 22px var(--cc-space-9) 28px;
+  font-size: var(--cc-text-md);
+  line-height: 1.6;
+  color: var(--cc-ink-secondary);
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+  max-width: 76ch;
+}
+
 .cc-report__summary {
   flex: 1 1 330px;
   min-width: 0;
@@ -374,4 +387,104 @@
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
   color: var(--cc-success);
+}
+
+/* ---- Missing protections (step 37) ---------------------------------- */
+
+.cc-report__section-title {
+  margin: 0 0 var(--cc-space-2);
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-3xl);
+  line-height: 1.18;
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-tight);
+  color: var(--cc-ink);
+}
+
+.cc-report__section-sub {
+  margin: 0 0 var(--cc-space-6);
+  font-size: var(--cc-text-md);
+  line-height: 1.6;
+  color: var(--cc-ink-secondary);
+  max-width: 66ch;
+}
+
+.cc-report__missing {
+  margin-top: 46px;
+}
+
+.cc-report__missing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-top: 0;
+  box-shadow: var(--cc-shadow-card-lg);
+}
+
+.cc-report__missing-item {
+  display: flex;
+  gap: var(--cc-space-7);
+  padding: var(--cc-space-8) var(--cc-space-9);
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+.cc-report__missing-mark {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-sm);
+  color: var(--cc-ink-secondary);
+  flex: none;
+  line-height: 1.6;
+}
+
+.cc-report__missing-text {
+  font-size: var(--cc-text-md);
+  line-height: 1.62;
+  color: var(--cc-ink-secondary);
+  max-width: 72ch;
+  overflow-wrap: anywhere;
+}
+
+/* ---- "Done with this contract?" + delete (step 37, FR-7.6) --------- */
+
+.cc-report__done {
+  margin-top: 46px;
+  padding-top: var(--cc-space-10);
+  border-top: var(--cc-border-width) solid var(--cc-rule-strong);
+  max-width: 400px;
+}
+
+.cc-report__done-head {
+  margin: 0 0 var(--cc-space-2);
+  font-size: var(--cc-text-base);
+  font-weight: 600;
+  color: var(--cc-ink);
+}
+
+.cc-report__done-body {
+  margin: 0 0 var(--cc-space-7);
+  font-size: var(--cc-text-base);
+  line-height: 1.582;
+  color: var(--cc-ink-secondary);
+}
+
+/* The prototype's danger-outline treatment (docs/design/ClauseCheck.html's
+   openDelete button) rather than Button's solid "destructive" variant,
+   which is reserved for the dialog's actual confirm action — the trigger
+   is one step removed from doing anything irreversible. #BFA294 is a
+   warm-neutral border between --cc-rule-strong and --cc-danger that the
+   prototype uses nowhere else, so it's a local override rather than a
+   new token. */
+.cc-report__delete-trigger.cc-button--secondary {
+  border-color: #bfa294;
+  border-bottom-color: #bfa294;
+  color: var(--cc-danger);
+}
+.cc-report__delete-trigger.cc-button--secondary:hover:not(:disabled) {
+  background: var(--cc-severity-high-tint);
+}
+
+.cc-report__delete-error {
+  margin-bottom: var(--cc-space-5);
 }

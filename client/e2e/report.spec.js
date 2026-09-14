@@ -550,3 +550,238 @@ test.describe("the findings list (BUILD-PLAN step 36)", () => {
     }
   });
 });
+
+// The prototype's own locked disclaimer wording (docs/design/ClauseCheck.html
+// / docs/PRD.md §7), asserted against directly rather than re-typed, so a
+// paraphrase anywhere fails this file the same way it fails the unit test.
+const DISCLAIMER =
+  "ClauseCheck highlights clauses worth a second look before you sign. It isn’t a lawyer and this isn’t legal advice — for a high-stakes contract, have a professional review it.";
+
+/** @param {import("@playwright/test").Page} page @param {object} [overrides] @param {{status:number, body:object}} [deleteResult] */
+async function mockReportAndDelete(page, overrides, deleteResult) {
+  await page.route("**/api/v1/documents/doc1", (route) => {
+    if (route.request().method() === "DELETE") {
+      const result = deleteResult ?? {
+        status: 200,
+        body: { deleted: true, message: "x" },
+      };
+      return route.fulfill({
+        status: result.status,
+        contentType: "application/json",
+        body: JSON.stringify(result.body),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(analysisPayload(overrides)),
+    });
+  });
+}
+
+test.describe("the disclaimer and missing protections (BUILD-PLAN step 37, NFR-4.1 / PRD §7)", () => {
+  test("shows the exact locked disclaimer text, as body text", async ({ page }) => {
+    await mockReport(page);
+    await page.goto("/documents/doc1");
+
+    const disclaimer = page.getByText(DISCLAIMER);
+    await expect(disclaimer).toBeVisible();
+    await expect(disclaimer).toHaveJSProperty("tagName", "P");
+  });
+
+  test("the disclaimer is above the fold at desktop width, both for a short report and a long one", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    await mockReport(page, { findings: [], overallRisk: "LOW" });
+    await page.goto("/documents/doc1");
+    await expect(page.getByText(DISCLAIMER)).toBeInViewport({ ratio: 1 });
+
+    // 12 findings — long enough that the findings list alone runs well
+    // past a typical desktop viewport height.
+    const severities = /** @type {const} */ (["HIGH", "MEDIUM", "LOW"]);
+    const twelveFindings = Array.from({ length: 12 }, (_, i) => ({
+      category: "PAYMENT",
+      severity: severities[i % 3],
+      clauseExcerpt: `Clause ${i}`,
+      explanation: `Explanation ${i}`,
+      suggestedChange: `Ask ${i}`,
+    }));
+    await mockReport(page, { findings: twelveFindings, overallRisk: "HIGH" });
+    await page.goto("/documents/doc1");
+    await expect(page.locator("ol.cc-report__findings > li")).toHaveCount(12);
+    await expect(page.getByText(DISCLAIMER)).toBeInViewport({ ratio: 1 });
+  });
+
+  test("lists each missing protection as the server's own sentence, under the prototype's heading and sub-copy", async ({
+    page,
+  }) => {
+    await mockReport(page, {
+      findings: SEVEN_FINDINGS,
+      missingClauses: [
+        "No late payment interest or penalty is specified.",
+        "There is no cap on the freelancer's liability.",
+      ],
+    });
+    await page.goto("/documents/doc1");
+
+    await expect(
+      page.getByRole("heading", { name: "Protections the contract doesn’t include" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Nothing here is quoted, because there’s nothing to quote", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("No late payment interest or penalty is specified."),
+    ).toBeVisible();
+    await expect(
+      page.getByText("There is no cap on the freelancer's liability."),
+    ).toBeVisible();
+  });
+
+  test("renders no missing-protections section when there is nothing missing", async ({
+    page,
+  }) => {
+    await mockReport(page, { findings: SEVEN_FINDINGS, missingClauses: [] });
+    await page.goto("/documents/doc1");
+
+    await expect(
+      page.getByRole("heading", { name: "Protections the contract doesn’t include" }),
+    ).toHaveCount(0);
+  });
+
+  test("renders no jurisdiction section (decision D-A)", async ({ page }) => {
+    await mockReport(page, {
+      findings: SEVEN_FINDINGS,
+      missingClauses: ["No late payment interest or penalty is specified."],
+    });
+    await page.goto("/documents/doc1");
+
+    await expect(page.getByText(/jurisdiction/i)).toHaveCount(0);
+  });
+
+  test("axe reports zero violations with missing protections shown", async ({ page }) => {
+    await mockReport(page, {
+      findings: SEVEN_FINDINGS,
+      missingClauses: ["No late payment interest or penalty is specified."],
+    });
+    await page.goto("/documents/doc1");
+
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(results.violations).toEqual([]);
+  });
+});
+
+test.describe("delete (BUILD-PLAN step 37, FR-7.6)", () => {
+  test("requires confirmation naming permanence before anything is deleted", async ({
+    page,
+  }) => {
+    await mockReportAndDelete(page);
+    await page.goto("/documents/doc1");
+
+    await page.getByRole("button", { name: "Delete permanently" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("heading", { name: "Delete this contract permanently?" }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(
+        "The document and this report will be removed from our database. This can’t be undone, and we won’t be able to recover them for you.",
+      ),
+    ).toBeVisible();
+  });
+
+  test("'Keep it' closes the dialog and deletes nothing", async ({ page }) => {
+    let deleteCalls = 0;
+    await page.route("**/api/v1/documents/doc1", (route) => {
+      if (route.request().method() === "DELETE") {
+        deleteCalls += 1;
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(analysisPayload()),
+      });
+    });
+    await page.goto("/documents/doc1");
+
+    await page.getByRole("button", { name: "Delete permanently" }).click();
+    await page.getByRole("button", { name: "Keep it" }).click();
+
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/documents\/doc1$/);
+    expect(deleteCalls).toBe(0);
+  });
+
+  test("confirming deletes the document and redirects to history", async ({ page }) => {
+    await mockReportAndDelete(page);
+    await page.goto("/documents/doc1");
+
+    await page.getByRole("button", { name: "Delete permanently" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Delete permanently" })
+      .click();
+
+    await expect(page).toHaveURL("/documents");
+    await expect(page.getByText("The history screen arrives")).toBeVisible();
+  });
+
+  test("a failed delete keeps the dialog open and shows the server's error", async ({
+    page,
+  }) => {
+    await mockReportAndDelete(page, undefined, {
+      status: 404,
+      body: {
+        error: {
+          code: "NOT_FOUND",
+          message: "We couldn't find that. It may have been deleted already.",
+          requestId: "req_e2e",
+        },
+      },
+    });
+    await page.goto("/documents/doc1");
+
+    await page.getByRole("button", { name: "Delete permanently" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Delete permanently" })
+      .click();
+
+    await expect(
+      page.getByText("We couldn't find that. It may have been deleted already."),
+    ).toBeVisible();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page).toHaveURL(/\/documents\/doc1$/);
+  });
+
+  test("Escape closes the dialog and returns focus to the trigger", async ({ page }) => {
+    await mockReportAndDelete(page);
+    await page.goto("/documents/doc1");
+
+    const trigger = page.getByRole("button", { name: "Delete permanently" });
+    await trigger.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  test("axe reports zero violations with the delete dialog open", async ({ page }) => {
+    await mockReportAndDelete(page);
+    await page.goto("/documents/doc1");
+
+    await page.getByRole("button", { name: "Delete permanently" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(results.violations).toEqual([]);
+  });
+});

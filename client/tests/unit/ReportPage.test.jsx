@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import ReportPage from "../../src/pages/ReportPage.jsx";
 import { I18nProvider } from "../../src/i18n/index.js";
 import { ApiError } from "../../src/api/client.js";
+import { DISCLAIMER_LOCKED } from "../../src/i18n/disclaimer.js";
 
 vi.mock("../../src/api/client.js", async (importOriginal) => {
   const actual = /** @type {object} */ (await importOriginal());
@@ -70,6 +71,7 @@ function renderReport() {
       <MemoryRouter initialEntries={["/documents/doc1"]}>
         <Routes>
           <Route path="/documents/:id" element={<ReportPage />} />
+          <Route path="/documents" element={<p>History screen</p>} />
           <Route path="/" element={<p>Upload screen</p>} />
         </Routes>
       </MemoryRouter>
@@ -332,5 +334,157 @@ describe("ReportPage findings list (BUILD-PLAN step 36)", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(container.textContent).not.toMatch(/error|couldn.t|failed|went wrong/i);
     expect(container.querySelector("ol.cc-report__findings")).toBeNull();
+  });
+});
+
+describe("ReportPage disclaimer and missing protections (BUILD-PLAN step 37, NFR-4.1 / PRD §7)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  /** @param {object[]} findings @param {object} [overrides] */
+  async function loadWith(findings, overrides) {
+    vi.mocked(apiFetch).mockResolvedValue({
+      document: DOCUMENT,
+      analysis: analysisWith(findings, overrides),
+    });
+    const utils = renderReport();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    return utils;
+  }
+
+  it("renders the disclaimer's EXACT locked text, byte-for-byte against the constant", async () => {
+    await loadWith(THREE_FINDINGS);
+    expect(screen.getByText(DISCLAIMER_LOCKED.en)).toBeInTheDocument();
+  });
+
+  it("renders the disclaimer as body text — a plain paragraph, not inside a footer element", async () => {
+    const { container } = await loadWith(THREE_FINDINGS);
+    const disclaimer = screen.getByText(DISCLAIMER_LOCKED.en);
+    expect(disclaimer.tagName).toBe("P");
+    expect(container.querySelector("footer")).toBeNull();
+  });
+
+  it("shows the disclaimer regardless of findings, including the zero-finding report", async () => {
+    await loadWith([], { overallRisk: "LOW" });
+    expect(screen.getByText(DISCLAIMER_LOCKED.en)).toBeInTheDocument();
+  });
+
+  it('renders "Protections the contract doesn\'t include" with each server-provided sentence, unmodified', async () => {
+    await loadWith(THREE_FINDINGS, {
+      missingClauses: [
+        "No late payment interest or penalty is specified.",
+        "There is no cap on the freelancer's liability.",
+      ],
+    });
+
+    expect(
+      screen.getByText("Protections the contract doesn’t include"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "These are standard terms in freelance agreements. Nothing here is quoted, because there’s nothing to quote — that’s the point. They don’t change the risk level above, and they’re the easiest thing to ask for while the contract is still open.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No late payment interest or penalty is specified."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("There is no cap on the freelancer's liability."),
+    ).toBeInTheDocument();
+  });
+
+  it("does not render the missing-protections section at all when missingClauses is empty", async () => {
+    await loadWith(THREE_FINDINGS, { missingClauses: [] });
+    expect(
+      screen.queryByText("Protections the contract doesn’t include"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("never renders a jurisdiction section (decision D-A)", async () => {
+    const { container } = await loadWith(THREE_FINDINGS, {
+      missingClauses: ["No late payment interest or penalty is specified."],
+    });
+    expect(screen.queryByText(/jurisdiction/i)).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/united states|indonesia/i);
+  });
+});
+
+describe("ReportPage delete (BUILD-PLAN step 37, FR-7.6)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  /** @param {object[]} findings @param {object} [overrides] */
+  async function loadWith(findings, overrides) {
+    vi.mocked(apiFetch).mockResolvedValue({
+      document: DOCUMENT,
+      analysis: analysisWith(findings, overrides),
+    });
+    const utils = renderReport();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    return utils;
+  }
+
+  it('shows "Done with this contract?" and a delete trigger that opens a confirmation naming permanence', async () => {
+    await loadWith(THREE_FINDINGS);
+    expect(screen.getByText("Done with this contract?")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Delete this contract permanently?" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The document and this report will be removed from our database. This can’t be undone, and we won’t be able to recover them for you.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('"Keep it" closes the dialog without calling the API', async () => {
+    await loadWith(THREE_FINDINGS);
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    vi.mocked(apiFetch).mockClear(); // clear the initial GET call
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+
+    expect(
+      screen.queryByRole("heading", { name: "Delete this contract permanently?" }),
+    ).not.toBeInTheDocument();
+    expect(apiFetch).not.toHaveBeenCalled();
+  });
+
+  it("confirming calls DELETE on this document and redirects to history", async () => {
+    await loadWith(THREE_FINDINGS);
+    vi.mocked(apiFetch).mockResolvedValueOnce({ deleted: true, message: "x" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    // Two buttons now share the label "Delete permanently" (the trigger,
+    // now hidden behind the dialog, and the dialog's own confirm button)
+    // — the dialog's is the one still in an accessible, interactive state.
+    const confirmButtons = screen.getAllByRole("button", { name: "Delete permanently" });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+
+    await screen.findByText("History screen");
+    expect(apiFetch).toHaveBeenCalledWith("/api/v1/documents/doc1", { method: "DELETE" });
+  });
+
+  it("a failed delete keeps the dialog open and shows the server's error, not a silent failure", async () => {
+    await loadWith(THREE_FINDINGS);
+    vi.mocked(apiFetch).mockRejectedValueOnce(
+      new ApiError("NOT_FOUND", "We couldn't find that.", "req_1", 404),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    const confirmButtons = screen.getAllByRole("button", { name: "Delete permanently" });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+
+    expect(await screen.findByText("We couldn't find that.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Delete this contract permanently?" }),
+    ).toBeInTheDocument();
   });
 });

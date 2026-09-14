@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { apiFetch, ApiError } from "../api/client.js";
 import { useI18n } from "../i18n/useI18n.js";
 import { SEVERITY_MARKS } from "../components/SeverityBadge.jsx";
 import SkipLink from "../components/SkipLink.jsx";
 import Banner from "../components/Banner.jsx";
+import Button from "../components/Button.jsx";
+import Dialog from "../components/Dialog.jsx";
 import FindingCard from "./FindingCard.jsx";
 import "./ReportPage.css";
 
@@ -52,7 +54,25 @@ const CHECKED_AREAS = [
  * from fields the server already returns, with no change to the output
  * contract or the prompt — unlike the fourth prototype feature D-C
  * reviews (present protections), which stays deferred because it would
- * need a real model-output-schema change.
+ * need a real model-output-schema change. That deferral is also why the
+ * prototype's "the protections we look for are all here" block (PRESENT)
+ * is not built here: it only ever appears when a report has both zero
+ * findings AND zero missing clauses (fixture 03's exact state — PRD
+ * §11.1's release gate), and the server has no "present" list to show
+ * for it, only the two lists Phase 1 already returns.
+ *
+ * Step 37 amendment, on the disclaimer's position specifically: the
+ * prototype places it at the very bottom of the report, after every
+ * finding card. This step's own instructions require it "visible without
+ * scrolling past the fold on desktop" — true for a short report, but not
+ * a claim any bottom-of-page position can keep for a report with several
+ * findings, which is exactly the report a user most needs the disclaimer
+ * on before acting on what's above it. It renders once, in the masthead
+ * (right after the summary), which is provably above the fold at every
+ * report length — not "moved" in the sense the instructions warn against
+ * (into a footer, a tooltip, fine print), just placed where "on every
+ * report, above the fold" and "on every report" can both stay true at
+ * once.
  */
 export default function ReportPage() {
   const { id } = useParams();
@@ -71,6 +91,14 @@ export default function ReportPage() {
 /** @param {{ id: string | undefined }} props */
 function ReportPageForDocument({ id }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const [deleteState, setDeleteState] = useState(
+    /** @type {{ open: boolean, deleting: boolean, error: string | null }} */ ({
+      open: false,
+      deleting: false,
+      error: null,
+    }),
+  );
   const [state, setState] = useState(
     /** @type {{ status: "loading" | "loaded" | "error", document: object | null, analysis: object | null, error: unknown }} */ ({
       status: "loading",
@@ -111,6 +139,25 @@ function ReportPageForDocument({ id }) {
       cancelled = true;
     };
   }, [id]);
+
+  function closeDeleteDialog() {
+    setDeleteState({ open: false, deleting: false, error: null });
+  }
+
+  /** FR-7.6: confirmed, permanent, then redirect to history. */
+  async function handleConfirmDelete() {
+    setDeleteState((current) => ({ ...current, deleting: true, error: null }));
+    try {
+      await apiFetch(`/api/v1/documents/${id}`, { method: "DELETE" });
+      // /documents (history) is step 38's screen — see App.jsx's
+      // placeholder route, the same pattern step 33 used for
+      // /documents/:id before step 35 built the real thing.
+      navigate("/documents");
+    } catch (err) {
+      if (!(err instanceof ApiError)) throw err;
+      setDeleteState({ open: true, deleting: false, error: err.message });
+    }
+  }
 
   if (state.status === "loading") {
     return (
@@ -230,11 +277,11 @@ function ReportPageForDocument({ id }) {
   return (
     <div className="cc-report">
       <SkipLink />
-      {/* Points at "/" (upload), not the prototype's history screen: /documents
-          doesn't exist as a route until step 38, and there is no app-chrome nav
-          yet to reach it from either (step 39). A real "back to history" link
-          replaces this once both exist. */}
-      <Link to="/" className="cc-report__back-link">
+      {/* /documents exists as a route (App.jsx's HistoryPlaceholder, added
+          this step for FR-7.6's delete redirect) but not yet as the real
+          history screen — step 38's. The link is real; what it lands on
+          isn't, yet. */}
+      <Link to="/documents" className="cc-report__back-link">
         {t.back}
       </Link>
 
@@ -269,6 +316,12 @@ function ReportPageForDocument({ id }) {
 
             <p className="cc-report__summary">{analysis.summary}</p>
           </div>
+
+          {/* NFR-4.1 / PRD §7 — exact, locked wording (i18n/disclaimer.js),
+              in body text on every report. See the file header for why this
+              sits in the masthead rather than the prototype's bottom-of-page
+              placement. */}
+          <p className="cc-report__disclaimer">{t.disclaimer}</p>
 
           {hasFindings ? (
             <div className="cc-report__breakdown">
@@ -389,7 +442,79 @@ function ReportPageForDocument({ id }) {
             </ul>
           </div>
         )}
+
+        {/* NOT BUILT: "Notes on your jurisdiction" (the prototype's JURIS
+            map, docs/design/ClauseCheck.html). Decision D-A, option A1 — PRD
+            D3 defers jurisdiction to Phase 3, and PRD §12.2 forbids
+            jurisdiction-specific advice. This is a deliberate cut, not a
+            gap: re-enabling it later should be a conscious decision that
+            revisits D-A, not a rediscovery of a missing section. */}
+
+        {analysis.missingClauses.length > 0 ? (
+          <div className="cc-report__missing">
+            <h2 className="cc-report__section-title">{t.missingHead}</h2>
+            <p className="cc-report__section-sub">{t.missingSub}</p>
+            <ul className="cc-report__missing-list">
+              {analysis.missingClauses.map((clause, index) => (
+                <li className="cc-report__missing-item" key={index}>
+                  <span className="cc-report__missing-mark" aria-hidden="true">
+                    —
+                  </span>
+                  {/* Unlike the prototype's PROTECTIONS map (a bold title
+                      plus a separate explanatory sentence), the real
+                      server value is one model-written sentence
+                      (analysisResult.js's z.string(), SRS §4.3's example:
+                      "No late payment interest or penalty is specified.")
+                      — there is no second field to split a title out of. */}
+                  <span className="cc-report__missing-text">{clause}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="cc-report__done">
+          <p className="cc-report__done-head">{t.doneHead}</p>
+          <p className="cc-report__done-body">{t.doneBody}</p>
+          <Button
+            variant="secondary"
+            className="cc-report__delete-trigger"
+            onClick={() => setDeleteState({ open: true, deleting: false, error: null })}
+          >
+            {t.deleteCta}
+          </Button>
+        </div>
       </main>
+
+      <Dialog
+        open={deleteState.open}
+        onClose={closeDeleteDialog}
+        title={t.delHead}
+        description={t.delBody}
+        tone="danger"
+      >
+        {deleteState.error ? (
+          <Banner tone="danger" className="cc-report__delete-error">
+            {deleteState.error}
+          </Banner>
+        ) : null}
+        <div className="cc-dialog__actions">
+          <Button
+            variant="destructive"
+            onClick={handleConfirmDelete}
+            disabled={deleteState.deleting}
+          >
+            {t.deleteCta}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={closeDeleteDialog}
+            disabled={deleteState.deleting}
+          >
+            {t.delKeep}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
