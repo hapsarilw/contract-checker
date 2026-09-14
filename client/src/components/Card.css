@@ -1,0 +1,12 @@
+.cc-card {
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  box-shadow: var(--cc-shadow-card-lg);
+  padding: var(--cc-space-9);
+}
+
+/* The brand-colour top stripe on primary content cards (the report
+   header, the auth card) — a Card without it is a plain container. */
+.cc-card--accent {
+  border-top: var(--cc-border-width-accent) solid var(--cc-brand);
+}

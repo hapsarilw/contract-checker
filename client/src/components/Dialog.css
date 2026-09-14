@@ -1,0 +1,47 @@
+.cc-dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--cc-scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cc-space-8);
+}
+
+.cc-dialog {
+  width: 100%;
+  max-width: 436px;
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule-strong);
+  border-left: 5px solid var(--cc-brand);
+  box-shadow: var(--cc-shadow-modal);
+  padding: 30px 28px 28px;
+}
+
+.cc-dialog--danger {
+  border-left-color: var(--cc-danger);
+}
+
+.cc-dialog__title {
+  margin: 0 0 var(--cc-space-5);
+  font-family: var(--cc-font-serif);
+  font-size: 25px;
+  line-height: 1.14;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  color: var(--cc-ink);
+}
+
+.cc-dialog__body {
+  margin: 0 0 var(--cc-space-9);
+  font-size: var(--cc-text-md);
+  line-height: 1.62;
+  color: var(--cc-ink-secondary);
+}
+
+.cc-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-3);
+}

@@ -1,0 +1,52 @@
+.cc-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-2);
+}
+
+.cc-field__label {
+  font-size: var(--cc-text-base);
+  font-weight: 500;
+  color: var(--cc-ink);
+}
+
+.cc-field__control {
+  width: 100%;
+  font-family: var(--cc-font-sans);
+  font-size: 15px; /* the prototype's exact input size — between --cc-text-base and --cc-text-lg */
+  padding: 10px 12px;
+  border: var(--cc-border-width) solid var(--cc-rule-strong);
+  border-bottom-width: var(--cc-border-width-focus);
+  border-bottom-color: var(--cc-brand);
+  background: var(--cc-surface-card);
+  color: var(--cc-ink);
+}
+
+/* The paste-a-contract textarea in the prototype reads in the serif body
+   face at a larger size, like the report it will become — not the sans
+   form-field face every other input uses. */
+.cc-field__control--multiline {
+  min-height: 216px;
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-relaxed);
+  padding: 15px 16px;
+  resize: vertical;
+}
+
+/* aria-invalid, not a class the JSX has to remember to add and remove in
+   step: the styling and the accessible state can never drift apart. */
+.cc-field__control[aria-invalid="true"] {
+  border-color: var(--cc-danger);
+}
+
+.cc-field__hint {
+  font-size: var(--cc-text-sm);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-field__error {
+  font-size: var(--cc-text-sm);
+  font-weight: 500;
+  color: var(--cc-danger);
+}

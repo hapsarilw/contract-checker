@@ -1,0 +1,35 @@
+.cc-banner {
+  border-left: 2px solid;
+  padding: var(--cc-space-7) var(--cc-space-8);
+}
+
+.cc-banner__title {
+  font-size: var(--cc-text-md);
+  font-weight: 600;
+  color: var(--cc-ink);
+  margin: 0 0 var(--cc-space-1);
+  letter-spacing: -0.008em;
+}
+
+.cc-banner__body {
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-ink-secondary);
+  margin: 0;
+  max-width: 62ch;
+}
+
+.cc-banner--danger {
+  border-left-color: var(--cc-danger);
+  background: var(--cc-severity-high-tint);
+}
+
+.cc-banner--warning {
+  border-left-color: var(--cc-severity-medium);
+  background: var(--cc-severity-medium-tint);
+}
+
+.cc-banner--info {
+  border-left-color: var(--cc-brand);
+  background: var(--cc-surface-muted);
+}

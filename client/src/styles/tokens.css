@@ -53,6 +53,30 @@
   --cc-severity-high: #7a3f2e;
   --cc-severity-medium: #7a6520;
   --cc-severity-low: #3d5a4e;
+  /* Pastel backgrounds SeverityBadge pairs with the marks above.
+     Text-on-tint clears 4.5:1 for all three (checked, step 30):
+     high 7.03:1, medium 4.92:1 (the tight one), low 6.49:1. */
+  --cc-severity-high-tint: #f4ede8;
+  --cc-severity-medium-tint: #f3efe0;
+  --cc-severity-low-tint: #e9efe9;
+
+  /* ---- Palette — danger (destructive actions, error banners) -------- */
+  /* An alias, not a new colour: the prototype reuses severity-high for
+     every destructive control (step 30 — delete buttons, error banners).
+     Named separately so a destructive Button doesn't read as "this is a
+     severity indicator" in the code that uses it. */
+  --cc-danger: var(--cc-severity-high);
+  /* Not in the prototype (no destructive button has a hover state to
+     read off) — derived by applying brand-to-brand-hover's exact HSL
+     lightness drop (6.3 points) to --cc-danger, so it darkens by the same
+     amount the brand colour does on hover. Contrast vs white text: 9.90:1. */
+  --cc-danger-hover: #633325;
+
+  /* CopyButton's confirmed state. Close to but distinct from
+     --cc-severity-low-tint (#E9EFE9) in the prototype — a different
+     concept (confirmation, not a low-severity finding), kept as its own
+     token rather than reused so the two can diverge on purpose later. */
+  --cc-success-tint: #e7ede9;
 
   /* ---- Type — families ------------------------------------------ */
   /* Report body and quoted excerpts. */
@@ -114,4 +138,7 @@
   --cc-shadow-modal: 0 24px 60px -20px rgba(20, 20, 20, 0.45);
   --cc-shadow-popover: 0 8px 20px rgba(22, 24, 26, 0.09);
   --cc-shadow-hairline: 0 1px 0 rgba(20, 20, 20, 0.2);
+
+  /* Dialog's full-screen backdrop. */
+  --cc-scrim: rgba(22, 24, 26, 0.46);
 }

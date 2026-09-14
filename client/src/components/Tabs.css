@@ -1,0 +1,36 @@
+.cc-tablist {
+  display: flex;
+  gap: var(--cc-space-9);
+  padding: 0 var(--cc-space-9);
+  border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
+  background: var(--cc-surface-muted);
+}
+
+.cc-tab {
+  font-size: var(--cc-text-base);
+  padding: 14px 1px;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  flex: none;
+  border: none;
+  border-bottom: var(--cc-border-width-focus) solid transparent;
+  background: none;
+  cursor: pointer;
+  color: var(--cc-ink-secondary);
+  font-weight: 400;
+  /* WCAG 2.5.8: 24x24 CSS px minimum target, even though this looks like
+     plain text — the horizontal padding is nearly zero (the prototype's
+     underline sits flush with the label), so height carries the target
+     size instead. */
+  min-height: 24px;
+}
+
+.cc-tab[aria-selected="true"] {
+  border-bottom-color: var(--cc-brand);
+  color: var(--cc-ink);
+  font-weight: 600;
+}
+
+.cc-tabpanel {
+  padding: var(--cc-space-9) var(--cc-space-9) 24px;
+}

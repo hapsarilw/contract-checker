@@ -1,0 +1,40 @@
+.cc-severity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cc-space-2);
+  padding: var(--cc-space-1) var(--cc-space-4);
+  font-size: var(--cc-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-wider);
+  text-transform: uppercase;
+  border-left-style: solid;
+  border-left-width: var(--cc-border-width-accent);
+}
+
+.cc-severity-badge__mark {
+  font-family: var(--cc-font-mono);
+  letter-spacing: 0.16em;
+  text-transform: none;
+  /* The mark is decorative here — the text label carries the accessible
+     name (WCAG 1.4.1: text plus shape, never colour alone; the shape is
+     for sighted users who scan by pattern, not for the accessible name
+     itself, which is why the glyph is aria-hidden in the component). */
+}
+
+.cc-severity-badge--high {
+  background: var(--cc-severity-high-tint);
+  border-left-color: var(--cc-severity-high);
+  color: var(--cc-severity-high);
+}
+
+.cc-severity-badge--medium {
+  background: var(--cc-severity-medium-tint);
+  border-left-color: var(--cc-severity-medium);
+  color: var(--cc-severity-medium);
+}
+
+.cc-severity-badge--low {
+  background: var(--cc-severity-low-tint);
+  border-left-color: var(--cc-severity-low);
+  color: var(--cc-severity-low);
+}

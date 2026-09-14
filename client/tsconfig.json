@@ -19,6 +19,14 @@
 
     "types": ["vite/client", "node"]
   },
-  "include": ["src/**/*.js", "src/**/*.jsx", "scripts/**/*.mjs", "*.config.js"],
+  "include": [
+    "src/**/*.js",
+    "src/**/*.jsx",
+    "tests/**/*.js",
+    "tests/**/*.jsx",
+    "tests/**/*.d.ts",
+    "scripts/**/*.mjs",
+    "*.config.js"
+  ],
   "exclude": ["node_modules", "dist"]
 }

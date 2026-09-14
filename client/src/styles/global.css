@@ -73,6 +73,28 @@ textarea::placeholder {
   }
 }
 
+/**
+ * BUILD-PLAN step 30 — not from the prototype (a static comp has no
+ * screen-reader-only content to hide), added for CopyButton's
+ * aria-live="polite" confirmation region: visible to assistive
+ * technology, invisible on screen, and — unlike `display:none` or
+ * `visibility:hidden` — still perceivable by a screen reader, which is
+ * the entire point of a live region. The standard clip-based pattern,
+ * not `width/height:0`, because some screen readers skip zero-size
+ * elements entirely.
+ */
+.cc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* The prototype disables every animation and transition outright rather
    than substituting a reduced one — cc-pulse is a loading indicator and
    cc-fade is a tooltip/panel entrance, neither carries information that a
