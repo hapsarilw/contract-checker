@@ -140,3 +140,14 @@ describe("MockLlmProvider (SRS §2.3 — LLM_PROVIDER=mock)", () => {
     expect(() => JSON.parse(result.rawText)).not.toThrow();
   });
 });
+
+describe("MockLlmProvider — delayed responses", () => {
+  it("holds a scripted valid response back for delayMs", async () => {
+    const provider = new MockLlmProvider();
+    provider.scriptValidResponse({}, { delayMs: 60 });
+
+    const started = Date.now();
+    await provider.analyze({});
+    expect(Date.now() - started).toBeGreaterThanOrEqual(50);
+  });
+});

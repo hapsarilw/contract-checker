@@ -9,6 +9,7 @@ import {
   singleFileUpload,
   sanitizeFilename,
 } from "../middleware/upload.js";
+import { analyzeDocument } from "../services/analysis.js";
 import { intakeUpload, intakePastedText } from "../services/intake.js";
 import { pasteDocumentSchema } from "../schemas/document.js";
 import { decodeCursor, encodeCursor, resolvePageLimit } from "../lib/pagination.js";
@@ -159,10 +160,7 @@ router.get("/", requireAuth, async (req, res, next) => {
  * "Latest" is not filtered to COMPLETED: this is a direct reading of
  * "latest analysis", and a user whose most recent attempt is PENDING or
  * FAILED should see that state rather than the route silently acting as
- * if no analysis had ever run. No route in this codebase can create a
- * non-null Analysis row yet (POST .../analyze doesn't exist until step
- * 25), so `analysis` is always null today; this shape is what step 25
- * will populate without documents.js needing to change.
+ * if no analysis had ever run.
  */
 router.get("/:id", requireAuth, async (req, res, next) => {
   try {
@@ -178,6 +176,24 @@ router.get("/:id", requireAuth, async (req, res, next) => {
       document: serializeDocument(document),
       analysis: analysis ? serializeAnalysis(analysis) : null,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/v1/documents/:id/analyze — §2.2's sequence, run synchronously
+ * (FR-3.7) by services/analysis.js, returning the full report with 200 as in
+ * §4.3's example. serializeAnalysis sorts findings high to medium to low
+ * (§2.2 step 12) and never includes modelRisk (PRD D7).
+ */
+router.post("/:id/analyze", requireAuth, async (req, res, next) => {
+  try {
+    const analysis = await analyzeDocument({
+      documentId: req.params.id,
+      userId: req.auth.userId,
+    });
+    res.status(200).json({ analysis: serializeAnalysis(analysis) });
   } catch (err) {
     next(err);
   }

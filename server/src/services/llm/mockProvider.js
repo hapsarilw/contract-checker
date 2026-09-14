@@ -39,10 +39,13 @@ export class MockLlmProvider {
     };
   }
 
-  /** Queues a well-formed AnalysisResult (§5.2). Each call to analyze() consumes one queued script, in order. */
-  scriptValidResponse(overrides = {}, { fenced = false } = {}) {
+  /**
+   * Queues a well-formed AnalysisResult (§5.2). Each call to analyze() consumes one queued script, in order.
+   * `delayMs` holds the response back, keeping an analysis PENDING long enough for a concurrency test to race it.
+   */
+  scriptValidResponse(overrides = {}, { fenced = false, delayMs = 0 } = {}) {
     const json = JSON.stringify(MockLlmProvider.#validResponseBody(overrides));
-    this.#queue.push({ kind: "text", text: fenced ? "```json\n" + json + "\n```" : json });
+    this.#queue.push({ kind: "text", text: fenced ? "```json\n" + json + "\n```" : json, delayMs });
     return this;
   }
 
@@ -157,9 +160,9 @@ export class MockLlmProvider {
     this.calls.push({ documentText, requestId, correction, at: startedAt });
 
     const script = this.#queue.shift();
+    if (script?.delayMs) await new Promise((resolve) => setTimeout(resolve, script.delayMs));
 
     if (script?.kind === "error") {
-      if (script.delayMs) await new Promise((resolve) => setTimeout(resolve, script.delayMs));
       throw script.build();
     }
 
