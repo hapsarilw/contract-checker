@@ -57,18 +57,26 @@ Two things differ from the prototype: its glossary markup (`[[term|text]]`) is r
 
 ## Verified
 
-Checked with the production code, not a copy of it — `normalize` and `excerptAppears` from `src/services/`, and each file through `intakeUpload` or `intakePastedText`:
+```bash
+npm run fixtures:verify
+```
 
-- 18/18 answer-key excerpts found in the `.txt`, 18/18 in the `.docx` read by mammoth, 18/18 in the `.pdf` read by pdf-parse
-- the 3 fabricated excerpts absent from all 9 forms of the documents they are checked against
-- all 18 fixture files meet the intake outcome the key records, and each `.txt` has the key's word count (asserted in `tests/unit/intake.test.js`)
-- the 12 excerpts of fixture 13 present in all three forms of their source fixtures
+`verify-fixtures.js` is the SRS §11.3 generation constraint as a script, not a claim in this file: it imports `normalizeForMatch` and `excerptAppears` from `src/services/verify.js` (never a copy — a stale copy keeps passing after the real matcher changes), and gets each document's text through `intakeUpload`/`intakePastedText`, the same two entry points production calls. That means the PDF side comes from pdf-parse, the extractor SRS §9 names for production, not pdftotext — pdftotext proves an excerpt survives *a* extractor, not the one production runs.
 
-The PDF check matters because it proves the excerpts survive real extraction. If your pipeline discards a finding from fixture 01 or 04, the bug is in your normalisation (FR-2.4), not in the fixture. None of the 18 excerpts crosses a page break or a line wrapped after a hyphen in the current layout; one that did would fail against pdf-parse's output, which would be an extraction defect to fix rather than a fixture to rearrange.
+Every excerpt that `findings`, `also_acceptable`, or `fair_clauses_do_not_flag` claims is real text of its document is checked against both the `.txt` and the PDF-extracted form; all three `fabricated_excerpts` are checked to be absent from both. A run currently reports:
 
-The contracts use typographic apostrophes (U+2019) rather than ASCII ones. This is deliberate — it exercises the curly-quote path in §5.3, which is the most likely cause of a legitimate finding being silently discarded.
+```
+OK: 18 excerpt(s) verified across 3 document(s), each in txt and pdf form; 3 fabricated excerpt(s) confirmed absent.
+```
 
-An automated check that exits non-zero on any failed excerpt (SRS §11.3) is not wired up yet.
+18, not 30 — fixture 03 contributes zero by design (its `findings` array is empty on purpose, see above), and only 01, 02, and 04 have excerpts to check. The 12 excerpts of fixture 13 are checked separately, in `build.js` at generation time, since 13 is not in `expected.json`.
+
+Exits non-zero on the first mismatch, naming the document, the format, and the excerpt — verified by corrupting an excerpt in `expected.json`, planting a fabricated excerpt as a real finding, editing the clause text in `contracts.js` out from under its answer key, and falsely marking a real clause as fabricated. All four are caught; none is wired into CI yet (step 70).
+
+Two things this script deliberately does NOT do, both intentional:
+
+- It never compares PDF bytes. PDFs built by `build.js` are pinned to a fixed date and so happen to be byte-identical across rebuilds, but this script would still be correct if they weren't — it only ever compares text extracted through the real pipeline, because that is what a match against `Document.rawText` at runtime actually depends on.
+- The document side of every comparison already has curly quotes folded to straight by `normalize()` (FR-2.4) before this script's `excerptAppears` call ever sees it — the same folding production applies before storing `Document.rawText`. So this corpus's typographic apostrophes (U+2019) exercise `normalizeForMatch`'s curly-quote branch only from the excerpt side. That's by design: SRS §10.5's 100% branch coverage on `verify.js` comes from TR-3's unit tests, which drive both sides directly, not from this corpus.
 
 ## Regenerating
 
