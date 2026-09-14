@@ -6,7 +6,7 @@ import { SEVERITY_MARKS } from "../components/SeverityBadge.jsx";
 import SkipLink from "../components/SkipLink.jsx";
 import Banner from "../components/Banner.jsx";
 import Button from "../components/Button.jsx";
-import Dialog from "../components/Dialog.jsx";
+import DeleteDocumentDialog from "../components/DeleteDocumentDialog.jsx";
 import FindingCard from "./FindingCard.jsx";
 import "./ReportPage.css";
 
@@ -486,35 +486,13 @@ function ReportPageForDocument({ id }) {
         </div>
       </main>
 
-      <Dialog
+      <DeleteDocumentDialog
         open={deleteState.open}
+        deleting={deleteState.deleting}
+        error={deleteState.error}
+        onConfirm={handleConfirmDelete}
         onClose={closeDeleteDialog}
-        title={t.delHead}
-        description={t.delBody}
-        tone="danger"
-      >
-        {deleteState.error ? (
-          <Banner tone="danger" className="cc-report__delete-error">
-            {deleteState.error}
-          </Banner>
-        ) : null}
-        <div className="cc-dialog__actions">
-          <Button
-            variant="destructive"
-            onClick={handleConfirmDelete}
-            disabled={deleteState.deleting}
-          >
-            {t.deleteCta}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={closeDeleteDialog}
-            disabled={deleteState.deleting}
-          >
-            {t.delKeep}
-          </Button>
-        </div>
-      </Dialog>
+      />
     </div>
   );
 }

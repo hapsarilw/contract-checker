@@ -80,4 +80,15 @@ export const id = {
   sevSuffix: " risiko",
   quoteNote:
     "Kutipan klausul tetap dalam bahasa asli dokumen — menerjemahkannya akan menghilangkan bukti bahwa kalimat itu benar-benar ada di kontrak Anda.",
+  historyBlurbFull: "Buka laporan lagi, atau hapus kontrak secara permanen.",
+  historyBlurbEmpty: "Setiap kontrak yang Anda periksa akan tercantum di sini.",
+  historyEmptyTitle: "Belum ada kontrak yang diperiksa.",
+  historyEmptyBody:
+    "Saat Anda memeriksa kontrak, kontrak itu akan tercantum di sini beserta tingkat risikonya, sehingga Anda bisa membuka laporannya lagi nanti — atau menghapusnya.",
+  historyEmptyCta: "Periksa kontrak pertama Anda",
+  historyNotAnalyzed: "Belum dianalisis",
+  historyNoFindings: "Tidak ada temuan",
+  deleteRow: "Hapus",
+  loadMore: "Muat lebih banyak",
+  loadingMore: "Memuat…",
 };

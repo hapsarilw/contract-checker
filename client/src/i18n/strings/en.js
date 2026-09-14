@@ -91,4 +91,25 @@ export const en = {
   of: " of ",
   sevSuffix: " severity",
   quoteNote: null,
+  // Step 38 — the prototype's two `historyBlurb` variants (its own
+  // sc-if on `s.screen === 'history-empty'`), and the history-empty
+  // screen's title/body/CTA, which the prototype treats as literals
+  // rather than L-map entries but are ported here the same way every
+  // other prototype string on a real screen is.
+  historyBlurbFull: "Open a report again, or delete a contract for good.",
+  historyBlurbEmpty: "Every contract you check is listed here.",
+  historyEmptyTitle: "No contracts checked yet.",
+  historyEmptyBody:
+    "When you check a contract it’ll be listed here with its risk level, so you can open the report again later — or delete it.",
+  historyEmptyCta: "Check your first contract",
+  // Not in the prototype: its demo rows always have a completed
+  // analysis. A real row can lack one (uploaded, never analyzed, or an
+  // analyze attempt that failed) — FR-4.1's `overallRisk`/`findingCount`
+  // are then `null`/`0`, and showing "No findings" for THAT would claim
+  // a clean result that was never actually checked for.
+  historyNotAnalyzed: "Not yet analyzed",
+  historyNoFindings: "No findings",
+  deleteRow: "Delete",
+  loadMore: "Load more",
+  loadingMore: "Loading…",
 };

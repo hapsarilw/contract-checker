@@ -1,0 +1,193 @@
+/**
+ * BUILD-PLAN step 38 — the prototype's "4. HISTORY" / "history-empty"
+ * screens (docs/design/ClauseCheck.html), matched layout-for-layout.
+ */
+
+.cc-history {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 52px 28px 64px;
+}
+
+.cc-history__title {
+  margin: 0 0 var(--cc-space-4);
+  font-family: var(--cc-font-serif);
+  font-size: 34px;
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-tight);
+  color: var(--cc-ink);
+}
+
+.cc-history__blurb {
+  margin: 0 0 var(--cc-space-10);
+  font-size: var(--cc-text-md);
+  line-height: 1.62;
+  color: var(--cc-ink-secondary);
+}
+
+.cc-history__status {
+  font-size: var(--cc-text-md);
+  color: var(--cc-ink-secondary);
+}
+
+/* ---- Empty state ----------------------------------------------------- */
+
+.cc-history__empty {
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  box-shadow: var(--cc-shadow-card-lg);
+  padding: 62px 26px;
+  text-align: center;
+}
+
+.cc-history__empty-title {
+  margin: 0 0 var(--cc-space-5);
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-3xl);
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-tight);
+  color: var(--cc-ink);
+}
+
+.cc-history__empty-body {
+  margin: 0 auto var(--cc-space-9);
+  max-width: 46ch;
+  font-size: var(--cc-text-base);
+  line-height: 1.64;
+  color: var(--cc-ink-secondary);
+}
+
+/* ---- Populated list ---------------------------------------------------- */
+
+.cc-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-top: 0;
+  box-shadow: var(--cc-shadow-card-lg);
+}
+
+.cc-history__row {
+  display: flex;
+  align-items: stretch;
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+.cc-history__row-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-3) var(--cc-space-9);
+  align-items: baseline;
+  padding: var(--cc-space-8) var(--cc-space-9);
+  color: inherit;
+  text-decoration: none;
+}
+.cc-history__row-link:hover {
+  background: var(--cc-surface-muted);
+}
+
+.cc-history__row-name {
+  flex: 1 1 230px;
+  min-width: 0;
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-lg);
+  font-weight: 500;
+  color: var(--cc-ink);
+  letter-spacing: -0.012em;
+}
+
+.cc-history__row-date {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-sm);
+  color: var(--cc-ink-secondary);
+  flex: none;
+  min-width: 92px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Not --cc-ink-muted, unlike the prototype's own #7F857D here: that
+   clears only 3.62:1 against this card's background — the same 4.5:1
+   gap axe has caught on this literal colour in three earlier screens
+   (upload, auth, analyzing). --cc-ink-secondary is the fix used there. */
+.cc-history__row-words {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-sm);
+  color: var(--cc-ink-secondary);
+  flex: none;
+  min-width: 80px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-history__row-risk {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cc-space-3);
+  flex: none;
+  min-width: 104px;
+  font-size: var(--cc-text-sm);
+  font-weight: 600;
+}
+.cc-history__row-risk--high {
+  color: var(--cc-severity-high);
+}
+.cc-history__row-risk--medium {
+  color: var(--cc-severity-medium);
+}
+.cc-history__row-risk--low {
+  color: var(--cc-severity-low);
+}
+.cc-history__row-risk--none {
+  color: var(--cc-ink-secondary);
+  font-weight: 400;
+}
+
+.cc-history__row-risk-mark {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-sm);
+  letter-spacing: 0.16em;
+}
+
+.cc-history__row-findings {
+  font-size: var(--cc-text-sm);
+  color: var(--cc-ink-secondary);
+  flex: none;
+  min-width: 88px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-history__row-delete {
+  flex: none;
+  align-self: center;
+  margin-right: var(--cc-space-8);
+  min-width: 24px;
+  min-height: 24px;
+  padding: var(--cc-space-3) var(--cc-space-4);
+  font-size: var(--cc-text-sm);
+  font-weight: 500;
+  color: var(--cc-ink-secondary);
+  background: none;
+  border: var(--cc-border-width) solid transparent;
+  cursor: pointer;
+}
+.cc-history__row-delete:hover {
+  color: var(--cc-danger);
+}
+
+/* ---- Load more --------------------------------------------------------- */
+
+.cc-history__load-more {
+  margin-top: var(--cc-space-9);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cc-space-5);
+}
+
+.cc-history__load-more-error {
+  width: 100%;
+}

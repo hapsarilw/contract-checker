@@ -499,6 +499,16 @@ test.describe("the findings list (BUILD-PLAN step 36)", () => {
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    // GlossaryTerm.css's popover only animates (cc-fade, 120ms) under
+    // `prefers-reduced-motion: no-preference` — real user preference,
+    // honoured per SRS §7.15's Motion row. Reducing it here isn't a test
+    // convenience layered on top of that CSS rule, it's exercising the
+    // rule's OTHER branch, which nothing else in this suite reaches:
+    // without it, axe intermittently samples the popover mid-fade
+    // (partial opacity blends its text into the background, briefly
+    // failing color-contrast) — a real race, not a flaky assertion,
+    // caught running this file repeatedly while building step 38.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
     await page.goto("/documents/doc1");
 
@@ -516,6 +526,8 @@ test.describe("the findings list (BUILD-PLAN step 36)", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 320, height: 900 });
+    // See the comment on the axe test above — same fade/contrast race.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
     await page.goto("/documents/doc1");
 
@@ -720,6 +732,18 @@ test.describe("delete (BUILD-PLAN step 37, FR-7.6)", () => {
 
   test("confirming deletes the document and redirects to history", async ({ page }) => {
     await mockReportAndDelete(page);
+    // The redirect target is the real HistoryPage (step 38) now, not a
+    // placeholder — it fetches on mount, so it needs its own mock too.
+    await page.route("**/api/v1/documents", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          documents: [],
+          page: { nextCursor: null, hasMore: false },
+        }),
+      }),
+    );
     await page.goto("/documents/doc1");
 
     await page.getByRole("button", { name: "Delete permanently" }).click();
@@ -729,7 +753,7 @@ test.describe("delete (BUILD-PLAN step 37, FR-7.6)", () => {
       .click();
 
     await expect(page).toHaveURL("/documents");
-    await expect(page.getByText("The history screen arrives")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "History" })).toBeVisible();
   });
 
   test("a failed delete keeps the dialog open and shows the server's error", async ({

@@ -484,7 +484,3 @@
 .cc-report__delete-trigger.cc-button--secondary:hover:not(:disabled) {
   background: var(--cc-severity-high-tint);
 }
-
-.cc-report__delete-error {
-  margin-bottom: var(--cc-space-5);
-}
