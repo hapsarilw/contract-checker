@@ -223,10 +223,15 @@ test.describe("upload screen (/, BUILD-PLAN step 33)", () => {
     await page.getByRole("tab", { name: "Paste the text" }).click();
     await page.getByLabel("Paste the contract text").fill("one two three four five");
 
+    // FR-7.3's "disables on click" applies to THIS half — the upload
+    // POST — where a failure keeps the user on the form (BUILD-PLAN
+    // step 34 moved the analyzing screen to its own AnalyzingPanel,
+    // which only ever mounts once the upload half has already
+    // succeeded; a request that errors here never gets that far, so
+    // the button disables in place rather than disappearing behind it).
     const submit = page.getByRole("button", { name: "Check this contract" });
     await submit.click();
-    await expect(submit).not.toBeVisible(); // the tab area swaps to the analyzing placeholder
-    await expect(page.getByRole("status")).toContainText("Checking your contract");
+    await expect(submit).toBeDisabled();
 
     // NOT awaited: dismissing a beforeunload dialog means "cancel the
     // navigation," and page.reload()'s own promise then never settles —

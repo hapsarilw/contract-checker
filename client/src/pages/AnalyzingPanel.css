@@ -1,0 +1,161 @@
+/**
+ * BUILD-PLAN step 34 — the prototype's "2. ANALYZING" screen
+ * (docs/design/ClauseCheck.html), matched layout-for-layout.
+ */
+
+.cc-analyzing {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 64px 28px 64px;
+}
+
+.cc-analyzing__frame {
+  max-width: 544px;
+}
+
+.cc-analyzing__meta {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-ink-secondary);
+  margin-bottom: var(--cc-space-6);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-analyzing__title {
+  margin: 0 0 var(--cc-space-5);
+  font-family: var(--cc-font-serif);
+  font-size: 33px;
+  line-height: 1.14;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--cc-ink);
+}
+
+.cc-analyzing__subhead {
+  margin: 0 0 var(--cc-space-11);
+  font-size: 15.5px;
+  line-height: 1.62;
+  color: var(--cc-ink-secondary);
+  max-width: 52ch;
+}
+
+.cc-analyzing__stages {
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  box-shadow: var(--cc-shadow-card);
+}
+
+.cc-analyzing__stage {
+  display: flex;
+  gap: var(--cc-space-6);
+  align-items: flex-start;
+  padding: var(--cc-space-6) var(--cc-space-9);
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+.cc-analyzing__stage:first-child {
+  border-top: none;
+}
+
+.cc-analyzing__stage-mark {
+  font-family: var(--cc-font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  width: 13px;
+  flex: none;
+}
+
+.cc-analyzing__stage-mark--done {
+  color: var(--cc-brand);
+}
+.cc-analyzing__stage-mark--current {
+  color: var(--cc-ink);
+  animation: cc-pulse 2s ease-in-out infinite;
+}
+.cc-analyzing__stage-mark--pending {
+  /* Not --cc-ink-muted: the prototype's own #7F857D here clears only
+     3.62:1 against this card's background — needs 4.5:1 (WCAG 1.4.3,
+     axe's color-contrast rule, caught running this screen's own axe
+     test). --cc-ink-secondary clears 6.89:1 against the same
+     background and is already this app's "still legible, just less
+     emphasised" tone elsewhere. */
+  color: var(--cc-ink-secondary);
+}
+
+.cc-analyzing__stage-label {
+  font-size: var(--cc-text-md);
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+}
+
+.cc-analyzing__stage-label--done {
+  color: var(--cc-brand);
+  font-weight: 400;
+}
+.cc-analyzing__stage-label--current {
+  color: var(--cc-ink);
+  font-weight: 600;
+}
+.cc-analyzing__stage-label--pending {
+  /* Same fix, same reason as the mark above. */
+  color: var(--cc-ink-secondary);
+  font-weight: 400;
+}
+
+.cc-analyzing__stage-note {
+  font-size: var(--cc-text-sm);
+  line-height: 1.55;
+  color: var(--cc-ink-secondary);
+  margin-top: var(--cc-space-1);
+  max-width: 52ch;
+}
+
+.cc-analyzing__honesty-note {
+  margin: var(--cc-space-7) 0 0;
+  font-size: var(--cc-text-base);
+  line-height: 1.58;
+  color: var(--cc-ink-secondary);
+  max-width: 50ch;
+}
+
+/* ---- The analyze-error card (replaces the stages entirely) --------- */
+
+.cc-analyzing-error {
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-top: var(--cc-border-width-focus) solid var(--cc-danger);
+  padding: 28px 26px;
+}
+
+.cc-analyzing-error__title {
+  margin: 0 0 var(--cc-space-4);
+  font-size: 21px;
+  line-height: 1.26;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  color: var(--cc-ink);
+}
+
+.cc-analyzing-error__body {
+  margin: 0 0 var(--cc-space-9);
+  font-size: 15.5px;
+  line-height: 1.62;
+  color: var(--cc-ink-secondary);
+}
+
+.cc-analyzing-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-3);
+}
+
+.cc-analyzing-error__code {
+  font-family: var(--cc-font-mono);
+  font-size: 10.5px;
+  /* --cc-ink-secondary, not the prototype's #9A857A — that literal
+     value clears only 3.02:1 against a light card background too (see
+     UploadPage.css/AuthForm.css's own notes on this same prototype
+     pattern, fixed twice already in step 33). */
+  color: var(--cc-ink-secondary);
+  margin-top: var(--cc-space-8);
+}
