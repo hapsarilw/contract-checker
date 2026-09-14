@@ -1,0 +1,85 @@
+/**
+ * BUILD-PLAN step 29, bullet 3 — the prototype's global stylesheet
+ * (docs/design/ClauseCheck.html, the small <style> block right after its
+ * @font-face declarations), ported rule-for-rule and re-expressed through
+ * the tokens in tokens.css. The prototype already gets the accessibility
+ * behaviour right (:focus-visible, prefers-reduced-motion) — this file
+ * keeps it, not rewrites it.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cc-surface-page);
+  color: var(--cc-ink);
+  font-family: var(--cc-font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: var(--cc-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+a:hover {
+  color: var(--cc-brand-hover);
+}
+
+button {
+  font-family: inherit;
+  letter-spacing: inherit;
+}
+
+:focus-visible {
+  outline: var(--cc-border-width-focus) solid var(--cc-brand);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #dce5e0;
+}
+
+blockquote {
+  margin: 0;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--cc-placeholder);
+}
+
+@keyframes cc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes cc-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The prototype disables every animation and transition outright rather
+   than substituting a reduced one — cc-pulse is a loading indicator and
+   cc-fade is a tooltip/panel entrance, neither carries information that a
+   reduced variant would need to preserve. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

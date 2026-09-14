@@ -1,0 +1,117 @@
+/**
+ * SRS §2.1 / BUILD-PLAN step 29 — design tokens read out of the design
+ * prototype (docs/design/ClauseCheck.html, decoded from its
+ * `<script type="__bundler/template">` payload), not approximated.
+ *
+ * Two different levels of fidelity below, and they are labelled apart on
+ * purpose:
+ *
+ *   - PALETTE is the exact set BUILD-PLAN.md's Frontend section names, plus
+ *     the handful of neutrals the prototype visibly reuses often enough to
+ *     be load-bearing (input/card borders, a muted alt surface). Every hex
+ *     value here is copied, not eyeballed.
+ *   - TYPE SCALE / SPACING is a curated rhythm, not an exhaustive list. The
+ *     prototype is a hand-tuned comp — 24 distinct font-sizes from 10.5px
+ *     to 54px, paddings from 4px to 64px, no consistent multiplier — the
+ *     product of per-component tuning, not a systematic scale. The steps
+ *     below snap to the prototype's most-repeated values (frequency-
+ *     counted, not the first-seen ones) so a real screen can be built on
+ *     them; a screen that genuinely needs a value between steps still
+ *     should, the same way the prototype does, rather than force a token
+ *     that doesn't fit. No screens exist yet (this step is tokens only),
+ *     so this is a starting rhythm, not a claim that every future
+ *     one-off has already been anticipated.
+ */
+
+:root {
+  /* ---- Palette — brand -------------------------------------------- */
+  --cc-brand: #1f4740;
+  --cc-brand-hover: #16302b;
+
+  /* ---- Palette — surfaces ------------------------------------------ */
+  --cc-surface-card: #fbfaf6;
+  --cc-surface-page: #e2e2da;
+  /* Alt/inactive chip background (e.g. an unselected filter pill). */
+  --cc-surface-muted: #f2f1e9;
+
+  /* ---- Palette — ink -------------------------------------------- */
+  --cc-ink: #1d2422;
+  --cc-ink-secondary: #525955;
+  --cc-ink-muted: #7f857d;
+  /* Text on --cc-surface-muted (an inactive pill's label). */
+  --cc-ink-on-muted: #575e5a;
+
+  /* ---- Palette — rules / borders ------------------------------------ */
+  --cc-rule: #d5d2c6;
+  /* Stronger border: form inputs and some card edges. */
+  --cc-rule-strong: #c7c4b6;
+  /* Softer border: dividers inside a card (e.g. between list rows). */
+  --cc-rule-soft: #e9e6dc;
+  --cc-placeholder: #9da39b;
+
+  /* ---- Palette — severity marks (FR-3.9's three levels) ------------- */
+  --cc-severity-high: #7a3f2e;
+  --cc-severity-medium: #7a6520;
+  --cc-severity-low: #3d5a4e;
+
+  /* ---- Type — families ------------------------------------------ */
+  /* Report body and quoted excerpts. */
+  --cc-font-serif: "Literata", Georgia, "Times New Roman", serif;
+  /* Everything else. */
+  --cc-font-sans: "Source Sans 3", system-ui, -apple-system, sans-serif;
+  /* Eyebrow labels, evidence badges, the back-link. */
+  --cc-font-mono: "Source Code Pro", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* ---- Type — scale (rem, 1rem = 16px in every supported browser) --- */
+  --cc-text-xs: 0.6875rem; /* 11px   — eyebrow labels, mono badges (most-repeated size) */
+  --cc-text-sm: 0.78125rem; /* 12.5px — secondary meta text */
+  --cc-text-base: 0.84375rem; /* 13.5px — body captions, the second most-repeated size */
+  --cc-text-md: 0.90625rem; /* 14.5px — default paragraph text */
+  --cc-text-lg: 1rem; /* 16px   — emphasised body / small subhead */
+  --cc-text-xl: 1.125rem; /* 18px   — subheads */
+  --cc-text-2xl: 1.3125rem; /* 21px   — section headers */
+  --cc-text-3xl: 1.625rem; /* 26px   — card headers, the largest repeated size */
+  --cc-text-display: 2.625rem; /* 42px   — a hero number (used sparingly) */
+  --cc-text-display-lg: 3.375rem; /* 54px   — the single largest hero moment */
+
+  /* ---- Type — line height ------------------------------------------ */
+  --cc-leading-tight: 1.15; /* headings and display numbers */
+  --cc-leading-normal: 1.6; /* sans body text */
+  --cc-leading-relaxed: 1.68; /* serif body text — quoted contract excerpts */
+
+  /* ---- Type — letter spacing ---------------------------------------- */
+  --cc-tracking-tight: -0.02em; /* headings */
+  --cc-tracking-tighter: -0.03em; /* display numbers */
+  --cc-tracking-wide: 0.02em; /* small labelled text */
+  --cc-tracking-wider: 0.14em; /* uppercase mono eyebrow labels */
+
+  /* ---- Spacing rhythm (px; the prototype does not use a rem grid here) */
+  --cc-space-1: 4px;
+  --cc-space-2: 6px;
+  --cc-space-3: 8px;
+  --cc-space-4: 10px;
+  --cc-space-5: 12px;
+  --cc-space-6: 15px;
+  --cc-space-7: 18px;
+  --cc-space-8: 20px;
+  --cc-space-9: 24px;
+  --cc-space-10: 28px;
+  --cc-space-11: 32px;
+  --cc-space-12: 64px; /* empty-state / hero padding */
+
+  /* ---- Borders and radius -------------------------------------------- */
+  --cc-border-width: 1px;
+  --cc-border-width-accent: 3px; /* the brand-colour top stripe on primary cards */
+  --cc-border-width-focus: 2px;
+  --cc-radius-sm: 2px; /* the prototype's one radius value, used on small badges */
+  --cc-radius: 0px; /* everything else is sharp-edged */
+
+  /* ---- Shadows (rgba, so they read correctly over --cc-surface-page) - */
+  --cc-shadow-card:
+    0 1px 1px rgba(20, 20, 20, 0.03), 0 14px 30px -16px rgba(20, 20, 20, 0.18);
+  --cc-shadow-card-lg:
+    0 1px 1px rgba(20, 20, 20, 0.03), 0 18px 36px -18px rgba(20, 20, 20, 0.2);
+  --cc-shadow-modal: 0 24px 60px -20px rgba(20, 20, 20, 0.45);
+  --cc-shadow-popover: 0 8px 20px rgba(22, 24, 26, 0.09);
+  --cc-shadow-hairline: 0 1px 0 rgba(20, 20, 20, 0.2);
+}

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClauseCheck</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      Vite injects the single production entry point here as
+      `<script type="module" src="/assets/...">` — an external file at the
+      app's own origin, never inline. Nothing in this file may add an
+      inline <script> of its own (FR-7.9); scripts/check-bundle-size.mjs
+      asserts that against the built output on every run.
+    -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
