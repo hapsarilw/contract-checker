@@ -50,9 +50,10 @@ Note that the contracts use typographic apostrophes (`'`). This is deliberate �
 
 ## Regenerating
 
-`contracts.js` defines each flagged clause once and both the document builder and the answer key reference it, so the excerpts cannot drift out of sync with the text. If you edit a clause, rebuild both:
+`contracts.js` defines each flagged clause once, in a body array of `['h', text]` / `['p', text]` tuples. `build.js` walks that array into a `.docx` via the `docx` package (a pure JS library — reproducible in CI, unlike the `soffice --headless` process this section used to describe), then derives the `.txt` fixture by running `mammoth` over the `.docx` it just built, the same extractor production uses (`src/services/docx.js`). The `.txt` file is that reading, not a second rendering of the body array — so a DOCX/PDF vs `.txt` mismatch is provably an extraction defect, not a difference between documents:
 
 ```bash
-node build.js && node expected.js   # expected.js exits non-zero if any excerpt no longer matches
-soffice --headless --convert-to pdf *.docx
+node build.js
 ```
+
+This covers every fixture in `contracts.js` that has a `body` — currently 01 through 04. PDF generation and the `expected.json` verification gate (importing the real `normalizeForMatch`, not a copy) are separate steps, not yet wired up here.

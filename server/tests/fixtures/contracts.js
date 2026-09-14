@@ -4,7 +4,7 @@
 // that actually ships in the .docx / .pdf. Excerpt verification (FR-3.3) is a
 // verbatim substring check, so drift between the two would silently break TR-3.
 
-const C = {
+export const C = {
   // ---- 01 hostile design services ----
   h_revisions: 'Contractor shall provide revisions until Client is fully satisfied with the deliverables.',
   h_ip: 'All work product, including preliminary concepts, sketches, and materials created by Contractor prior to the Effective Date, shall become the sole and exclusive property of Client upon creation.',
@@ -55,7 +55,7 @@ const boiler = (a, b) => [
   ['p', `${b}                                                    ${a}`],
 ];
 
-const contracts = {
+export const contracts = {
 
   // ==================================================================
   '01-design-services-hostile': {
@@ -171,5 +171,3 @@ const contracts = {
     ],
   },
 };
-
-module.exports = { C, contracts };

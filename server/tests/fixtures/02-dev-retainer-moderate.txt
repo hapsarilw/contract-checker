@@ -1,0 +1,82 @@
+SOFTWARE DEVELOPMENT RETAINER AGREEMENT
+
+This Software Development Retainer Agreement (the "Agreement") is made as of 2 April 2026 between Halden Logistics BV, with registered offices at Keizersgracht 210, Amsterdam ("Client"), and the undersigned developer ("Developer").
+
+1. Engagement
+
+Client engages Developer on a retainer basis to provide backend development, maintenance, and technical consultation services for Client’s internal dispatch platform (the "Services"). Developer shall make available a minimum of sixty (60) hours per calendar month.
+
+2. Fees
+
+Client shall pay Developer at an hourly rate of eighty-five euro (€85) per hour, invoiced monthly in arrears. The hourly rate may be adjusted by Client upon sixty (60) days written notice to Developer.
+
+Client shall pay all undisputed invoices within sixty (60) days of receipt.
+
+3. Scope and Support
+
+Developer shall address bug reports submitted by Client relating to the Services for a period of six (6) months following delivery at no additional charge. Bug reports shall be submitted through Client’s issue tracker and triaged within two (2) business days.
+
+Work outside the agreed scope shall be quoted separately and shall not commence until approved in writing by Client.
+
+4. Intellectual Property
+
+All source code, documentation, and related materials produced by Developer in performance of the Services shall be owned by Client upon payment of the invoice covering the period in which such materials were created. Developer retains ownership of any pre-existing libraries, tools, or frameworks used in the Services, and grants Client a perpetual, non-exclusive licence to use them as incorporated into the deliverables.
+
+5. Term and Termination
+
+Either party may terminate this Agreement upon thirty (30) days written notice. Client shall pay for hours worked through the effective date of termination.
+
+6. Confidentiality
+
+Developer shall not disclose the existence of this engagement, the identity of Client, or the nature of the Services to any third party without Client’s prior written consent. This obligation shall continue indefinitely following termination of this Agreement.
+
+7. Warranties
+
+Developer warrants that the Services will be performed with reasonable skill and care, and that the deliverables will not knowingly infringe the intellectual property rights of any third party. Developer’s total liability under this Agreement shall not exceed the total fees paid in the twelve (12) months preceding the claim.
+
+8. Governing Law
+
+This Agreement is governed by the laws of the Netherlands. The parties submit to the exclusive jurisdiction of the courts of Amsterdam.
+
+Client Responsibilities
+
+Client shall provide Developer with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Client shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Client fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Developer is an independent contractor and not an employee, partner, or agent of Client. Developer is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Developer shall have no authority to bind Client to any obligation.
+
+Developer shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Developer considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Developer shall not subcontract any material part of the Services without Client's prior written consent. Where consent is given, Developer remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Client                                                    Developer
+

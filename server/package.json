@@ -50,6 +50,7 @@
     "@testcontainers/postgresql": "12.1.0",
     "@types/node": "26.4.1",
     "@vitest/coverage-v8": "4.1.11",
+    "docx": "9.7.1",
     "eslint": "10.10.0",
     "globals": "17.12.0",
     "prettier": "3.9.6",
