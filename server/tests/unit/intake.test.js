@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { intakeUpload, intakePastedText } from "../../src/services/intake.js";
+import { countWords } from "../../src/services/extraction.js";
 import { buildDocx } from "../helpers/buildDocx.js";
 import { AppError } from "../../src/lib/AppError.js";
 import config from "../../src/config.js";
@@ -17,12 +18,6 @@ const wordsOfLength = (n) => Array(n).fill("word").join(" ");
  * TR-1 (SRS §10.1): valid PDF extracts; valid DOCX extracts; the scanned
  * PDF returns DOCUMENT_TOO_SHORT; a mismatched extension returns
  * UNSUPPORTED_FILE_TYPE.
- *
- * Fixture 02's PDF and all of fixture 05 do not exist on disk yet — they
- * are built at step 27. The word-count bounds those two would exercise
- * through a real upload are covered below via intakePastedText, which
- * needs no file; what step 27 adds is the same assertions through the
- * actual upload path.
  */
 describe("TR-1 — intake extraction outcomes", () => {
   it("a valid PDF extracts (01-design-services-hostile.pdf)", async () => {
@@ -47,7 +42,9 @@ describe("TR-1 — intake extraction outcomes", () => {
   });
 
   it("the scanned PDF with no text layer returns DOCUMENT_TOO_SHORT (06-scanned-no-text-layer.pdf)", async () => {
-    const err = await intakeUpload(readFixture("06-scanned-no-text-layer.pdf")).catch((e) => e);
+    const err = await intakeUpload(readFixture("06-scanned-no-text-layer.pdf")).catch(
+      (e) => e,
+    );
 
     expect(err).toBeInstanceOf(AppError);
     expect(err.code).toBe("DOCUMENT_TOO_SHORT");
@@ -60,20 +57,60 @@ describe("TR-1 — intake extraction outcomes", () => {
     // The upload has been typed as a PDF by whoever renamed it, but its
     // magic bytes say otherwise — detectSourceType (step 16), not the
     // extension, decides. No parser ever runs on this input.
-    const renamed = Buffer.from("INDEPENDENT CONTRACTOR AGREEMENT\nplain text content", "utf8");
+    const renamed = Buffer.from(
+      "INDEPENDENT CONTRACTOR AGREEMENT\nplain text content",
+      "utf8",
+    );
     const err = await intakeUpload(renamed).catch((e) => e);
 
     expect(err).toBeInstanceOf(AppError);
     expect(err.code).toBe("UNSUPPORTED_FILE_TYPE");
     expect(err.status).toBe(422);
   });
+});
 
-  it.todo(
-    "fixture 02 (dev-retainer-moderate) accept path through PDF and DOCX upload — files built at step 27",
+/**
+ * SRS §11.1 — every fixture file meets the intake outcome its answer key
+ * records, through the path a user's file takes: uploads typed by magic
+ * bytes, .txt through the paste path. This is where fixture 02's PDF and
+ * DOCX are accepted and fixture 05 is rejected on length in every format.
+ * A fixture that intake rejects for the wrong reason, such as a DOCX whose
+ * package type detection does not recognise, tests nothing downstream.
+ */
+describe("the fixture corpus meets its answer key's intake outcomes (§11.1)", () => {
+  const answerKey = JSON.parse(readFixture("expected.json").toString("utf8"));
+
+  /** @type {[string, string][]} */
+  const cases = answerKey.documents.flatMap((document) =>
+    document.formats.map((format) => [
+      `${document.file}.${format}`,
+      document.intake === "accept" ? "accept" : document.expect_error.code,
+    ]),
   );
-  it.todo(
-    "fixture 05 (oversized-msa) DOCUMENT_TOO_LONG through a real oversized upload — files built at step 27",
-  );
+
+  it.each(cases)("%s: %s", async (file, expected) => {
+    const buffer = readFixture(file);
+    const intake = file.endsWith(".txt")
+      ? Promise.resolve().then(() => intakePastedText(buffer.toString("utf8")))
+      : intakeUpload(buffer);
+
+    const outcome = await intake.then(
+      () => "accept",
+      (err) => (err instanceof AppError ? err.code : `unexpected: ${err}`),
+    );
+    expect(outcome).toBe(expected);
+  });
+
+  /** @type {[string, number][]} */
+  const counted = answerKey.documents
+    .filter(
+      (document) => document.word_count !== undefined && document.formats.includes("txt"),
+    )
+    .map((document) => [document.file, document.word_count]);
+
+  it.each(counted)("%s.txt has the answer key's word count, %i", (file, expected) => {
+    expect(countWords(readFixture(`${file}.txt`).toString("utf8"))).toBe(expected);
+  });
 });
 
 describe("a truncated/corrupt PDF returns 422, never 500", () => {

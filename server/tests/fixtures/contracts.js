@@ -170,4 +170,134 @@ export const contracts = {
       ...boiler('Producer', 'Client'),
     ],
   },
+
+  // ==================================================================
+  // Rejected on length (FR-2.6), so it needs no flagged clauses: only its
+  // word count matters. Each schedule repeats the shared boilerplate with
+  // different party roles, as a real master agreement's per-service terms
+  // often do.
+  '05-oversized-msa': {
+    title: 'MASTER SERVICES AGREEMENT',
+    body: [
+      ['p', 'This Master Services Agreement (the "Agreement") is entered into as of 3 July 2026 (the "Effective Date") between Corvane Industrial Holdings plc, of 1 Harbour Exchange Square, London ("Company"), and the undersigned consultancy ("Supplier"), each a "Party" and together the "Parties".'],
+      ['h', '1. Structure of this Agreement'],
+      ['p', 'This Agreement sets out the general terms on which Supplier shall provide professional services to Company and its affiliates. Specific services shall be described in one or more statements of work (each a "Statement of Work"), each of which shall reference this Agreement and be signed by authorised representatives of both Parties. In the event of any conflict between this Agreement and a Statement of Work, this Agreement shall prevail unless the Statement of Work expressly identifies the provision of this Agreement it is intended to vary.'],
+      ['p', 'The schedules to this Agreement set out the general terms that apply to each category of service. Where a Statement of Work covers more than one category, the schedule for each category applies to the services within it.'],
+      ['h', '2. Definitions'],
+      ['p', '"Affiliate" means any entity that directly or indirectly controls, is controlled by, or is under common control with a Party. "Business Day" means a day other than a Saturday, Sunday, or public holiday in England. "Deliverables" means all documents, software, designs, reports, and other materials that Supplier is required to deliver under a Statement of Work. "Services" means the services described in each Statement of Work, together with any incidental services reasonably necessary for their performance.'],
+      ['h', '3. Governance'],
+      ['p', 'Each Party shall appoint a relationship manager with authority to make day-to-day decisions under this Agreement. The relationship managers shall meet at least once each calendar month to review progress against each active Statement of Work, identify risks, and agree any corrective actions. Minutes of each meeting shall be circulated within five (5) Business Days.'],
+      ['p', 'Either Party may escalate an unresolved operational issue to a steering committee comprising one senior representative of each Party. The steering committee shall meet within ten (10) Business Days of an escalation notice and shall use reasonable efforts to resolve the issue at that meeting.'],
+      ['h', '4. Change Control'],
+      ['p', 'Either Party may request a change to the scope, timetable, or charges of a Statement of Work by submitting a written change request. Supplier shall respond within ten (10) Business Days with an assessment of the impact of the change on the charges, the timetable, and any other affected terms. No change shall take effect until a change note is signed by both Parties.'],
+      ['h', '5. Charges and Invoicing'],
+      ['p', 'Company shall pay the charges set out in each Statement of Work. Unless a Statement of Work provides otherwise, Supplier shall invoice monthly in arrears for time and materials charges, and on achievement of each milestone for fixed-price charges. Each invoice shall be accompanied by reasonable supporting detail. Company shall pay each valid invoice within thirty (30) days of receipt.'],
+      ['h', '6. Service Levels'],
+      ['p', 'Where a Statement of Work specifies service levels, Supplier shall measure its performance against them each month and report the results to Company within five (5) Business Days of the month end. A failure to meet the same service level in three (3) consecutive months shall entitle Company to require a remediation plan, which Supplier shall prepare within ten (10) Business Days.'],
+      ['h', '7. Personnel'],
+      ['p', 'Supplier shall ensure that all personnel assigned to the Services are suitably qualified and experienced. Supplier shall use reasonable efforts to maintain continuity of the key personnel named in a Statement of Work, and shall give Company reasonable notice of any proposed replacement.'],
+      ['h', '8. Data Protection'],
+      ['p', 'Where Supplier processes personal data on behalf of Company, the Parties shall enter into a data processing agreement that complies with applicable data protection law. Supplier shall implement appropriate technical and organisational measures to protect such personal data against unauthorised or unlawful processing, and against accidental loss, destruction, or damage.'],
+      ['h', '9. Records and Audit'],
+      ['p', 'Supplier shall keep complete and accurate records relating to the Services and the charges for at least three (3) years after the end of the relevant Statement of Work. Company may, on reasonable notice and not more than once in any twelve (12) month period, audit those records to verify compliance with this Agreement.'],
+      ['h', '10. Insurance'],
+      ['p', 'Supplier shall maintain, with reputable insurers, professional indemnity insurance of not less than two million pounds (£2,000,000) per claim, public liability insurance of not less than five million pounds (£5,000,000), and employer’s liability insurance as required by law. Supplier shall provide certificates of insurance on request, and shall notify Company of any cancellation or material change in cover. The required insurance shall be maintained for the term of this Agreement and for six (6) years after its end.'],
+      ['h', 'Schedule 1: General Terms for Consulting Services'],
+      ...boiler('Supplier', 'Company'),
+      ['h', 'Schedule 2: General Terms for Design Services'],
+      ...boiler('Designer', 'Company'),
+      ['h', 'Schedule 3: General Terms for Software Development Services'],
+      ...boiler('Developer', 'Company'),
+      ['h', 'Schedule 4: General Terms for Content Services'],
+      ...boiler('Writer', 'Company'),
+      ['h', 'Schedule 5: General Terms for Research Services'],
+      ...boiler('Researcher', 'Company'),
+      ['h', 'Schedule 6: General Terms for Training Services'],
+      ...boiler('Trainer', 'Company'),
+      ['h', 'Schedule 7: General Terms for Video Production Services'],
+      ...boiler('Producer', 'Company'),
+      ['h', 'Schedule 8: General Terms for Photography Services'],
+      ...boiler('Photographer', 'Company'),
+    ],
+  },
+};
+
+// Fixtures with no contract structure, written byte for byte.
+export const plainFixtures = {
+  // FR-2.5 via the paste path: 38 words, far under the 200-word floor.
+  '07-too-short': {
+    ext: 'txt',
+    content: 'Hi, following our call, please confirm you can start on the brochure redesign next Monday. We will pay the agreed day rate on completion. Let me know if you need anything before you start. Kind regards, the studio.\n',
+  },
+  // FR-2.3: plain text saved with a .pdf extension. Its first four bytes are
+  // "FREE" (46 52 45 45), not the %PDF signature, so intake must reject it by
+  // content, whatever its name or declared type says.
+  '08-not-really-a-pdf': {
+    ext: 'pdf',
+    content: 'FREELANCE SERVICES AGREEMENT\n\nThis agreement was exported as plain text and then renamed with a .pdf extension. It is not a PDF: nothing in it is a PDF structure, and a PDF parser handed these bytes has nothing to read.\n',
+  },
+};
+
+// ---- 13 stress long report ----
+// The long-report case, ported from the UI prototype (docs/design/ClauseCheck.html,
+// FIX.stress). The prototype numbered it 09; SRS section 11.1 assigns 09 to
+// 09-injection-attempt, so it is 13 here (BUILD-PLAN decision D-E). Its twelve
+// findings are clauses from fixtures 01, 04 and 02, referenced through C and never
+// restated (section 11.3). Ported with two changes: the prototype glossary markup
+// [[term|text]] is reduced to its text, since the API returns plain strings, and
+// the summary says "seven marked high" where the prototype said "three",
+// which contradicted its own 7 high findings.
+export const stressReport = {
+  documentId: 'cm0stress13document0000',
+  analysisId: 'cm0stress13analysis0000',
+  createdAt: '2026-08-21T14:31:00.000Z',
+  wordCount: 3940,
+  discardedFindings: 2,
+  summary: 'This master services agreement is one-sided in most of the sections that matter to you: unlimited revisions, uncapped indemnity, ownership on creation rather than on payment, and a two-year non-compete. Twelve clauses are worth a second look \u2014 start with the seven marked high.',
+  missingClauses: [
+    'No deposit or upfront payment',
+    'No late-payment interest',
+    'No revision limit',
+    'No kill fee',
+    'No cap on your liability',
+    'IP transfer isn\u2019t conditional on payment',
+  ],
+  findings: [
+    { excerpt: C.h_revisions, category: 'scope', severity: 'high',
+      explanation: 'There\u2019s no limit on revisions and no definition of \u201Csatisfied,\u201D so the project can continue indefinitely at the client\u2019s discretion without additional payment.',
+      suggestedChange: 'Ask for a specific number of revision rounds \u2014 two is standard \u2014 with additional rounds billed at your hourly rate.' },
+    { excerpt: C.h_ip, category: 'ip', severity: 'high',
+      explanation: 'This hands over work you made before this project existed, and the assignment takes effect the moment you create something rather than when you\u2019re paid \u2014 so an unpaid final invoice leaves you with nothing to hold.',
+      suggestedChange: 'Ask that this cover only deliverables made under this agreement, and that ownership transfer on receipt of final payment. Offer a licence for anything you made beforehand instead of assigning it.' },
+    { excerpt: C.h_indemnity, category: 'liability', severity: 'high',
+      explanation: 'This is an uncapped indemnity \u2014 one dispute could cost you far more than the project pays, including claims caused by material the client gave you.',
+      suggestedChange: 'Ask to cap your total liability at the fees paid under this agreement, and to exclude claims arising from client-supplied content or client instructions.' },
+    { excerpt: C.h_noncompete, category: 'confidentiality', severity: 'high',
+      explanation: 'This is a non-compete: two years across an entire industry can remove a large share of the clients you\u2019d normally work for \u2014 a real cost, for something you\u2019re not being paid extra to accept.',
+      suggestedChange: 'Ask to narrow this to a short list of named direct competitors and to shorten it to six months \u2014 or to drop it, since you\u2019re a contractor rather than an employee.' },
+    { excerpt: C.h_termination, category: 'termination', severity: 'high',
+      explanation: 'The client can end the project at any point and owe you nothing for work already underway \u2014 there is no kill fee, so the whole cost of a cancellation lands on you.',
+      suggestedChange: 'Ask for 14 days\u2019 notice, payment for all work completed to date, and 25% of the remaining fee if the project is cancelled after it starts.' },
+    { excerpt: C.h_payment, category: 'payment', severity: 'medium',
+      explanation: 'Net-90 is three months of financing the client\u2019s project, and the clock only starts on acceptance \u2014 which the client controls and could delay indefinitely.',
+      suggestedChange: 'Ask for net-14 or net-30 counted from your invoice date, and for deliverables to be treated as accepted if no feedback arrives within five working days.' },
+    { excerpt: C.h_expenses, category: 'payment', severity: 'low',
+      explanation: 'Minor on its own, but licences for fonts and stock imagery on a branding project can run into hundreds of dollars that come straight out of your fee.',
+      suggestedChange: 'Ask for materials bought specifically for this project to be reimbursed at cost, or add an allowance for them to the fee.' },
+    { excerpt: C.v_reshoot, category: 'scope', severity: 'high',
+      explanation: 'A reshoot means crew, location and equipment all over again. This clause makes that free and unlimited whenever the client changes their mind \u2014 the expensive twin of unlimited revisions.',
+      suggestedChange: 'Ask that free reshoots cover technical defects only, and that reshoots requested for creative reasons be quoted separately at your day rate.' },
+    { excerpt: C.v_late, category: 'liability', severity: 'high',
+      explanation: '5% a day reaches the entire fee in twenty days, with no cap and no exception for delays the client causes \u2014 a week of late feedback from them could still cost you a third of the project.',
+      suggestedChange: 'Ask to cap the total penalty at 10% of the fee, and to stop the clock for any delay caused by late client feedback, missing assets, or scheduling changes.' },
+    { excerpt: C.v_portfolio, category: 'confidentiality', severity: 'medium',
+      explanation: 'For a video producer the showreel is how the next job arrives. An absolute ban makes this project invisible in your work, which is a career cost rather than an admin detail.',
+      suggestedChange: 'Ask for the right to show the finished work after it\u2019s publicly released \u2014 or, if the client needs it kept private, a fee that reflects what the silence is worth.' },
+    { excerpt: C.m_net60, category: 'payment', severity: 'medium',
+      explanation: 'Net-60 means financing the client\u2019s project for two months, and \u201Cundisputed\u201D lets any disagreement pause the clock on the whole invoice rather than just the disputed part.',
+      suggestedChange: 'Ask for net-14 or net-30, and for a dispute to pause payment only on the disputed portion of the invoice.' },
+    { excerpt: C.m_confidentiality, category: 'confidentiality', severity: 'medium',
+      explanation: 'There\u2019s no end date and it covers the client\u2019s identity, so as written you couldn\u2019t list them in your portfolio, mention the work to a future client, or put it on your CV.',
+      suggestedChange: 'Ask for an explicit carve-out allowing you to name the client and describe the work in your portfolio, and for the clause to expire after two or three years.' },
+  ],
 };

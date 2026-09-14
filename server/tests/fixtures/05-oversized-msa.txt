@@ -1,0 +1,400 @@
+MASTER SERVICES AGREEMENT
+
+This Master Services Agreement (the "Agreement") is entered into as of 3 July 2026 (the "Effective Date") between Corvane Industrial Holdings plc, of 1 Harbour Exchange Square, London ("Company"), and the undersigned consultancy ("Supplier"), each a "Party" and together the "Parties".
+
+1. Structure of this Agreement
+
+This Agreement sets out the general terms on which Supplier shall provide professional services to Company and its affiliates. Specific services shall be described in one or more statements of work (each a "Statement of Work"), each of which shall reference this Agreement and be signed by authorised representatives of both Parties. In the event of any conflict between this Agreement and a Statement of Work, this Agreement shall prevail unless the Statement of Work expressly identifies the provision of this Agreement it is intended to vary.
+
+The schedules to this Agreement set out the general terms that apply to each category of service. Where a Statement of Work covers more than one category, the schedule for each category applies to the services within it.
+
+2. Definitions
+
+"Affiliate" means any entity that directly or indirectly controls, is controlled by, or is under common control with a Party. "Business Day" means a day other than a Saturday, Sunday, or public holiday in England. "Deliverables" means all documents, software, designs, reports, and other materials that Supplier is required to deliver under a Statement of Work. "Services" means the services described in each Statement of Work, together with any incidental services reasonably necessary for their performance.
+
+3. Governance
+
+Each Party shall appoint a relationship manager with authority to make day-to-day decisions under this Agreement. The relationship managers shall meet at least once each calendar month to review progress against each active Statement of Work, identify risks, and agree any corrective actions. Minutes of each meeting shall be circulated within five (5) Business Days.
+
+Either Party may escalate an unresolved operational issue to a steering committee comprising one senior representative of each Party. The steering committee shall meet within ten (10) Business Days of an escalation notice and shall use reasonable efforts to resolve the issue at that meeting.
+
+4. Change Control
+
+Either Party may request a change to the scope, timetable, or charges of a Statement of Work by submitting a written change request. Supplier shall respond within ten (10) Business Days with an assessment of the impact of the change on the charges, the timetable, and any other affected terms. No change shall take effect until a change note is signed by both Parties.
+
+5. Charges and Invoicing
+
+Company shall pay the charges set out in each Statement of Work. Unless a Statement of Work provides otherwise, Supplier shall invoice monthly in arrears for time and materials charges, and on achievement of each milestone for fixed-price charges. Each invoice shall be accompanied by reasonable supporting detail. Company shall pay each valid invoice within thirty (30) days of receipt.
+
+6. Service Levels
+
+Where a Statement of Work specifies service levels, Supplier shall measure its performance against them each month and report the results to Company within five (5) Business Days of the month end. A failure to meet the same service level in three (3) consecutive months shall entitle Company to require a remediation plan, which Supplier shall prepare within ten (10) Business Days.
+
+7. Personnel
+
+Supplier shall ensure that all personnel assigned to the Services are suitably qualified and experienced. Supplier shall use reasonable efforts to maintain continuity of the key personnel named in a Statement of Work, and shall give Company reasonable notice of any proposed replacement.
+
+8. Data Protection
+
+Where Supplier processes personal data on behalf of Company, the Parties shall enter into a data processing agreement that complies with applicable data protection law. Supplier shall implement appropriate technical and organisational measures to protect such personal data against unauthorised or unlawful processing, and against accidental loss, destruction, or damage.
+
+9. Records and Audit
+
+Supplier shall keep complete and accurate records relating to the Services and the charges for at least three (3) years after the end of the relevant Statement of Work. Company may, on reasonable notice and not more than once in any twelve (12) month period, audit those records to verify compliance with this Agreement.
+
+10. Insurance
+
+Supplier shall maintain, with reputable insurers, professional indemnity insurance of not less than two million pounds (£2,000,000) per claim, public liability insurance of not less than five million pounds (£5,000,000), and employer’s liability insurance as required by law. Supplier shall provide certificates of insurance on request, and shall notify Company of any cancellation or material change in cover. The required insurance shall be maintained for the term of this Agreement and for six (6) years after its end.
+
+Schedule 1: General Terms for Consulting Services
+
+Client Responsibilities
+
+Company shall provide Supplier with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Company shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Company fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Supplier is an independent contractor and not an employee, partner, or agent of Company. Supplier is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Supplier shall have no authority to bind Company to any obligation.
+
+Supplier shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Supplier considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Supplier shall not subcontract any material part of the Services without Company's prior written consent. Where consent is given, Supplier remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Company                                                    Supplier
+
+Schedule 2: General Terms for Design Services
+
+Client Responsibilities
+
+Company shall provide Designer with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Company shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Company fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Designer is an independent contractor and not an employee, partner, or agent of Company. Designer is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Designer shall have no authority to bind Company to any obligation.
+
+Designer shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Designer considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Designer shall not subcontract any material part of the Services without Company's prior written consent. Where consent is given, Designer remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Company                                                    Designer
+
+Schedule 3: General Terms for Software Development Services
+
+Client Responsibilities
+
+Company shall provide Developer with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Company shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Company fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Developer is an independent contractor and not an employee, partner, or agent of Company. Developer is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Developer shall have no authority to bind Company to any obligation.
+
+Developer shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Developer considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Developer shall not subcontract any material part of the Services without Company's prior written consent. Where consent is given, Developer remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Company                                                    Developer
+
+Schedule 4: General Terms for Content Services
+
+Client Responsibilities
+
+Company shall provide Writer with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Company shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Company fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Writer is an independent contractor and not an employee, partner, or agent of Company. Writer is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Writer shall have no authority to bind Company to any obligation.
+
+Writer shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Writer considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Writer shall not subcontract any material part of the Services without Company's prior written consent. Where consent is given, Writer remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Company                                                    Writer
+
+Schedule 5: General Terms for Research Services
+
+Client Responsibilities
+
+Company shall provide Researcher with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Company shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Company fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Researcher is an independent contractor and not an employee, partner, or agent of Company. Researcher is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Researcher shall have no authority to bind Company to any obligation.
+
+Researcher shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Researcher considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Researcher shall not subcontract any material part of the Services without Company's prior written consent. Where consent is given, Researcher remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Company                                                    Researcher
+
+Schedule 6: General Terms for Training Services
+
+Client Responsibilities
+
+Company shall provide Trainer with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Company shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Company fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Trainer is an independent contractor and not an employee, partner, or agent of Company. Trainer is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Trainer shall have no authority to bind Company to any obligation.
+
+Trainer shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Trainer considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Trainer shall not subcontract any material part of the Services without Company's prior written consent. Where consent is given, Trainer remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Company                                                    Trainer
+
+Schedule 7: General Terms for Video Production Services
+
+Client Responsibilities
+
+Company shall provide Producer with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Company shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Company fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Producer is an independent contractor and not an employee, partner, or agent of Company. Producer is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Producer shall have no authority to bind Company to any obligation.
+
+Producer shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Producer considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Producer shall not subcontract any material part of the Services without Company's prior written consent. Where consent is given, Producer remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Company                                                    Producer
+
+Schedule 8: General Terms for Photography Services
+
+Client Responsibilities
+
+Company shall provide Photographer with all information, assets, approvals, and access reasonably required to perform the Services, within the timeframes agreed between the parties. Company shall designate a single point of contact authorised to give feedback and approvals on its behalf. Where Company fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.
+
+Independent Contractor Status
+
+Photographer is an independent contractor and not an employee, partner, or agent of Company. Photographer is responsible for all taxes, insurance, and statutory contributions arising from payments under this Agreement. Nothing in this Agreement creates an employment relationship between the parties, and Photographer shall have no authority to bind Company to any obligation.
+
+Photographer shall determine the method, details, and means of performing the Services, and may perform them at such times and locations as Photographer considers appropriate, provided that agreed deadlines and any scheduled meetings or attendances are met.
+
+Subcontracting and Assignment
+
+Photographer shall not subcontract any material part of the Services without Company's prior written consent. Where consent is given, Photographer remains responsible for the acts and omissions of any subcontractor. Neither party may assign this Agreement without the written consent of the other, such consent not to be unreasonably withheld.
+
+Force Majeure
+
+Neither party shall be liable for any failure or delay in performance caused by events beyond its reasonable control, including natural disaster, serious illness, war, civil unrest, epidemic, governmental action, or failure of public infrastructure or communications networks. The affected party shall notify the other promptly and shall use reasonable efforts to resume performance.
+
+Waiver
+
+No failure or delay by either party in exercising any right under this Agreement constitutes a waiver of that right, and no single or partial exercise of any right prevents any further exercise of it or of any other right. A waiver is effective only if given in writing.
+
+Entire Agreement
+
+This Agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, proposals, and understandings, whether written or oral. Any amendment must be in writing and signed by both parties.
+
+Severability
+
+If any provision of this Agreement is held to be unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+Notices
+
+All notices under this Agreement shall be given in writing by email to the addresses set out above, and shall be deemed received on the next business day following transmission.
+
+Signatures
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date first written above.
+
+_______________________________          _______________________________
+
+Company                                                    Photographer
+
