@@ -7,7 +7,7 @@ import { DISCLAIMER_LOCKED } from "../disclaimer.js";
  * thrown away"). Kept in the repository but NOT wired to anything —
  * locale.js's ACTIVE_LOCALE is "en" — per decision D-B option B1.
  *
- * See strings/en.js for what's deliberately not here (GLOSS, JURIS) and
+ * See strings/en.js for what's deliberately not here (JURIS) and
  * disclaimer.js for why `disclaimer` is a re-export rather than inline
  * text: being unwired does not make this translation of a legally
  * load-bearing string pre-approved to ship later without its own review.
@@ -31,6 +31,25 @@ export const id = {
     CONFIDENTIALITY: "Kerahasiaan",
     DISPUTE: "Penyelesaian sengketa",
     OTHER: "Lain-lain",
+  },
+  findingSeverity: {
+    HIGH: "Risiko tinggi",
+    MEDIUM: "Risiko sedang",
+    LOW: "Risiko rendah",
+  },
+  // The prototype's GLOSS[*].idm.
+  glossary: {
+    assignment: "Pemindahan kepemilikan karya secara permanen kepada pihak lain.",
+    indemnity: "Janji menanggung kerugian pihak lain jika ada klaim terhadap mereka.",
+    noncompete:
+      "Janji untuk tidak bekerja bagi usaha pesaing selama jangka waktu tertentu.",
+    killfee:
+      "Pembayaran yang wajib diberikan jika klien membatalkan setelah pekerjaan dimulai.",
+    net90: "Pembayaran jatuh tempo 90 hari setelah tanggal acuan, bukan saat penyerahan.",
+    net60: "Pembayaran jatuh tempo 60 hari setelah tanggal tagihan.",
+    acceptance:
+      "Persetujuan resmi klien — bisa memulai atau justru menunda hitungan pembayaran.",
+    liabilitycap: "Batas maksimum jumlah yang harus Anda tanggung jika terjadi masalah.",
   },
   findingsHead: "Klausul yang layak dibaca ulang",
   orderNote: "Dari yang paling berat",

@@ -28,11 +28,18 @@ const RESET_AFTER_MS = 2000;
  * announces nothing — a silent "Copied" for a copy that didn't happen
  * would be worse than no feedback.
  *
+ * `visibleAnnouncement` shows that same live region on screen instead of
+ * hiding it — the finding card's "Copied — paste it into your reply to
+ * the client." note (step 36). Same element either way, so the region is
+ * in the DOM, empty, before any copy, which is what makes its later
+ * content announce reliably.
+ *
  * @param {{
  *   text: string,
  *   label: string,
  *   copiedLabel: string,
  *   announcement: string,
+ *   visibleAnnouncement?: boolean,
  *   className?: string,
  * }} props
  */
@@ -41,6 +48,7 @@ export default function CopyButton({
   label,
   copiedLabel,
   announcement,
+  visibleAnnouncement = false,
   className = "",
 }) {
   const [copied, setCopied] = useState(false);
@@ -76,7 +84,11 @@ export default function CopyButton({
         </span>
         {copied ? copiedLabel : label}
       </button>
-      <span className="cc-sr-only" role="status" aria-live="polite">
+      <span
+        className={visibleAnnouncement ? "cc-copy-button__note" : "cc-sr-only"}
+        role="status"
+        aria-live="polite"
+      >
         {copied ? announcement : ""}
       </span>
     </>

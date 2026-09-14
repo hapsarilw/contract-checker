@@ -242,3 +242,95 @@ describe("ReportPage (BUILD-PLAN step 35, PRD §7 / FR-7.5 / §7.15)", () => {
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith("/api/v1/documents/doc1");
   });
 });
+
+describe("ReportPage findings list (BUILD-PLAN step 36)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  /** @param {object[]} findings @param {object} [overrides] */
+  async function loadWith(findings, overrides) {
+    vi.mocked(apiFetch).mockResolvedValue({
+      document: DOCUMENT,
+      analysis: analysisWith(findings, overrides),
+    });
+    const utils = renderReport();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    return utils;
+  }
+
+  it("renders findings high → medium → low even when the response isn't in that order (FR-7.5)", async () => {
+    await loadWith([THREE_FINDINGS[2], THREE_FINDINGS[0], THREE_FINDINGS[1]]);
+
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
+    ).toEqual(["Payment", "IP and ownership", "Scope and revisions"]);
+  });
+
+  it("renders the findings as an ordered semantic list, one item per finding (SRS §7.15)", async () => {
+    const { container } = await loadWith(THREE_FINDINGS);
+
+    const list = container.querySelector("ol.cc-report__findings");
+    expect(list).not.toBeNull();
+    expect(list?.querySelectorAll(":scope > li > article")).toHaveLength(3);
+  });
+
+  it("the severity filter narrows the rendered cards", async () => {
+    const { container } = await loadWith(THREE_FINDINGS);
+
+    fireEvent.click(screen.getByRole("button", { name: "Medium 1" }));
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 3, name: "IP and ownership" }),
+    ).toBeInTheDocument();
+  });
+
+  it("a card's local state does not move to a different finding when the filter changes", async () => {
+    await loadWith([
+      {
+        category: "LIABILITY",
+        severity: "HIGH",
+        clauseExcerpt: "a",
+        explanation: "An uncapped indemnity here.",
+        suggestedChange: "a",
+      },
+      {
+        category: "CONFIDENTIALITY",
+        severity: "MEDIUM",
+        clauseExcerpt: "b",
+        explanation: "An open-ended non-compete here.",
+        suggestedChange: "b",
+      },
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "indemnity" }));
+    expect(screen.getByRole("button", { name: "indemnity" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Medium 1" }));
+
+    expect(screen.getByRole("button", { name: "non-compete" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("zero findings reads as a clean result: its own heading and checked areas, no alert, no error copy", async () => {
+    const { container } = await loadWith([], { overallRisk: "LOW" });
+
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "Nothing in this contract needs a second look.",
+      }),
+    ).toBeInTheDocument();
+    expect(container.querySelectorAll(".cc-report__checked li")).toHaveLength(8);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/error|couldn.t|failed|went wrong/i);
+    expect(container.querySelector("ol.cc-report__findings")).toBeNull();
+  });
+});

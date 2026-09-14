@@ -38,3 +38,18 @@
   border-left-color: var(--cc-severity-low);
   color: var(--cc-severity-low);
 }
+
+/* The finding card's header treatment: text then mark, on the card's own
+   background. Severity inks clear 4.5:1 on the tints above, and the card
+   surface is lighter than every tint, so they clear it here too. */
+.cc-severity-badge--inline {
+  align-items: baseline;
+  gap: 9px;
+  padding: 0;
+  background: none;
+  border-left: 0;
+}
+
+.cc-severity-badge--inline .cc-severity-badge__mark {
+  font-size: var(--cc-text-sm);
+}

@@ -24,21 +24,50 @@ import "./SeverityBadge.css";
  * decoupled from the i18n system (BUILD-PLAN decision D-B) — the caller
  * passes the string translations.
  *
+ * `variant="inline"` is the finding card's treatment (step 36): label
+ * first, mark after, no tint or accent border — the same text-plus-shape
+ * encoding, laid out the way the prototype's card header lays it out.
+ *
  * @param {{
  *   severity: "high" | "medium" | "low",
  *   label: string,
+ *   variant?: "badge" | "inline",
  *   className?: string,
  * }} props
  */
-export default function SeverityBadge({ severity, label, className = "" }) {
+export default function SeverityBadge({
+  severity,
+  label,
+  variant = "badge",
+  className = "",
+}) {
+  const mark = (
+    <span className="cc-severity-badge__mark" aria-hidden="true">
+      {MARKS[severity]}
+    </span>
+  );
+  const classes = [
+    "cc-severity-badge",
+    `cc-severity-badge--${severity}`,
+    variant === "inline" ? "cc-severity-badge--inline" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <span
-      className={`cc-severity-badge cc-severity-badge--${severity} ${className}`.trim()}
-    >
-      <span className="cc-severity-badge__mark" aria-hidden="true">
-        {MARKS[severity]}
-      </span>
-      {label}
+    <span className={classes}>
+      {variant === "inline" ? (
+        <>
+          {label}
+          {mark}
+        </>
+      ) : (
+        <>
+          {mark}
+          {label}
+        </>
+      )}
     </span>
   );
 }

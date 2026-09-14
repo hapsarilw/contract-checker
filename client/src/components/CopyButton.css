@@ -22,3 +22,17 @@
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
 }
+
+/* Never display:none while empty — a live region that isn't rendered
+   when its content arrives is announced unreliably. An empty block span
+   has no height; only the spacing is conditional. */
+.cc-copy-button__note {
+  display: block;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--cc-success);
+}
+
+.cc-copy-button__note:not(:empty) {
+  margin-top: 9px;
+}

@@ -5,33 +5,54 @@ import { useI18n } from "../i18n/useI18n.js";
 import { SEVERITY_MARKS } from "../components/SeverityBadge.jsx";
 import SkipLink from "../components/SkipLink.jsx";
 import Banner from "../components/Banner.jsx";
+import FindingCard from "./FindingCard.jsx";
 import "./ReportPage.css";
 
 /** HIGH first, matching the server's own sort (serializers.js's SEVERITY_RANK). */
 const SEVERITY_ORDER = /** @type {const} */ (["HIGH", "MEDIUM", "LOW"]);
 
+/** The prototype's CHECKED list — the eight areas the analysis reads for. */
+const CHECKED_AREAS = [
+  "Payment terms",
+  "IP and ownership",
+  "Scope and revisions",
+  "Termination",
+  "Liability",
+  "Confidentiality",
+  "Dispute resolution",
+  "Anything else unusual",
+];
+
 /**
- * BUILD-PLAN step 35 — the top of the report screen: the risk header,
- * the model's plain-language summary, and the two presentation-only
- * breakdowns decision D-C approves ("the shape of it" by severity,
- * "where the problems are" by category), plus the severity filter
- * control bar. The finding cards the filter controls (step 36) and
- * everything below them (step 37: missing protections, the disclaimer,
- * delete) are NOT built here — see the comment below `hasFindings` for
- * exactly where this component stops.
+ * @typedef {{
+ *   category: string,
+ *   severity: "HIGH" | "MEDIUM" | "LOW",
+ *   clauseExcerpt: string,
+ *   explanation: string,
+ *   suggestedChange: string,
+ * }} Finding
+ */
+
+/**
+ * BUILD-PLAN steps 35–36 — the report screen: the risk header, the
+ * model's plain-language summary, the two presentation-only breakdowns
+ * decision D-C approves ("the shape of it" by severity, "where the
+ * problems are" by category), the severity filter, and the findings
+ * themselves (or, with none, the zero-findings result). Everything below
+ * the findings — missing protections, the disclaimer, delete — is step
+ * 37's.
  *
  * Read docs/design/ClauseCheck.html's "3. REPORT" screen before editing
- * this file: its masthead markup is what every class name and layout
- * choice below is matched against.
+ * this file: its markup is what every class name and layout choice below
+ * is matched against.
  *
- * SRS section 7 amendment (decision D-C): the category breakdown and
- * severity filter have no requirement behind them in the SRS text.
- * Recorded here, as this step's instructions require, rather than only
- * in the commit message — decision D-C approves both as presentation-
- * only, costing nothing in the output contract (they're computed from
- * fields the server already returns), unlike the fourth prototype
- * feature D-C reviews (present protections), which is deferred because
- * it would require a real model-output-schema change.
+ * SRS section 7 amendment (decision D-C): the category breakdown,
+ * severity filter and glossary popovers have no requirement behind them
+ * in the SRS text. D-C approves all three as presentation-only — computed
+ * from fields the server already returns, with no change to the output
+ * contract or the prompt — unlike the fourth prototype feature D-C
+ * reviews (present protections), which stays deferred because it would
+ * need a real model-output-schema change.
  */
 export default function ReportPage() {
   const { id } = useParams();
@@ -157,10 +178,14 @@ function ReportPageForDocument({ id }) {
   // modelRisk, which serializeAnalysis (server/src/lib/serializers.js)
   // never even sends: there is no field here it could accidentally read.
   const riskKey = /** @type {"HIGH" | "MEDIUM" | "LOW"} */ (analysis.overallRisk);
-  const findings =
-    /** @type {Array<{ category: string, severity: "HIGH" | "MEDIUM" | "LOW" }>} */ (
-      analysis.findings
-    );
+
+  // FR-7.5 is a client requirement ("Findings render in severity order"),
+  // so it's enforced here rather than inherited from the server's sort.
+  // Array.prototype.sort is stable, so the server's order within one
+  // severity survives.
+  const findings = [.../** @type {Finding[]} */ (analysis.findings)].sort(
+    (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity),
+  );
   const hasFindings = findings.length > 0;
 
   const counts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
@@ -173,10 +198,14 @@ function ReportPageForDocument({ id }) {
     catCounts[finding.category] = (catCounts[finding.category] ?? 0) + 1;
   }
 
-  const shownList =
-    filter === "all"
-      ? findings
-      : findings.filter((finding) => finding.severity === filter);
+  // Each card keeps its position in the FULL list as its React key, not
+  // its position in the filtered one. Findings have no id, and an index
+  // into the filtered list would hand one card's local state (a "Copied"
+  // confirmation, an open glossary term) to whichever card lands in its
+  // slot after the filter changes.
+  const shownList = findings
+    .map((finding, position) => ({ finding, position }))
+    .filter(({ finding }) => filter === "all" || finding.severity === filter);
   const shownCountText =
     filter === "all"
       ? t.showingAll + findings.length
@@ -275,7 +304,7 @@ function ReportPageForDocument({ id }) {
                 <div className="cc-report__cat-chips">
                   {Object.entries(catCounts).map(([category, count]) => (
                     <span className="cc-report__cat-chip" key={category}>
-                      {t.categories[category] + " · " + count}
+                      {(t.categories[category] ?? t.categories.OTHER) + " · " + count}
                     </span>
                   ))}
                 </div>
@@ -285,42 +314,81 @@ function ReportPageForDocument({ id }) {
         </div>
 
         {hasFindings ? (
-          <div className="cc-report__findings-head">
-            <div>
-              <h2 className="cc-report__findings-title">{t.findingsHead}</h2>
-              <div className="cc-report__order-note">
-                {t.orderNote} ·{" "}
-                <span role="status" aria-live="polite">
-                  {shownCountText}
-                </span>
+          <>
+            <div className="cc-report__findings-head">
+              <div>
+                <h2 className="cc-report__findings-title">{t.findingsHead}</h2>
+                <div className="cc-report__order-note">
+                  {t.orderNote} ·{" "}
+                  <span role="status" aria-live="polite">
+                    {shownCountText}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                className="cc-report__filters"
+                role="group"
+                aria-label={t.findingsHead}
+              >
+                <button
+                  type="button"
+                  className={`cc-report__filter ${filter === "all" ? "cc-report__filter--active" : ""}`.trim()}
+                  aria-pressed={filter === "all"}
+                  onClick={() => setFilter("all")}
+                >
+                  {t.filterAll + " " + findings.length}
+                </button>
+                {SEVERITY_ORDER.filter((key) => counts[key] > 0).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`cc-report__filter ${filter === key ? "cc-report__filter--active" : ""}`.trim()}
+                    aria-pressed={filter === key}
+                    onClick={() => setFilter(key)}
+                  >
+                    {t.severity[key] + " " + counts[key]}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="cc-report__filters" role="group" aria-label={t.findingsHead}>
-              <button
-                type="button"
-                className={`cc-report__filter ${filter === "all" ? "cc-report__filter--active" : ""}`.trim()}
-                aria-pressed={filter === "all"}
-                onClick={() => setFilter("all")}
-              >
-                {t.filterAll + " " + findings.length}
-              </button>
-              {SEVERITY_ORDER.filter((key) => counts[key] > 0).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={`cc-report__filter ${filter === key ? "cc-report__filter--active" : ""}`.trim()}
-                  aria-pressed={filter === key}
-                  onClick={() => setFilter(key)}
-                >
-                  {t.severity[key] + " " + counts[key]}
-                </button>
+            {/* SRS §7.15: "findings as a semantic list" — an ordered one,
+                since the order (highest severity first) is itself meaning. */}
+            <ol className="cc-report__findings">
+              {shownList.map(({ finding, position }) => (
+                <li key={position}>
+                  <FindingCard finding={finding} />
+                </li>
               ))}
-            </div>
-            {/* step 36 renders `shownList` as finding cards here, under this
-                control bar — this step stops at the filter itself. */}
+            </ol>
+          </>
+        ) : (
+          // Fixture 03 is a release gate (PRD §11.1), and a clean contract is
+          // the result the user hoped for — so this is a result card with its
+          // own heading, not a Banner, not an alert role, and not an absence
+          // of content that reads like something failed to load.
+          <div className="cc-report__clean">
+            <h2 className="cc-report__clean-title">
+              Nothing in this contract needs a second look.
+            </h2>
+            <p className="cc-report__clean-body">
+              That’s an uncommon result, so here’s the work behind it. Each area below was
+              read against the clauses actually in your document, and none of them turned
+              up wording that works against you.
+            </p>
+            <ul className="cc-report__checked">
+              {CHECKED_AREAS.map((area) => (
+                <li className="cc-report__checked-item" key={area}>
+                  <span className="cc-report__checked-mark" aria-hidden="true">
+                    ✓
+                  </span>
+                  {area}
+                </li>
+              ))}
+            </ul>
           </div>
-        ) : null}
+        )}
       </main>
     </div>
   );

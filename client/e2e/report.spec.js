@@ -302,3 +302,251 @@ test.describe("the report screen's masthead and severity filter (BUILD-PLAN step
     expect(results.violations).toEqual([]);
   });
 });
+
+// Realistic model output, lifted from fixture 13's explanations and asks
+// (server/tests/fixtures/13-stress-long-report.json) so the glossary and
+// reflow tests run against the words and lengths the real thing produces.
+// Deliberately out of severity order: FR-7.5's ordering is the client's job.
+const REAL_FINDINGS = [
+  {
+    category: "PAYMENT",
+    severity: "LOW",
+    clauseExcerpt:
+      "Contractor shall bear the cost of all fonts, stock imagery and other third-party materials used in the Deliverables.",
+    explanation:
+      "Minor on its own, but licences for fonts and stock imagery on a branding project can run into hundreds of dollars that come straight out of your fee.",
+    suggestedChange:
+      "Ask for materials bought specifically for this project to be reimbursed at cost, or add an allowance for them to the fee.",
+  },
+  {
+    category: "IP",
+    severity: "HIGH",
+    clauseExcerpt:
+      "All right, title and interest in any work product created by Contractor, including pre-existing materials, shall vest in Client immediately upon creation.",
+    explanation:
+      "This hands over work you made before this project existed, and the assignment takes effect the moment you create something rather than when you’re paid — so an unpaid final invoice leaves you with nothing to hold.",
+    suggestedChange:
+      "Ask that this cover only deliverables made under this agreement, and that ownership transfer on receipt of final payment.",
+  },
+  {
+    category: "PAYMENT",
+    severity: "MEDIUM",
+    clauseExcerpt:
+      "Invoices are payable net ninety (90) days following Client’s written acceptance of the Deliverables.",
+    explanation:
+      "Net-90 is three months of financing the client’s project, and the clock only starts on acceptance — which the client controls and could delay indefinitely.",
+    suggestedChange:
+      "Ask for net-14 or net-30 counted from your invoice date, and for deliverables to be treated as accepted if no feedback arrives within five working days.",
+  },
+  {
+    category: "LIABILITY",
+    severity: "HIGH",
+    clauseExcerpt:
+      "Contractor shall indemnify, defend and hold harmless Client from and against any and all claims, losses and damages of any kind whatsoever.",
+    explanation:
+      "This is an uncapped indemnity — one dispute could cost you far more than the project pays, including claims caused by material the client gave you.",
+    suggestedChange:
+      "Ask to cap your total liability at the fees paid under this agreement, and to exclude claims arising from client-supplied content or client instructions.",
+  },
+];
+
+test.describe("the findings list (BUILD-PLAN step 36)", () => {
+  test("cards render high → medium → low as an ordered list, each with the quote, why, and ask", async ({
+    page,
+  }) => {
+    await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
+    await page.goto("/documents/doc1");
+
+    const items = page.locator("ol.cc-report__findings > li");
+    await expect(items).toHaveCount(4);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveText([
+      "IP and ownership",
+      "Liability",
+      "Payment",
+      "Payment",
+    ]);
+
+    const first = items.first();
+    await expect(first.getByText("High severity")).toBeVisible();
+    await expect(first.getByText("Quoted from your contract")).toBeVisible();
+    await expect(first.locator("blockquote")).toHaveText(
+      `“${REAL_FINDINGS[1].clauseExcerpt}”`,
+    );
+    await expect(first.getByText("Why it matters")).toBeVisible();
+    await expect(first.getByText("What to ask for")).toBeVisible();
+    await expect(first.getByText(REAL_FINDINGS[1].suggestedChange)).toBeVisible();
+  });
+
+  test("the quote's left rule is coloured, and thickened, by severity", async ({
+    page,
+  }) => {
+    await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
+    await page.goto("/documents/doc1");
+
+    const quotes = page.locator("ol.cc-report__findings blockquote");
+    // evaluateAll doesn't auto-wait; without this it can read an empty list.
+    await expect(quotes).toHaveCount(4);
+    const rules = await quotes.evaluateAll((quotes) =>
+      quotes.map((quote) => {
+        const style = getComputedStyle(quote);
+        return [style.borderLeftColor, style.borderLeftWidth];
+      }),
+    );
+    expect(rules).toEqual([
+      ["rgb(122, 63, 46)", "3px"], // #7A3F2E high
+      ["rgb(122, 63, 46)", "3px"],
+      ["rgb(122, 101, 32)", "2px"], // #7A6520 medium
+      ["rgb(61, 90, 78)", "1px"], // #3D5A4E low
+    ]);
+  });
+
+  test("the copy control works by keyboard, copies the ask, and shows and announces the confirmation", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
+    await page.goto("/documents/doc1");
+
+    const firstCard = page.locator("ol.cc-report__findings > li").first();
+    const copy = firstCard.getByRole("button", { name: "Copy this ask" });
+    await copy.focus();
+    await page.keyboard.press("Enter");
+
+    const note = firstCard.getByText("Copied — paste it into your reply to the client.");
+    await expect(note).toBeVisible();
+    await expect(note).toHaveAttribute("role", "status");
+    await expect(note).toHaveAttribute("aria-live", "polite");
+    await expect(firstCard.getByRole("button", { name: "Copied" })).toBeFocused();
+
+    const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboard).toBe(REAL_FINDINGS[1].suggestedChange);
+  });
+
+  test("a glossary term is keyboard-reachable, opens with Enter, and Escape dismisses it without losing focus", async ({
+    page,
+  }) => {
+    await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
+    await page.goto("/documents/doc1");
+
+    const term = page.getByRole("button", { name: "indemnity" });
+    const meaning = page.getByText(
+      "A promise to cover the other side’s losses if a claim is made against them.",
+    );
+    await term.focus();
+    await expect(term).toBeFocused();
+    await expect(meaning).toBeHidden();
+
+    await page.keyboard.press("Enter");
+    await expect(term).toHaveAttribute("aria-expanded", "true");
+    await expect(meaning).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(term).toHaveAttribute("aria-expanded", "false");
+    await expect(meaning).toBeHidden();
+    await expect(term).toBeFocused();
+  });
+
+  test("a finding whose text contains HTML renders it as literal text (FR-7.8)", async ({
+    page,
+  }) => {
+    const hostile =
+      '<img src=x onerror="window.__pwned=1"><script>window.__pwned=2</script>';
+    await mockReport(page, {
+      overallRisk: "HIGH",
+      findings: [
+        {
+          category: "LIABILITY",
+          severity: "HIGH",
+          clauseExcerpt: hostile,
+          explanation: `${hostile} an uncapped indemnity`,
+          suggestedChange: hostile,
+        },
+      ],
+    });
+    await page.goto("/documents/doc1");
+
+    const card = page.locator("ol.cc-report__findings > li").first();
+    await expect(card.locator("blockquote")).toHaveText(`“${hostile}”`);
+    await expect(card.getByText(hostile, { exact: true })).toBeVisible();
+    await expect(card.locator("img, script")).toHaveCount(0);
+    expect(
+      await page.evaluate(() => /** @type {any} */ (window).__pwned),
+    ).toBeUndefined();
+  });
+
+  test("zero findings reads as a clean result, not an error, and is axe clean", async ({
+    page,
+  }) => {
+    await mockReport(page, { findings: [], overallRisk: "LOW" });
+    await page.goto("/documents/doc1");
+
+    await expect(
+      page.getByRole("heading", {
+        level: 2,
+        name: "Nothing in this contract needs a second look.",
+      }),
+    ).toBeVisible();
+    await expect(page.locator(".cc-report__checked li")).toHaveCount(8);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("axe reports zero violations with a glossary definition open and a copy confirmed", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
+    await page.goto("/documents/doc1");
+
+    await page.getByRole("button", { name: "indemnity" }).click();
+    await page.getByRole("button", { name: "Copy this ask" }).first().click();
+    await expect(
+      page.getByText("Copied — paste it into your reply to the client."),
+    ).toBeVisible();
+
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("at 320px, real-length findings with a glossary definition open cause no horizontal scrolling", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 900 });
+    await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
+    await page.goto("/documents/doc1");
+
+    await page.getByRole("button", { name: "assignment" }).click();
+    await expect(
+      page.getByText("Permanently transferring ownership of the work to someone else."),
+    ).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("at desktop width, a definition opened near the right edge flips inward instead of overflowing", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 900, height: 900 });
+    await mockReport(page, { findings: REAL_FINDINGS, overallRisk: "HIGH" });
+    await page.goto("/documents/doc1");
+
+    for (const name of ["assignment", "indemnity", "acceptance"]) {
+      await page.getByRole("button", { name }).click();
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `opening "${name}"`).toBeLessThanOrEqual(1);
+      await page.keyboard.press("Escape");
+    }
+  });
+});

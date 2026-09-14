@@ -1,0 +1,109 @@
+/**
+ * BUILD-PLAN step 36 — the prototype's finding card
+ * (docs/design/ClauseCheck.html), one `<article>` in the findings sheet.
+ */
+
+.cc-finding {
+  border-top: var(--cc-border-width) solid var(--cc-rule);
+  padding: 26px 26px 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-9) 44px;
+}
+
+.cc-finding__head {
+  flex: 1 1 100%;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cc-space-3) 16px;
+  padding-bottom: 14px;
+  margin-bottom: var(--cc-space-2);
+  border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+.cc-finding__category {
+  margin: 0;
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  color: var(--cc-ink);
+}
+
+.cc-finding__severity {
+  margin-left: auto;
+}
+
+.cc-finding__quote-col {
+  flex: 1 1 380px;
+  min-width: 0;
+}
+
+.cc-finding__detail-col {
+  flex: 1 1 288px;
+  min-width: 0;
+  border-left: var(--cc-border-width) solid var(--cc-rule-soft);
+  padding-left: var(--cc-space-9);
+}
+
+.cc-finding__eyebrow {
+  margin: 0 0 var(--cc-space-3);
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-ink-on-muted);
+  letter-spacing: var(--cc-tracking-wider);
+  text-transform: uppercase;
+}
+
+.cc-finding__eyebrow--quote {
+  margin-bottom: var(--cc-space-4);
+}
+
+/* The rule's colour AND thickness encode severity (3px / 2px / 1px) —
+   a second, non-colour channel alongside the card's text label. */
+.cc-finding__quote {
+  margin: 0;
+  font-family: var(--cc-font-serif);
+  font-size: 17.5px;
+  line-height: 1.66;
+  color: var(--cc-ink);
+  padding: var(--cc-space-7) var(--cc-space-8);
+  border-left-style: solid;
+  /* Model output can be one long unbroken token; without this it forces
+     horizontal scrolling at 320px (SRS §7.15). */
+  overflow-wrap: anywhere;
+}
+
+.cc-finding--high .cc-finding__quote {
+  background: var(--cc-severity-high-tint);
+  border-left-width: 3px;
+  border-left-color: var(--cc-severity-high);
+}
+.cc-finding--medium .cc-finding__quote {
+  background: var(--cc-severity-medium-tint);
+  border-left-width: 2px;
+  border-left-color: var(--cc-severity-medium);
+}
+.cc-finding--low .cc-finding__quote {
+  background: var(--cc-severity-low-tint);
+  border-left-width: 1px;
+  border-left-color: var(--cc-severity-low);
+}
+
+.cc-finding__why,
+.cc-finding__ask {
+  font-size: var(--cc-text-md);
+  line-height: 1.62;
+  color: var(--cc-ink-secondary);
+  overflow-wrap: anywhere;
+}
+
+.cc-finding__why {
+  margin: 0 0 22px;
+}
+
+.cc-finding__ask {
+  margin: 0 0 var(--cc-space-6);
+}

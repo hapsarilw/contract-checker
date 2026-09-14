@@ -1,0 +1,86 @@
+.cc-glossary {
+  position: relative;
+  display: inline-block;
+}
+
+.cc-glossary__term {
+  font: inherit;
+  color: var(--cc-ink);
+  background: transparent;
+  border: 0;
+  /* A non-text boundary, so WCAG 1.4.11's 3:1 applies: --cc-ink-muted
+     clears 3.62:1 against the card. */
+  border-bottom: var(--cc-border-width) dotted var(--cc-ink-muted);
+  /* The prototype's 24px-plus target (WCAG 2.5.8) without changing the
+     line's height: padding grows the hit area, the negative margin
+     takes it back out of the layout. */
+  padding: 11px 1px;
+  margin: -11px 0;
+  cursor: help;
+}
+
+.cc-glossary__term--open {
+  background: var(--cc-success-tint);
+}
+
+.cc-glossary__popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  margin-top: 9px;
+  width: min(276px, calc(100vw - 32px));
+  display: block;
+  text-align: left;
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule-strong);
+  box-shadow: var(--cc-shadow-popover);
+  padding: 13px 15px;
+}
+
+.cc-glossary__popover[hidden] {
+  display: none;
+}
+
+.cc-glossary__popover--flip {
+  left: auto;
+  right: 0;
+}
+
+.cc-glossary__popover-term {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cc-ink);
+}
+
+.cc-glossary__popover-meaning {
+  display: block;
+  font-size: var(--cc-text-base);
+  line-height: 1.58;
+  color: var(--cc-ink-secondary);
+  margin-top: var(--cc-space-2);
+}
+
+@media (max-width: 600px) {
+  .cc-glossary {
+    display: inline;
+  }
+  .cc-glossary__popover,
+  .cc-glossary__popover--flip {
+    position: static;
+    width: auto;
+    margin: var(--cc-space-3) 0 var(--cc-space-3);
+    box-shadow: none;
+    border: 0;
+    border-left: var(--cc-border-width-focus) solid var(--cc-rule-strong);
+    padding: 0 0 0 var(--cc-space-6);
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cc-glossary__popover:not([hidden]) {
+    animation: cc-fade 120ms ease-out;
+  }
+}

@@ -41,6 +41,29 @@ export const en = {
     DISPUTE: "Dispute resolution",
     OTHER: "Other",
   },
+  // Step 36 — the finding card's severity line (the prototype builds it
+  // as `label + sevSuffix` in English but `sevSuffix + label` in
+  // Indonesian; spelled out per locale so word order isn't code).
+  findingSeverity: {
+    HIGH: "High severity",
+    MEDIUM: "Medium severity",
+    LOW: "Low severity",
+  },
+  // Step 36 — the prototype's GLOSS[*].en, keyed as in
+  // pages/glossaryTerms.js. The Indonesian term name the prototype also
+  // showed inside the English popover (GLOSS[*].id) is not carried over:
+  // Phase 1 copy is English-only (FR-7.14).
+  glossary: {
+    assignment: "Permanently transferring ownership of the work to someone else.",
+    indemnity:
+      "A promise to cover the other side’s losses if a claim is made against them.",
+    noncompete: "A promise not to work for competing businesses for a set period.",
+    killfee: "A payment owed if the client cancels after the work has started.",
+    net90: "Payment falls due 90 days after the trigger date, not on delivery.",
+    net60: "Payment falls due 60 days after the invoice date.",
+    acceptance: "The client’s formal sign-off — it can start or delay the payment clock.",
+    liabilitycap: "A ceiling on the total amount you could owe if something goes wrong.",
+  },
   findingsHead: "Clauses worth a second look",
   orderNote: "Highest severity first",
   quotedFrom: "Quoted from your contract",

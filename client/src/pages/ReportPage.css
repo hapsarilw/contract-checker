@@ -306,3 +306,72 @@
   outline: var(--cc-border-width-focus) solid var(--cc-brand);
   outline-offset: 2px;
 }
+
+/* ---- Findings list (step 36) --------------------------------------- */
+
+/* One continuous sheet: each card's own border-top is the divider, and
+   the first one doubles as the sheet's top edge. */
+.cc-report__findings {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-top: 0;
+  box-shadow: var(--cc-shadow-card-lg);
+}
+
+/* ---- Zero findings (step 36) --------------------------------------- */
+
+.cc-report__clean {
+  margin-top: 46px;
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-left: 5px solid var(--cc-success);
+  box-shadow: var(--cc-shadow-card-lg);
+  padding: 32px 28px;
+}
+
+.cc-report__clean-title {
+  margin: 0 0 var(--cc-space-5);
+  font-family: var(--cc-font-serif);
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.026em;
+  color: var(--cc-ink);
+  max-width: 26ch;
+}
+
+.cc-report__clean-body {
+  margin: 0 0 var(--cc-space-9);
+  font-size: 15.5px;
+  line-height: 1.62;
+  color: var(--cc-ink-secondary);
+  max-width: 64ch;
+}
+
+.cc-report__checked {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-4) var(--cc-space-10);
+  max-width: 660px;
+}
+
+.cc-report__checked-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cc-space-4);
+  flex: 1 1 176px;
+  font-size: 13px;
+  color: var(--cc-ink);
+}
+
+.cc-report__checked-mark {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-success);
+}

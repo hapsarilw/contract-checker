@@ -77,6 +77,10 @@
      concept (confirmation, not a low-severity finding), kept as its own
      token rather than reused so the two can diverge on purpose later. */
   --cc-success-tint: #e7ede9;
+  /* The confirmation ink the prototype pairs with it: CopyButton's
+     "Copied — paste it into your reply…" note, and the zero-findings
+     result's accent rule and check marks. 7.37:1 on --cc-surface-card. */
+  --cc-success: #40584f;
 
   /* ---- Type — families ------------------------------------------ */
   /* Report body and quoted excerpts. */
