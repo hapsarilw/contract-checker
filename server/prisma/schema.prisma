@@ -92,6 +92,11 @@ model Analysis {
   // before the LLM call, never patched in afterwards (FR-3.14). An
   // analysis that failed still records which model was asked.
   model             String
+  // Appendix A's PROMPT_VERSION, written at INSERT time alongside `model`,
+  // so a benchmark result or a drift investigation attributes to a
+  // specific prompt revision. Nullable because it was added after the
+  // table existed (§5.5 expand): rows written before it carry no version.
+  promptVersion     String?
   inputTokens       Int?
   outputTokens      Int?
   durationMs        Int?

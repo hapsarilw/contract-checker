@@ -146,3 +146,20 @@ describe("Prisma schema conformance with SRS §5.1", () => {
     });
   });
 });
+
+describe("Analysis.promptVersion (Appendix A)", () => {
+  const promptVersionMigration = readdirSync(migrationsDir).find((entry) =>
+    entry.endsWith("_analysis_prompt_version"),
+  );
+
+  it("is added by its own expand-only migration: a nullable column, no default", () => {
+    expect(promptVersionMigration).toBeDefined();
+    const sql = readFileSync(join(migrationsDir, String(promptVersionMigration), "migration.sql"), "utf8");
+    expect(sql).toContain('ALTER TABLE "Analysis" ADD COLUMN "promptVersion" TEXT;');
+    expect(sql).not.toMatch(/NOT NULL|DEFAULT/);
+  });
+
+  it("is a field on the generated client", () => {
+    expect(Prisma.AnalysisScalarFieldEnum).toHaveProperty("promptVersion");
+  });
+});

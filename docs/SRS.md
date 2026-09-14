@@ -496,6 +496,7 @@ model Analysis {
   summary           String?   @db.Text
   missingClauses    String[]               // SQLite dev note: no array type — use a JSON-encoded String there
   model             String                 // resolved value, per analysis (FR-3.14)
+  promptVersion     String?                // Appendix A's version tag, written at insert alongside model
   inputTokens       Int?
   outputTokens      Int?
   durationMs        Int?
