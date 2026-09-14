@@ -4,32 +4,32 @@ import { z } from "zod";
  * SRS §5.2 — the LLM output contract (FR-3.2), transcribed.
  *
  * Two details are load-bearing and easy to lose:
- *   - .strict() on AnalysisResult. Zod's default silently strips unknown
- *     keys; an unexpected key means the model has drifted from the contract,
- *     and stripping it hides that drift. Never .passthrough() or .loose().
+ *   - .strict() on both objects, AnalysisResult and every Finding. Zod's
+ *     default silently strips unknown keys; an unexpected key means the model
+ *     has drifted from the contract, and stripping it hides that drift,
+ *     whether the key is on the response or inside a finding. Never
+ *     .passthrough() or .loose().
  *   - An upper bound on every string. A model that streams 40 KB into
  *     `explanation` fails validation instead of filling the database.
- *
- * §5.2 does not make Finding strict, so an unknown key inside a finding is
- * stripped rather than rejected. That is the spec as written, pinned by a
- * test so that changing it is a decision rather than an accident.
  */
-export const Finding = z.object({
-  category: z.enum([
-    "payment",
-    "ip",
-    "scope",
-    "termination",
-    "liability",
-    "confidentiality",
-    "dispute",
-    "other",
-  ]),
-  severity: z.enum(["low", "medium", "high"]),
-  clause_excerpt: z.string().min(10).max(300),
-  explanation: z.string().min(20).max(2000),
-  suggested_change: z.string().min(10).max(2000),
-});
+export const Finding = z
+  .object({
+    category: z.enum([
+      "payment",
+      "ip",
+      "scope",
+      "termination",
+      "liability",
+      "confidentiality",
+      "dispute",
+      "other",
+    ]),
+    severity: z.enum(["low", "medium", "high"]),
+    clause_excerpt: z.string().min(10).max(300),
+    explanation: z.string().min(20).max(2000),
+    suggested_change: z.string().min(10).max(2000),
+  })
+  .strict();
 
 export const AnalysisResult = z
   .object({

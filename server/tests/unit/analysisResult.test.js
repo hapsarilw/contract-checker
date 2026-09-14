@@ -173,20 +173,23 @@ describe("TR-2 — the LLM output contract (§5.2)", () => {
       expect(errorSummaryOf(parseAnalysisResult(text))).toContain('"__proto__"');
     });
 
-    it("§5.2 makes only AnalysisResult strict — an unknown key inside a finding is stripped", () => {
-      // Pinned, not endorsed. §5.2's drift rationale applies inside findings
-      // too, but the spec as written makes only the top level strict; this
-      // should change together with §5.2, never by accident.
+    it("inside a finding too, naming the finding and the key in the correction", () => {
+      // §5.2 makes both objects strict: drift inside a finding is as real as
+      // drift on the response itself.
+      expect(
+        /const Finding = z\.object\(\{[\s\S]*?\}\)\.strict\(\);/.test(FINDING_SOURCE),
+      ).toBe(true);
       expect(
         /const AnalysisResult = z\.object\(\{[\s\S]*?\}\)\.strict\(\);/.test(
           SPEC_SCHEMA_SOURCE,
         ),
       ).toBe(true);
-      expect(FINDING_SOURCE).not.toContain(".strict()");
 
       const result = specExample();
       result.findings[0].confidence = 0.9;
-      expect(parse(result)).toEqual({ success: true, data: specExample() });
+      const summary = errorSummaryOf(parse(result));
+      expect(summary).toMatch(/^findings\.0: /);
+      expect(summary).toContain('"confidence"');
     });
   });
 

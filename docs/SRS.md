@@ -593,7 +593,7 @@ const Finding = z.object({
   clause_excerpt: z.string().min(10).max(300),
   explanation: z.string().min(20).max(2000),
   suggested_change: z.string().min(10).max(2000),
-});
+}).strict();
 
 const AnalysisResult = z.object({
   document_type: z.string().max(200),
@@ -604,7 +604,7 @@ const AnalysisResult = z.object({
 }).strict();
 ```
 
-`.strict()` matters: an unexpected key means the model has drifted from the contract, and silently ignoring it hides that drift. Upper bounds on every string matter too — a model that streams 40 KB into `explanation` should fail validation, not fill the database.
+`.strict()` matters, on both objects: an unexpected key means the model has drifted from the contract, and silently ignoring it hides that drift, whether the key is on the response or inside a finding. The cost is bounded: a response carrying an extra key uses the single retry (§2.2 step 6) before the analysis fails. Upper bounds on every string matter too — a model that streams 40 KB into `explanation` should fail validation, not fill the database.
 
 Parsing is defensive: strip a leading/trailing markdown fence if present before `JSON.parse` (the prompt forbids fences; stripping them anyway avoids a pointless retry).
 
