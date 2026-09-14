@@ -1,0 +1,308 @@
+/**
+ * BUILD-PLAN step 35 — the top of the prototype's "3. REPORT" screen
+ * (docs/design/ClauseCheck.html), matched layout-for-layout through the
+ * severity filter control bar. See ReportPage.jsx for what stops there
+ * and why.
+ */
+
+.cc-report {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 34px 28px 64px;
+}
+
+.cc-report__back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cc-report__loading,
+.cc-report__error-title {
+  font-family: var(--cc-font-serif);
+  color: var(--cc-ink);
+}
+
+.cc-report__error-title {
+  margin: 0 0 var(--cc-space-5);
+  font-size: var(--cc-text-3xl);
+  font-weight: 600;
+}
+
+/* ---- Masthead ------------------------------------------------------ */
+
+.cc-report__masthead {
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-top: var(--cc-border-width-accent) solid var(--cc-brand);
+  box-shadow: var(--cc-shadow-card-lg);
+}
+
+.cc-report__meta {
+  display: flex;
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-ink-secondary);
+  font-variant-numeric: tabular-nums;
+  padding: var(--cc-space-5) var(--cc-space-9);
+  border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
+  background: var(--cc-surface-muted);
+}
+
+.cc-report__top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px 52px;
+  align-items: flex-start;
+  padding: var(--cc-space-10) var(--cc-space-9) 32px;
+}
+
+.cc-report__risk {
+  flex: 0 0 auto;
+  min-width: 180px;
+  border-left: 5px solid var(--cc-severity-low);
+  padding-left: var(--cc-space-8);
+}
+.cc-report__risk--high {
+  border-left-color: var(--cc-severity-high);
+}
+.cc-report__risk--medium {
+  border-left-color: var(--cc-severity-medium);
+}
+.cc-report__risk--low {
+  border-left-color: var(--cc-severity-low);
+}
+
+.cc-report__risk-eyebrow {
+  margin: 0 0 var(--cc-space-4);
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  font-weight: 500;
+  color: var(--cc-ink-on-muted);
+  letter-spacing: var(--cc-tracking-wider);
+  text-transform: uppercase;
+}
+
+.cc-report__risk-value {
+  margin: 0;
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-display-lg);
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-tighter);
+  line-height: 0.94;
+  color: var(--cc-severity-low);
+}
+.cc-report__risk--high .cc-report__risk-value {
+  color: var(--cc-severity-high);
+}
+.cc-report__risk--medium .cc-report__risk-value {
+  color: var(--cc-severity-medium);
+}
+.cc-report__risk--low .cc-report__risk-value {
+  color: var(--cc-severity-low);
+}
+
+.cc-report__risk-sub {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cc-space-5);
+  margin-top: var(--cc-space-6);
+}
+
+.cc-report__risk-mark {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-sm);
+  letter-spacing: 0.16em;
+  color: inherit;
+}
+.cc-report__risk--high .cc-report__risk-mark {
+  color: var(--cc-severity-high);
+}
+.cc-report__risk--medium .cc-report__risk-mark {
+  color: var(--cc-severity-medium);
+}
+.cc-report__risk--low .cc-report__risk-mark {
+  color: var(--cc-severity-low);
+}
+
+.cc-report__risk-count {
+  font-size: var(--cc-text-sm);
+  color: var(--cc-ink-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-report__summary {
+  flex: 1 1 330px;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-xl);
+  line-height: var(--cc-leading-relaxed);
+  color: var(--cc-ink);
+  max-width: 58ch;
+}
+
+/* ---- "The shape of it" / "Where the problems are" ------------------ */
+
+.cc-report__breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+.cc-report__breakdown-col {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: var(--cc-space-9) var(--cc-space-9);
+}
+.cc-report__breakdown-col--where {
+  border-left: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+.cc-report__breakdown-title {
+  margin: 0 0 var(--cc-space-6);
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  font-weight: 500;
+  color: var(--cc-ink-on-muted);
+  letter-spacing: var(--cc-tracking-wider);
+  text-transform: uppercase;
+}
+
+.cc-report__sev-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-5);
+}
+
+.cc-report__sev-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cc-space-5);
+}
+
+.cc-report__sev-mark {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-base);
+  letter-spacing: 0.16em;
+  width: 46px;
+  flex: none;
+}
+.cc-report__sev-mark--high {
+  color: var(--cc-severity-high);
+}
+.cc-report__sev-mark--medium {
+  color: var(--cc-severity-medium);
+}
+.cc-report__sev-mark--low {
+  color: var(--cc-severity-low);
+}
+
+.cc-report__sev-row-label {
+  font-size: var(--cc-text-base);
+  font-weight: 500;
+  color: var(--cc-ink);
+  width: 96px;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-report__sev-bar-track {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 140px;
+  height: 6px;
+  background: var(--cc-rule-soft);
+  display: block;
+}
+
+.cc-report__sev-bar-fill {
+  display: block;
+  height: 6px;
+}
+.cc-report__sev-bar-fill--high {
+  background: var(--cc-severity-high);
+}
+.cc-report__sev-bar-fill--medium {
+  background: var(--cc-severity-medium);
+}
+.cc-report__sev-bar-fill--low {
+  background: var(--cc-severity-low);
+}
+
+.cc-report__cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-2);
+}
+
+.cc-report__cat-chip {
+  font-size: var(--cc-text-sm);
+  padding: var(--cc-space-1) var(--cc-space-4);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  color: var(--cc-ink-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Findings header + severity filter ------------------------------ */
+
+.cc-report__findings-head {
+  margin-top: 46px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-5) var(--cc-space-9);
+  align-items: flex-end;
+}
+
+.cc-report__findings-title {
+  margin: 0 0 var(--cc-space-2);
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-3xl);
+  line-height: 1.18;
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-tight);
+  color: var(--cc-ink);
+}
+
+.cc-report__order-note {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  color: var(--cc-ink-on-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--cc-tracking-wide);
+  text-transform: uppercase;
+}
+
+.cc-report__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-2);
+  margin-left: auto;
+}
+
+.cc-report__filter {
+  min-height: 24px;
+  font-size: var(--cc-text-sm);
+  font-weight: 500;
+  padding: var(--cc-space-3) var(--cc-space-5);
+  cursor: pointer;
+  border: var(--cc-border-width) solid var(--cc-rule-strong);
+  background: var(--cc-surface-card);
+  color: var(--cc-ink-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-report__filter--active {
+  border-color: var(--cc-brand);
+  background: var(--cc-brand);
+  color: var(--cc-surface-card);
+}
+
+.cc-report__filter:focus-visible {
+  outline: var(--cc-border-width-focus) solid var(--cc-brand);
+  outline-offset: 2px;
+}

@@ -7,10 +7,11 @@ import { DISCLAIMER_LOCKED } from "../disclaimer.js";
  * rather than repeating the text here, so there is exactly one place
  * this wording lives (see disclaimer.js for why it's locked).
  *
- * Only the L map — not CAT (finding-category labels), GLOSS (glossary
- * definitions), or JURIS (jurisdiction notes) — because that's what this
- * step asks for. CAT and GLOSS arrive with the screens that render them
- * (BUILD-PLAN decision D-C, steps 34–36); JURIS does not arrive at all in
+ * Step 30 shipped the L map only — not CAT (finding-category labels),
+ * GLOSS (glossary definitions), or JURIS (jurisdiction notes). Step 35
+ * adds `severity` and `categories` (this file's version of SEV.label and
+ * CAT, needed for the report's risk header and category breakdown); GLOSS
+ * arrives with step 36's finding cards. JURIS does not arrive at all in
  * Phase 1 (decision D-A, option A1 — cut, not deferred).
  */
 export const en = {
@@ -21,6 +22,25 @@ export const en = {
   overallRisk: "Overall risk",
   shape: "The shape of it",
   where: "Where the problems are",
+  filterAll: "All",
+  // BUILD-PLAN step 35 — the prototype's SEV.label/labelId, keyed by the
+  // server's actual Severity enum values (HIGH/MEDIUM/LOW,
+  // server/prisma/schema.prisma) rather than the prototype's lowercase
+  // demo-data keys, so a report component can index this directly with
+  // a real finding's `severity` field.
+  severity: { HIGH: "High", MEDIUM: "Medium", LOW: "Low" },
+  // The prototype's CAT.en, keyed by the server's Category enum values
+  // for the same reason.
+  categories: {
+    PAYMENT: "Payment",
+    IP: "IP and ownership",
+    SCOPE: "Scope and revisions",
+    TERMINATION: "Termination",
+    LIABILITY: "Liability",
+    CONFIDENTIALITY: "Confidentiality",
+    DISPUTE: "Dispute resolution",
+    OTHER: "Other",
+  },
   findingsHead: "Clauses worth a second look",
   orderNote: "Highest severity first",
   quotedFrom: "Quoted from your contract",

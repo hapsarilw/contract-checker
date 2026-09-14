@@ -7,11 +7,10 @@ import { DISCLAIMER_LOCKED } from "../disclaimer.js";
  * thrown away"). Kept in the repository but NOT wired to anything —
  * locale.js's ACTIVE_LOCALE is "en" — per decision D-B option B1.
  *
- * See strings/en.js for what's deliberately not here (CAT, GLOSS,
- * JURIS) and disclaimer.js for why `disclaimer` is a re-export rather
- * than inline text: being unwired does not make this translation of a
- * legally load-bearing string pre-approved to ship later without its own
- * review.
+ * See strings/en.js for what's deliberately not here (GLOSS, JURIS) and
+ * disclaimer.js for why `disclaimer` is a re-export rather than inline
+ * text: being unwired does not make this translation of a legally
+ * load-bearing string pre-approved to ship later without its own review.
  */
 export const id = {
   navNew: "Kontrak baru",
@@ -21,6 +20,18 @@ export const id = {
   overallRisk: "Risiko keseluruhan",
   shape: "Gambaran singkat",
   where: "Kategori yang bermasalah",
+  filterAll: "Semua",
+  severity: { HIGH: "Tinggi", MEDIUM: "Sedang", LOW: "Rendah" },
+  categories: {
+    PAYMENT: "Pembayaran",
+    IP: "Hak kekayaan intelektual",
+    SCOPE: "Lingkup dan revisi",
+    TERMINATION: "Pengakhiran",
+    LIABILITY: "Tanggung jawab",
+    CONFIDENTIALITY: "Kerahasiaan",
+    DISPUTE: "Penyelesaian sengketa",
+    OTHER: "Lain-lain",
+  },
   findingsHead: "Klausul yang layak dibaca ulang",
   orderNote: "Dari yang paling berat",
   quotedFrom: "Dikutip dari kontrak Anda",

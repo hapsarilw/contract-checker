@@ -48,3 +48,10 @@ const MARKS = {
   medium: "●●○",
   low: "●○○",
 };
+
+/**
+ * Exported so other severity-aware displays that aren't this badge shape
+ * — the report's risk header and severity breakdown bars (BUILD-PLAN
+ * step 35) — can use the same three glyphs instead of redeclaring them.
+ */
+export const SEVERITY_MARKS = MARKS;
