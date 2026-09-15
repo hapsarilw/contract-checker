@@ -147,6 +147,24 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
     expect(res.body.error.code).toBe("UNSUPPORTED_FILE_TYPE");
   });
 
+  // PRD §9 Phase 1 DoD item 3 (BUILD-PLAN step 43). intake.test.js already
+  // proves intakeUpload() rejects this fixture; this proves the same
+  // outcome survives the real route — Multer, magic-byte detection and the
+  // error translator all sit between the upload and that service, and any
+  // of them could turn a scan into a generic 500 or a 400 instead.
+  it("returns 422 DOCUMENT_TOO_SHORT naming a scanned image for an image-only PDF (fixture 06), and stores nothing", async () => {
+    const { cookie, user } = await loggedInCookie();
+    const res = await request(app)
+      .post("/api/v1/documents")
+      .set("Cookie", cookie)
+      .attach("file", readFixture("06-scanned-no-text-layer.pdf"), "scan.pdf");
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe("DOCUMENT_TOO_SHORT");
+    expect(res.body.error.message).toMatch(/scanned image/i);
+    expect(await prisma.document.count({ where: { userId: user.id } })).toBe(0);
+  });
+
   it("returns 413 FILE_TOO_LARGE on the declared size alone, before reading the body", async () => {
     // Declares a 6 MB multipart body but sends only its first bytes. The
     // rejection happens on Content-Length (upload.js), so the server has to
