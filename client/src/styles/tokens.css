@@ -34,6 +34,20 @@
   /* Alt/inactive chip background (e.g. an unselected filter pill). */
   --cc-surface-muted: #f2f1e9;
 
+  /* ---- Palette — app header (step 39) --------------------------------
+     The one dark surface in the app — every other token above is tuned
+     for text on the light card/page surfaces and does not apply here.
+     Contrast checked directly against --cc-header-bg (step 39):
+     brand-name/nav-active 14.57:1, nav-inactive 6.86:1, sign-out 5.44:1
+     — all clear 4.5:1 with room, so no token here repeats the
+     ink-muted/#7F857D contrast bug this codebase has hit three times
+     on the light surfaces. */
+  --cc-header-bg: #17221f;
+  --cc-header-brand-accent: #8fb3a8;
+  --cc-header-text: #f3f2ec;
+  --cc-header-text-muted: #a2aaa3;
+  --cc-header-text-quiet: #8f978f;
+
   /* ---- Palette — ink -------------------------------------------- */
   --cc-ink: #1d2422;
   --cc-ink-secondary: #525955;

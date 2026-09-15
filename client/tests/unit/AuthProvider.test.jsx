@@ -120,4 +120,66 @@ describe("AuthProvider (BUILD-PLAN step 32, FR-7.7)", () => {
     expect(screen.getByText("authenticated:new@b.com")).toBeInTheDocument();
     expect(vi.mocked(apiFetch).mock.calls.length).toBe(callsBeforeClick);
   });
+
+  describe("signOut (BUILD-PLAN step 39, FR-7.7/FR-1.9)", () => {
+    function SignOutSimulator() {
+      const auth = useAuth();
+      return (
+        <button type="button" onClick={() => auth.signOut()}>
+          sign out
+        </button>
+      );
+    }
+
+    it("calls POST /api/v1/auth/logout — not just a local state clear, which would leave the httpOnly cookie (and so the session) still valid server-side", async () => {
+      vi.mocked(apiFetch)
+        .mockResolvedValueOnce({ user: { id: "u1", email: "a@b.com" } }) // the initial /me
+        .mockResolvedValueOnce({ ok: true }); // the logout call
+
+      render(
+        <AuthProvider>
+          <Probe />
+          <SignOutSimulator />
+        </AuthProvider>,
+      );
+      await waitFor(() =>
+        expect(screen.getByText("authenticated:a@b.com")).toBeInTheDocument(),
+      );
+
+      await act(async () => {
+        screen.getByRole("button", { name: "sign out" }).click();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(apiFetch).toHaveBeenLastCalledWith("/api/v1/auth/logout", {
+        method: "POST",
+      });
+      expect(screen.getByText("unauthenticated:none")).toBeInTheDocument();
+    });
+
+    it("still clears local state even when the logout request fails — the user asked to leave", async () => {
+      vi.mocked(apiFetch)
+        .mockResolvedValueOnce({ user: { id: "u1", email: "a@b.com" } })
+        .mockRejectedValueOnce(new Error("network error"));
+
+      render(
+        <AuthProvider>
+          <Probe />
+          <SignOutSimulator />
+        </AuthProvider>,
+      );
+      await waitFor(() =>
+        expect(screen.getByText("authenticated:a@b.com")).toBeInTheDocument(),
+      );
+
+      await act(async () => {
+        screen.getByRole("button", { name: "sign out" }).click();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText("unauthenticated:none")).toBeInTheDocument();
+    });
+  });
 });

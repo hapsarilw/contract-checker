@@ -1,0 +1,74 @@
+/**
+ * BUILD-PLAN step 39 — the prototype's app chrome
+ * (docs/design/ClauseCheck.html), matched layout-for-layout.
+ */
+
+.cc-app-header {
+  background: var(--cc-header-bg);
+  box-shadow: var(--cc-shadow-hairline);
+}
+
+.cc-app-header__inner {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 28px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--cc-space-10);
+  align-items: stretch;
+  min-height: 56px;
+}
+
+.cc-app-header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--cc-space-5);
+  padding: var(--cc-space-6) 0;
+}
+
+.cc-app-header__brand-mark {
+  display: inline-block;
+  width: 8px;
+  height: 20px;
+  background: var(--cc-header-brand-accent);
+}
+
+.cc-app-header__brand-name {
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-xl);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--cc-header-text);
+}
+
+.cc-app-header__nav {
+  display: flex;
+  gap: var(--cc-space-9);
+  margin-left: auto;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.cc-app-header__link {
+  font-size: var(--cc-text-base);
+  font-weight: 400;
+  padding: var(--cc-space-1) 1px;
+  border: 0;
+  border-bottom: var(--cc-border-width-focus) solid transparent;
+  background: none;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+  color: var(--cc-header-text-muted);
+  text-decoration: none;
+}
+
+.cc-app-header__link--active {
+  font-weight: 600;
+  color: var(--cc-header-text);
+  border-bottom-color: var(--cc-header-brand-accent);
+}
+
+.cc-app-header__sign-out {
+  color: var(--cc-header-text-quiet);
+}

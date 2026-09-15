@@ -68,8 +68,29 @@ export function AuthProvider({ children }) {
     setState({ status: "authenticated", user });
   }, []);
 
-  const signOut = useCallback(() => {
-    setState({ status: "unauthenticated", user: null });
+  /**
+   * BUILD-PLAN step 39 — the "Sign out" nav control's handler. Step 32
+   * left this clearing only local state, with no chrome yet to call it;
+   * that was never actually "signed out" from the server's point of
+   * view — the httpOnly session cookie (FR-7.7) was still valid, so the
+   * next `/auth/me` (a reload, another tab) would silently re-
+   * authenticate the same session. POST /api/v1/auth/logout
+   * (server/src/routes/auth.js) is what actually clears it.
+   *
+   * Local state clears in `finally`, even if the request fails (offline,
+   * a 5xx): the user asked to leave, and the UI honouring that is more
+   * important than the request succeeding — the cookie a failed call
+   * left behind is bounded by ordinary session expiry either way, the
+   * same as it would be if the tab were simply closed.
+   */
+  const signOut = useCallback(async () => {
+    try {
+      await apiFetch("/api/v1/auth/logout", { method: "POST" });
+    } catch {
+      // See the comment above: state clears regardless.
+    } finally {
+      setState({ status: "unauthenticated", user: null });
+    }
   }, []);
 
   const value = useMemo(

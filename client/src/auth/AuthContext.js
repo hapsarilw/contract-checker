@@ -12,6 +12,6 @@ import { createContext } from "react";
  *   | { status: "authenticated", user: AuthUser }
  *   | { status: "unauthenticated", user: null }
  * } AuthState
- * @typedef {AuthState & { setUser: (user: AuthUser) => void, signOut: () => void }} AuthContextValue
+ * @typedef {AuthState & { setUser: (user: AuthUser) => void, signOut: () => Promise<void> }} AuthContextValue
  */
 export const AuthContext = createContext(/** @type {AuthContextValue | null} */ (null));

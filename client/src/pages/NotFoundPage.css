@@ -1,0 +1,41 @@
+.cc-not-found {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 64px 28px;
+}
+
+.cc-not-found__card {
+  max-width: 480px;
+  margin: 40px auto;
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-top: var(--cc-border-width-accent) solid var(--cc-brand);
+  box-shadow: var(--cc-shadow-card-lg);
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.cc-not-found__eyebrow {
+  margin: 0 0 var(--cc-space-4);
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-xs);
+  font-weight: 500;
+  color: var(--cc-ink-on-muted);
+  letter-spacing: var(--cc-tracking-wider);
+}
+
+.cc-not-found__title {
+  margin: 0 0 var(--cc-space-5);
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-3xl);
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-tight);
+  color: var(--cc-ink);
+}
+
+.cc-not-found__body {
+  margin: 0 0 var(--cc-space-8);
+  font-size: var(--cc-text-md);
+  line-height: 1.6;
+  color: var(--cc-ink-secondary);
+}
