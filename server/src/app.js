@@ -6,6 +6,7 @@ import config from "./config.js";
 import { requestIdMiddleware } from "./middleware/requestId.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { csrfGuard } from "./middleware/csrf.js";
+import { generalLimiter } from "./middleware/rateLimits.js";
 import { AppError } from "./lib/AppError.js";
 import opsRouter from "./routes/ops.js";
 import authRouter from "./routes/auth.js";
@@ -164,11 +165,23 @@ app.use((err, req, res, next) => {
 });
 
 /**
- * Rate limiter slot — step 41 (OPS-2). Deliberately not wired yet: an
- * in-memory limiter would be wrong across the multi-instance deployment
- * §2's second critical constraint requires. The Redis-backed limiter
- * depends on step 44.
+ * NFR-2.6's general bucket (100 requests / 15 min / IP) — the blanket
+ * ceiling across all of /api/v1, mounted here rather than per-route so
+ * a new route can't forget to opt in. Scoped to /api/v1 specifically,
+ * NOT the ops routes mounted below at plain /api (step 8's own
+ * requirement, FR-4.7: a liveness/readiness probe must never be the
+ * thing that trips a rate limit and makes an orchestrator restart a
+ * healthy instance). auth.js and documents.js layer their own tighter,
+ * route-specific limiters (rateLimits.js's authLimiter/analyzeLimiter)
+ * on top of this one for the routes NFR-2.6 singles out — a request to
+ * one of those routes counts against both.
+ *
+ * See server/src/middleware/rateLimits.js's own file header for the
+ * store choice (MemoryStore, correct for exactly one instance, replaced
+ * in step 44) and why the keying here is left to express-rate-limit's
+ * own default rather than reimplemented.
  */
+app.use("/api/v1", generalLimiter);
 
 /**
  * Auth middleware slot — step 13 (AUTH-2). Individual routes mount it

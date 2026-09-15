@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { AppError } from "../lib/AppError.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { authLimiter } from "../middleware/rateLimits.js";
 import { loginSchema, registerSchema } from "../schemas/auth.js";
 import {
   SESSION_COOKIE_NAME,
@@ -30,18 +31,26 @@ function issueSession(res, user) {
 }
 
 // POST /api/v1/auth/register — creates the account and signs the user in.
-router.post("/register", validateBody(registerSchema), async (req, res, next) => {
-  try {
-    const user = await registerUser(req.body);
-    issueSession(res, user);
-    res.status(201).json({ user: toPublicUser(user) });
-  } catch (err) {
-    next(err);
-  }
-});
+// NFR-2.6: authLimiter first, before the body is even validated — a
+// flood of malformed registration attempts shouldn't reach validation
+// just to be rejected there instead.
+router.post(
+  "/register",
+  authLimiter,
+  validateBody(registerSchema),
+  async (req, res, next) => {
+    try {
+      const user = await registerUser(req.body);
+      issueSession(res, user);
+      res.status(201).json({ user: toPublicUser(user) });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // POST /api/v1/auth/login
-router.post("/login", validateBody(loginSchema), async (req, res, next) => {
+router.post("/login", authLimiter, validateBody(loginSchema), async (req, res, next) => {
   try {
     const user = await authenticate(req.body);
     issueSession(res, user);

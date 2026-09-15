@@ -30,7 +30,16 @@ export function errorHandler(err, req, res, next) {
     logger.warn(logPayload, "request failed");
   }
 
-  if (status === 503) {
+  // Every 503 carries Retry-After unconditionally (SRS §4.2's closing
+  // note), falling back to DEFAULT_RETRY_AFTER_SECONDS if a future 503
+  // code ships with no value of its own. A NON-503 code carries it only
+  // when a call site explicitly set one via AppError's `retryAfter`
+  // option — step 41's rate limiters do exactly that on 429 RATE_LIMITED,
+  // with the real, precise seconds-until-the-window-resets rather than a
+  // guess; errorCodes.js's own static table intentionally has no
+  // RATE_LIMITED default; there is nothing meaningful to default to for
+  // a per-request rate-limit window without a window in front of it.
+  if (status === 503 || (isAppError && err.retryAfter)) {
     const retryAfter = (isAppError && err.retryAfter) || DEFAULT_RETRY_AFTER_SECONDS;
     res.set("Retry-After", String(retryAfter));
   }

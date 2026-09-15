@@ -15,10 +15,17 @@
  * document's actual word count, per the §4 example) — this default is
  * what's used when it doesn't.
  *
- * `retryAfter` (seconds) is set only on 503 entries, per §4.2's closing
- * note that every 503 carries a Retry-After header. A call site may
- * override it via AppError's `retryAfter` option when it knows a more
- * precise value (e.g. the circuit breaker's actual remaining open time).
+ * `retryAfter` (seconds) is set as a static default only on 503 entries,
+ * per §4.2's closing note that every 503 carries a Retry-After header. A
+ * call site may override it via AppError's `retryAfter` option when it
+ * knows a more precise value (e.g. the circuit breaker's actual
+ * remaining open time) — and, per BUILD-PLAN step 41, that same option
+ * is how a non-503 code gets a Retry-After header at all: RATE_LIMITED
+ * (429) has no static default here (there is no single meaningful value
+ * without a specific rate-limit window in front of it), but the request
+ * that hits one always carries the real seconds until that window resets
+ * (server/src/middleware/rateLimits.js), so errorHandler.js honours a
+ * `retryAfter` override regardless of status, not only on a 503.
  */
 export const ERROR_CODES = Object.freeze({
   VALIDATION_ERROR: Object.freeze({

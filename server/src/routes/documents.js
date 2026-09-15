@@ -4,6 +4,7 @@ import { AppError } from "../lib/AppError.js";
 import { loadOwnedDocument } from "../lib/ownership.js";
 import { serializeDocument, serializeAnalysis, serializeDocumentListRow } from "../lib/serializers.js";
 import { requireAuth } from "../middleware/auth.js";
+import { analyzeLimiter } from "../middleware/rateLimits.js";
 import {
   rejectOversizeByContentLength,
   singleFileUpload,
@@ -186,8 +187,12 @@ router.get("/:id", requireAuth, async (req, res, next) => {
  * (FR-3.7) by services/analysis.js, returning the full report with 200 as in
  * §4.3's example. serializeAnalysis sorts findings high to medium to low
  * (§2.2 step 12) and never includes modelRisk (PRD D7).
+ *
+ * NFR-2.6: analyzeLimiter (10/hour, keyed by userId) mounts AFTER
+ * requireAuth deliberately — its keyGenerator reads req.auth.userId,
+ * which only exists once requireAuth has populated it.
  */
-router.post("/:id/analyze", requireAuth, async (req, res, next) => {
+router.post("/:id/analyze", requireAuth, analyzeLimiter, async (req, res, next) => {
   try {
     const analysis = await analyzeDocument({
       documentId: req.params.id,
