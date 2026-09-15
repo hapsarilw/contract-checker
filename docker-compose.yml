@@ -1,0 +1,98 @@
+# BUILD-PLAN step 40 (FOUND-9) — "so a new contributor gets a working
+# stack in one command." `docker compose up` brings up the API,
+# Postgres, and Redis (SRS §2.1's stack); migrations still don't run
+# automatically (§5.5) — run them once, separately:
+#
+#   docker compose run --rm migrate
+#
+# `migrate` (below) is its own service rather than an override of `api`:
+# it needs `npm ci` to install the Prisma CLI the shipped runtime image
+# doesn't carry, which needs a WRITABLE filesystem — `api`'s `read_only:
+# true` (the thing NFR-2.11 actually asks this file to demonstrate) would
+# make that same command fail with EROFS on node_modules/.bin, found
+# running exactly that command while verifying this step. `profiles:
+# ["tools"]` keeps it out of the `docker compose up` default set, so a
+# plain `up` starts only the three real services. A real deploy runs
+# `prisma migrate deploy` as its own CI step against the repository
+# directly, not through this file at all — `migrate` exists for local
+# convenience only.
+#
+# Every secret-shaped value below has a placeholder default so the stack
+# boots with nothing more than this file — override real ones in a
+# server/.env file (server/.env.example documents each variable) or your
+# shell environment; Compose prefers an explicit shell/`.env` value over
+# these `:-` defaults automatically.
+
+services:
+  api:
+    build:
+      context: ./server
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_URL: postgresql://clausecheck:clausecheck@postgres:5432/clausecheck
+      DATABASE_POOL_SIZE: "10"
+      REDIS_URL: redis://redis:6379
+      # LLM_PROVIDER=mock (server/src/services/llm/mockProvider.js) so the
+      # stack analyzes documents with no real Anthropic key or network
+      # call — override both to test against the real provider.
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-dev-placeholder-key}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5}
+      # Dev-only value, 32+ bytes as config.js requires — never reuse this
+      # (or any value checked into a repository) for a real deployment.
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-do-not-use-in-production-32b}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    # NFR-2.11, demonstrated here too, not only asserted in the
+    # Dockerfile's comments: the container this file runs is the same
+    # read-only-rootfs-plus-tmpfs shape a real deploy uses.
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  migrate:
+    build:
+      context: ./server
+    entrypoint: ["sh", "-c", "npm ci --include=dev && npx prisma migrate deploy"]
+    environment:
+      DATABASE_URL: postgresql://clausecheck:clausecheck@postgres:5432/clausecheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["tools"]
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: clausecheck
+      POSTGRES_PASSWORD: clausecheck
+      POSTGRES_DB: clausecheck
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clausecheck -d clausecheck"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    # Not required to boot in Phase 1 (REDIS_URL is optional in
+    # config.js) — included because step 41's rate limiting and step 44
+    # both need it, and SRS §2.1's architecture diagram has it in the
+    # stack from day one.
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres-data:

@@ -29,6 +29,7 @@
 import app from "./app.js";
 import config from "./config.js";
 import logger from "./observability/logger.js";
+import prisma from "./lib/prisma.js";
 import { attachGracefulShutdown } from "./lib/gracefulShutdown.js";
 
 const server = app.listen(config.PORT, () => {
@@ -54,11 +55,14 @@ attachGracefulShutdown({
   server,
   drainMs: config.timeouts.shutdownDrain,
   logger,
-  onDrained: async () => {
-    // Prisma pool close slot — step 9 (DATA-1) creates the client. NFR-3.5
-    // requires closing the database pool after the drain and before exit;
-    // there is no pool to close until then.
-  },
+  // NFR-3.5: the database pool closes after the drain and before exit —
+  // never before, or an in-flight request's own query fails mid-drain
+  // instead of finishing. This was a stub ("step 9 creates the client")
+  // left unfilled after step 9 actually did (server/src/lib/prisma.js);
+  // found and fixed while verifying step 40's "SIGTERM drains and exits
+  // 0" against a real container, where an unclosed pool is exactly the
+  // kind of gap that looks fine until something checks for it.
+  onDrained: () => prisma.$disconnect(),
 });
 
 export default server;
