@@ -106,8 +106,10 @@ export const ERROR_CODES = Object.freeze({
   }),
   STORAGE_QUOTA_EXCEEDED: Object.freeze({
     status: 422,
-    // FR-2.13: "a message pointing at deletion."
-    message: "You've reached your storage limit (100 documents or 50 MB). Delete an old document to make room for new ones.",
+    // FR-2.13: "a message pointing at deletion." The live message is built
+    // from config in services/storageQuota.js so it tracks the limits;
+    // this is the fallback for any other caller.
+    message: "You've reached your storage limit. Delete an old document to make room for a new one.",
   }),
   RATE_LIMITED: Object.freeze({
     status: 429,

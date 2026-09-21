@@ -6,6 +6,7 @@ import { serializeDocument, serializeAnalysis, serializeDocumentListRow } from "
 import { requireAuth } from "../middleware/auth.js";
 import { analyzeLimiter } from "../middleware/rateLimits.js";
 import { limitConcurrentUploads } from "../middleware/uploadConcurrency.js";
+import { createDocumentWithinQuota } from "../services/storageQuota.js";
 import {
   rejectOversizeByContentLength,
   singleFileUpload,
@@ -72,12 +73,11 @@ router.post(
         filename = null;
       }
 
-      const document = await prisma.document.create({
-        data: {
-          userId: req.auth.userId,
-          filename,
-          ...intakeResult,
-        },
+      // FR-2.13: the quota check and the insert are one transaction, so
+      // two concurrent uploads cannot both pass at document 99.
+      const document = await createDocumentWithinQuota(req.auth.userId, {
+        filename,
+        ...intakeResult,
       });
 
       res.status(201).json({ document: serializeDocument(document) });
