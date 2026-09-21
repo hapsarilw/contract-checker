@@ -15,7 +15,7 @@ PRD §9, "Definition of done" for Phase 1, checked item by item (BUILD-PLAN step
 | 5 | A fabricated excerpt planted in a test is discarded and never shown | **Verified** |
 | 6 | User A cannot retrieve user B's document (404) | **Verified** |
 | 7 | README documents the architecture, the excerpt-verification defense, and the failure handling | **Verified** |
-| 8 | The accuracy benchmark reports recall and precision as numbers | **Verified** 2026-09-21 (the numbers exist; two of them are below PRD §11.1's release thresholds — see §8) |
+| 8 | The accuracy benchmark reports recall and precision as numbers | **Verified** 2026-09-21 — and every PRD §11.1 release threshold now passes as well, which this item did not require (see §8) |
 
 ---
 
