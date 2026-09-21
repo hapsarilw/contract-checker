@@ -56,8 +56,22 @@ export async function analyzeDocument({ documentId, userId }) {
   // SUSPENDED account; ownership is checked here, 404 and never 403 (FR-1.5).
   const document = await loadOwnedDocument(documentId, userId);
 
-  // Step 1, continued. FR-1.7 [P1.5] slot, step 52: an UNVERIFIED account
-  // gets 403 EMAIL_NOT_VERIFIED here, before quota and before any spend.
+  // Step 1, continued. FR-1.7 / PRD D4: an UNVERIFIED account gets 403
+  // EMAIL_NOT_VERIFIED here, before quota and before any spend.
+  //
+  // This is the ONLY place the check lives. It is deliberately not in auth
+  // middleware: D4's reasoning is that friction belongs where the cost is —
+  // an LLM call and a stored confidential document — and an unverified
+  // user may sign in, browse and upload. Putting it in the door would
+  // lock them out of everything to protect one endpoint, and would catch a
+  // mistyped address later than this does, when the user is still in the
+  // flow and can fix it.
+  //
+  // After ownership on purpose: a response that depended on verification
+  // state BEFORE the document was resolved would let one user probe
+  // whether another's document id exists.
+  const account = await prisma.user.findUnique({ where: { id: userId }, select: { state: true } });
+  if (account?.state === "UNVERIFIED") throw new AppError("EMAIL_NOT_VERIFIED");
 
   // Step 2. Platform state, then per-user quota (§3.5) — after ownership,
   // so neither response can reveal that another user's document exists,

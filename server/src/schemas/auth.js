@@ -51,3 +51,14 @@ export const loginSchema = z
     password: z.string(),
   })
   .strict();
+
+/**
+ * A token from an email link. Bounded, so a hostile body cannot make the
+ * server hash a megabyte: a real one is 43 characters (32 bytes,
+ * base64url), and the range leaves room without inviting abuse.
+ */
+export const verifyEmailSchema = z
+  .object({
+    token: z.string().min(20, "is not a valid token").max(128, "is not a valid token"),
+  })
+  .strict();

@@ -206,6 +206,39 @@ export const analyzeLimiter = createLimiter({
     `You've reached the limit of 10 contract analyses per hour. Try again in about ${retryTime}.`,
 });
 
+/**
+ * FR-1.7: resend is limited to 3 an hour per ACCOUNT and 10 an hour per IP.
+ * Two limiters because they stop different things: the account limit stops
+ * one user mailing themselves in a loop, and the IP limit stops one
+ * address working through many accounts.
+ *
+ * BOTH FAIL CLOSED, which is a decision FR-5.6 leaves open (it names only
+ * analysis and read paths). Every resend sends a real email — it costs
+ * money and, worse, it is an abuse vector against a THIRD PARTY, since the
+ * address being mailed belongs to whoever registered. An unmetered
+ * resend path is closer to the analyze path than to a read. The price is
+ * that verification pauses during a Redis outage; sign-in and everything
+ * else keep working.
+ */
+export const resendVerificationUserLimiter = createLimiter({
+  windowMs: HOUR_MS,
+  limit: 3,
+  prefix: "rl:resend-user:",
+  failurePolicy: "closed",
+  keyGenerator: (req) => `user:${req.auth.userId}`,
+  buildMessage: (retryTime) =>
+    `You've asked for a verification email 3 times in the last hour. Check your inbox and spam folder, or try again in about ${retryTime}.`,
+});
+
+export const resendVerificationIpLimiter = createLimiter({
+  windowMs: HOUR_MS,
+  limit: 10,
+  prefix: "rl:resend-ip:",
+  failurePolicy: "closed",
+  buildMessage: (retryTime) =>
+    `Too many verification emails have been requested from this address. Try again in about ${retryTime}.`,
+});
+
 export const generalLimiter = createLimiter({
   windowMs: 15 * MINUTE_MS,
   limit: 100,

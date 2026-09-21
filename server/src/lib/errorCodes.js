@@ -49,7 +49,8 @@ export const ERROR_CODES = Object.freeze({
   }),
   EMAIL_NOT_VERIFIED: Object.freeze({
     status: 403,
-    message: "Please verify your email address before running an analysis. Check your inbox for the verification link.",
+    message:
+      "Please verify your email address before running an analysis. Check your inbox for the verification link, or request a new one (POST /api/v1/auth/resend-verification).",
   }),
   ACCOUNT_SUSPENDED: Object.freeze({
     status: 403,
