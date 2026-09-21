@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:integration",
     "lint": "eslint . && npm run lint:scripts",
     "lint:scripts": "cd .. && server/node_modules/.bin/eslint --config server/eslint.config.js scripts",
     "benchmark": "node --env-file=.env ../scripts/benchmark.js",

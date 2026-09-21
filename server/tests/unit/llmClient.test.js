@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import Anthropic, {
   APIConnectionTimeoutError,
   APIUserAbortError,
-  RateLimitError,
 } from "@anthropic-ai/sdk";
 import { MODEL_PARAM_PROFILES, parseConfig } from "../../src/config.js";
 import {

@@ -108,6 +108,12 @@ export default [
       "src/config.js",
       "tests/unit/config.test.js",
       "tests/integration/ops.test.js",
+      // Spawns a child process whose env is built from process.env, so
+      // the extraction worker inside it can be run with LOG_LEVEL=debug
+      // and its own stdout captured (step 49). Same exception as
+      // ops.test.js above: a child needs an env, and config.js cannot
+      // hand one over.
+      "tests/integration/extractionWorker.test.js",
       // Sets process.env.DATABASE_URL to the ephemeral container's
       // connection string BEFORE config.js is first imported by any
       // test — that's the whole mechanism, not a workaround for it.
