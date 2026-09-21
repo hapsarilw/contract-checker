@@ -155,7 +155,7 @@ Read docs/SRS.md section 2.1 (technology stack) and section 10.5 (quality gates)
 
 In server/:
 - package.json with type: module, Node 20 engines constraint, and scripts: dev, start, test, test:unit, test:integration, lint, format, typecheck.
-- .nvmrc pinning Node 20 LTS. The Docker base image later must match it.
+- .nvmrc pinning Node 20 LTS. The Docker base image later must match it. **Superseded 2026-09-21: pin the current Active LTS, which is now 24 — Node 20 reached end of life on 2026-04-30.** Check the Node release schedule when you do this rather than copying a number out of this plan.
 - Dependencies exactly as the section 2.1 table names them: express 4, @prisma/client + prisma, zod, bcrypt, jsonwebtoken, cookie-parser, helmet, cors, multer, pdf-parse, mammoth, @anthropic-ai/sdk, express-rate-limit, rate-limit-redis, ioredis, pino, pino-http, prom-client.
 - Dev dependencies: vitest, supertest, @vitest/coverage-v8, eslint, prettier, typescript (for checkJs only).
 - Install with an exact lockfile. SRS section 2.1's dependency policy requires committed exact versions.
@@ -169,7 +169,7 @@ Do not write any application code yet. Verify with: npm run lint, npm run typech
 **Done when**
 - [ ] `npm run lint`, `npm run typecheck`, `npm test` each exit 0
 - [ ] Lockfile committed; `dangerouslySetInnerHTML` rule present in the eslint config
-- [ ] `.nvmrc` reads 20
+- [ ] `.nvmrc` reads 20 — **superseded 2026-09-21: it reads 24.** Node 20 passed end of life on 2026-04-30; see `server/Dockerfile`'s comment and SRS §2.1
 
 ---
 
@@ -1214,7 +1214,7 @@ Write a test walking the full authenticated journey: login, upload, analyze, rep
 Read docs/SRS.md NFR-2.11 and section 2.1.
 
 Create server/Dockerfile:
-- Node 20 LTS base, matching .nvmrc exactly.
+- Node 20 LTS base, matching .nvmrc exactly. **Superseded 2026-09-21: node:24-alpine.** See server/Dockerfile's comment for why.
 - Multi-stage: build, then a slim runtime.
 - Runs as a NON-ROOT user with a read-only root filesystem except a tmpfs scratch area (NFR-2.11).
 - Installs from the frozen lockfile.

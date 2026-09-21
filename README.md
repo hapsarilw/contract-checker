@@ -69,7 +69,7 @@ docker-compose.yml       Postgres + Redis + the API, for local development
 
 ## Local setup
 
-Requires Docker and Node 20 (`server/.nvmrc` pins it exactly for the API; both `package.json`s constrain `engines.node` to `>=20 <21`).
+Requires Docker and Node 24 (`server/.nvmrc` pins it exactly for the API; both `package.json`s constrain `engines.node` to `>=24 <25`, and `.npmrc` sets `engine-strict=true` so a dependency that disagrees fails the install instead of warning).
 
 ```sh
 # Postgres, Redis, and the API — the API boots with LLM_PROVIDER=mock

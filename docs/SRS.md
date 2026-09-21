@@ -56,7 +56,7 @@ Phase 2 features (chunking, job queue, offset mapping, caching) are named where 
 
 | Layer | Choice | Why |
 |---|---|---|
-| Runtime | Node.js 20 LTS | Pinned in `.nvmrc` and the Docker base image; upgraded deliberately, not implicitly |
+| Runtime | Node.js 24 LTS | Pinned in `.nvmrc` and the Docker base image; upgraded deliberately, not implicitly. Node 20 until 2026-09-21, moved once it passed end of life (2026-04-30) — the pin is reviewed against the Node release schedule, not left to drift into an unsupported runtime |
 | API | Express 4 | Requirement of the brief |
 | Database | PostgreSQL 15 | SQLite acceptable for local dev only — but see §5.1 note on `String[]` columns. CI and staging run Postgres, because a dev/prod database divergence is a defect generator |
 | ORM | Prisma | Migrations and type safety |

@@ -12,11 +12,17 @@
 # them. See server/src/index.js's comment on why `prisma migrate deploy`
 # must never appear in this file or in `npm start`.
 #
-# Node 20 LTS, matching server/.nvmrc exactly — .nvmrc pins the MAJOR
-# ("20"), not a patch, so `node:20-alpine` (which floats within 20.x) is
+# Node 24 LTS, matching server/.nvmrc exactly — .nvmrc pins the MAJOR
+# ("24"), not a patch, so `node:24-alpine` (which floats within 24.x) is
 # the literal match, not an approximation of it.
+#
+# Was Node 20 until 2026-09-21. Node 20 reached end of life on 2026-04-30
+# (nodejs/Release), so the image was shipping a runtime that had stopped
+# receiving security patches. Node 24 is the Active LTS line, supported to
+# 2028-04-30. Node 22 was rejected: it entered maintenance on 2025-10-21
+# and ends 2027-04-30, so it would buy a year less for the same work.
 
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # python3/make/g++: node-gyp's toolchain, needed only to compile bcrypt's
@@ -49,7 +55,7 @@ COPY src ./src
 # generated output isn't one, so it survives.
 RUN npm prune --omit=dev
 
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 
 # openssl: Prisma's query engine binary links against it at runtime on
