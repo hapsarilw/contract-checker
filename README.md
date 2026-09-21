@@ -106,11 +106,13 @@ cd client && npm run e2e # Playwright + axe; starts its own dev server if one is
      run against the real provider and there are logged rows to read it
      from. -->
 
-**USD 0.0111 per analysis** on `claude-haiku-4-5` with prompt `analyze-v3`, at list pricing of USD 1.00 / Mtok input and USD 5.00 / Mtok output.
+**USD 0.0179 per analysis** on `claude-sonnet-5` with prompt `analyze-v3`, at list pricing of USD 2.00 / Mtok input and USD 10.00 / Mtok output.
 
-Read from real `Analysis` rows, not estimated: eight analyses of fixtures 01–04 (contracts of 849–980 words, against the 4,000-word cap), 28,391 input and 12,047 output tokens in total, measured 2026-09-21. The first prompt revision, `analyze-v1`, cost more — USD 0.0132 — because it returned more findings and retried more often; a longer, stricter prompt turned out to be cheaper than a shorter one that over-flags.
+Read from four real `Analysis` rows, not estimated: fixtures 01–04 (contracts of 849–980 words, against the 4,000-word cap), 16,653 input and 3,837 output tokens, no retries, slowest analysis 25.2s. Measured 2026-09-21 through the real `POST /documents` + `/analyze` path after the model change below.
 
-Two caveats. The sample is four synthetic fixtures. And this is the cost of the *cheapest* candidate model — `docs/phase-1-dod.md` §8 records the accuracy it buys, including a per-document risk error that the prompt fix did not resolve, so expect this figure to rise before launch rather than hold.
+**Why this model.** The project started on `claude-haiku-4-5` (USD 0.0111 per analysis) because BUILD-PLAN D-F says to begin at the cheapest candidate and let the benchmark promote upward. The benchmark then did exactly that. Measured over three repeats of all four fixtures per condition, Haiku derived the wrong `overallRisk` on 3.33 of 4 documents with one document flapping between runs, while Sonnet 5 scored 4 of 4 with no variation — a fault two prompt revisions had failed to fix. Sonnet is also *faster* here (10.1s mean against 13.0s), because Haiku's noisier finding lists cost more output tokens than Sonnet's reasoning costs. Raising `output_config.effort` to `high` was tested and rejected: it bought precision but broke the "fixture 03 returns exactly zero findings" gate in one run of three, made risk correctness worse, and took 40.5s on a short contract against a 60s timeout. Full numbers in `docs/phase-1-dod.md` §8.
+
+Two caveats. The sample is four synthetic fixtures. And accuracy still falls short of PRD §11.1's precision gate — one fair clause is flagged in every run — so the model choice is settled but the prompt is not.
 
 ## What I learned
 

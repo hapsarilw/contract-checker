@@ -208,7 +208,22 @@ Three conditions. **A** is what ships today. **B** changes `ANTHROPIC_MODEL` and
 
 Worth noting that `analyze-v3` already contains the instruction this clause violates ("payment terms of net-30 or sooner, which are normal; … a deposit or upfront payment of any size"). Sonnet 5 at `effort: low` reads past it consistently; at `effort: high` it obeys it. So the next prompt revision's job is to make that rule un-missable at low effort, not to invent a new rule.
 
-**Recommendation:** set `ANTHROPIC_MODEL=claude-sonnet-5`, leave `output_config.effort` at `low` and `max_tokens` at 4096, accept the 1.8× cost (USD 0.0095 → USD 0.0174 per analysis), and treat the deposit/net-30 false positive as the next prompt target with this same three-repeat harness as the measurement. FR-3.14 gates a model change on the benchmark having been run; this is that run.
+**Applied 2026-09-21.** `ANTHROPIC_MODEL=claude-sonnet-5`, with `output_config.effort` left at `low` and `max_tokens` at 4096 — no code or spec change. FR-3.14 gates a model change on the benchmark having been run; this is that run.
+
+Verified through the real pipeline afterwards, not only through the sweep harness. The sweep built its own request parameters, so the production path for Sonnet 5 — which must *omit* `temperature` rather than send `0`, or every analysis fails with a 400 — had not actually been exercised. `buildMessageParams` with the resolved profile was checked to emit `{model: claude-sonnet-5, max_tokens: 4096, output_config: {effort: low}}` and no `temperature`, and then all four fixtures were run through `POST /documents` + `/analyze` on the real server:
+
+| Fixture | Derived risk | Key | Model's own claim |
+|---|---|---|---|
+| 01 | HIGH | HIGH ✓ | HIGH |
+| 02 | MEDIUM | MEDIUM ✓ | MEDIUM |
+| 03 | LOW | LOW ✓ | LOW |
+| 04 | HIGH | HIGH ✓ | HIGH |
+
+4 of 4, reproducing condition B through the application rather than around it. Zero discarded findings, zero retries, slowest analysis 25.2s. Worth noting that `modelRisk` equalled the derived `overallRisk` on all four — under Haiku the two diverged on half the corpus, so the model's own judgement and FR-3.9's rule now agree.
+
+Measured cost from those four `Analysis` rows: 16,653 input and 3,837 output tokens, **USD 0.0717 total, USD 0.0179 per analysis** — within 3% of the sweep's USD 0.0174, and the figure now quoted in the README.
+
+**Next prompt target:** the deposit/net-30 false positive, which fails 3 of 3 and is therefore measurable, using this same three-repeat harness. Not done here.
 
 ### Reproducing this
 
