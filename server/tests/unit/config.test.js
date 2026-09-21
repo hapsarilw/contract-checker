@@ -14,6 +14,7 @@ const VALID_ENV = {
   ANTHROPIC_MODEL: "claude-haiku-4-5",
   JWT_SECRET: "01234567890123456789012345678901",
   FRONTEND_ORIGIN: "https://app.example.com",
+  REDIS_URL: "redis://localhost:6379",
 };
 
 function runConfig(envOverrides) {

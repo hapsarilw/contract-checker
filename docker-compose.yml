@@ -86,10 +86,11 @@ services:
       retries: 15
 
   redis:
-    # Not required to boot in Phase 1 (REDIS_URL is optional in
-    # config.js) — included because step 41's rate limiting and step 44
-    # both need it, and SRS §2.1's architecture diagram has it in the
-    # stack from day one.
+    # REQUIRED since step 44: REDIS_URL is no longer optional in
+    # config.js, because the rate-limit counters live here. The API
+    # refuses to boot without it, and FR-5.6 decides what happens when it
+    # is configured but unreachable — analysis fails closed, reads fail
+    # open.
     image: redis:7-alpine
     ports:
       - "6379:6379"

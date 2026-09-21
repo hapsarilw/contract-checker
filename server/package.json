@@ -51,6 +51,7 @@
     "@eslint/js": "10.0.1",
     "@prisma/config": "7.10.0",
     "@testcontainers/postgresql": "12.1.0",
+    "@testcontainers/redis": "^12.1.0",
     "@types/node": "26.4.1",
     "@vitest/coverage-v8": "4.1.11",
     "docx": "9.7.1",

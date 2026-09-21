@@ -1,4 +1,5 @@
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import { RedisContainer } from "@testcontainers/redis";
 import { execFileSync } from "node:child_process";
 
 /**
@@ -16,14 +17,29 @@ import { execFileSync } from "node:child_process";
  * container's connection string the first time anything imports it —
  * before tests/setup.js's `??=` placeholder would apply.
  *
- * Redis has no equivalent here yet — that slot arrives at step 44.
+ * Redis arrived at step 44 and is set up the same way, for the same
+ * reason. It holds the rate-limit counters (FR-5.6), and the per-test
+ * reset is a FLUSHDB (middleware/rateLimits.js) — which is only safe
+ * because this instance is created for the test run and holds nothing
+ * else. Pointing the suite at a developer's own Redis would make that
+ * reset destructive.
  */
 let container;
+let redisContainer;
 
 export async function setup() {
-  container = await new PostgreSqlContainer("postgres:15-alpine").start();
+  // Started together: two sequential container starts is the one part of
+  // the integration run that is pure waiting.
+  const [postgres, redis] = await Promise.all([
+    new PostgreSqlContainer("postgres:15-alpine").start(),
+    new RedisContainer("redis:7-alpine").start(),
+  ]);
+  container = postgres;
+  redisContainer = redis;
+
   const databaseUrl = container.getConnectionUri();
   process.env.DATABASE_URL = databaseUrl;
+  process.env.REDIS_URL = redisContainer.getConnectionUrl();
 
   // `migrate deploy` applies exactly what production applies, including
   // the hand-written FR-3.8 partial-index migration — building the
@@ -35,5 +51,5 @@ export async function setup() {
 }
 
 export async function teardown() {
-  await container?.stop();
+  await Promise.all([container?.stop(), redisContainer?.stop()]);
 }

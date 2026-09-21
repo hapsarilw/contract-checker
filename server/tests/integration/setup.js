@@ -10,13 +10,15 @@ import { resetRateLimitsForTests } from "../../src/middleware/rateLimits.js";
  * the next test file. The mock provider is reset for the same reason: an
  * unconsumed script or a stale call log would otherwise reach the next test.
  *
- * The rate limiters (step 41) are the same kind of shared, in-process
- * state: one `app.js` import per test file means its limiters' counters
- * persist across every `it()` in that file, not just within one test.
+ * The rate limiters are the same kind of shared state: one `app.js`
+ * import per test file means its counters persist across every `it()` in
+ * that file, not just within one test. Since step 44 those counters are in
+ * Redis rather than in process memory, so the reset is a FLUSHDB and has
+ * to be awaited — the database truncate below already was.
  */
 afterEach(async () => {
   const provider = getLlmProvider().backend;
   if (provider instanceof MockLlmProvider) provider.reset();
-  resetRateLimitsForTests();
+  await resetRateLimitsForTests();
   await truncateAll();
 });

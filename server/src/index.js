@@ -31,6 +31,7 @@ import config from "./config.js";
 import logger from "./observability/logger.js";
 import prisma from "./lib/prisma.js";
 import { attachGracefulShutdown } from "./lib/gracefulShutdown.js";
+import { closeRedis } from "./lib/redis.js";
 
 const server = app.listen(config.PORT, () => {
   logger.info(
@@ -62,7 +63,12 @@ attachGracefulShutdown({
   // found and fixed while verifying step 40's "SIGTERM drains and exits
   // 0" against a real container, where an unclosed pool is exactly the
   // kind of gap that looks fine until something checks for it.
-  onDrained: () => prisma.$disconnect(),
+  // Both dependencies, not just the database: an open Redis connection
+  // keeps the event loop alive, so SIGTERM would drain cleanly and then
+  // hang until the orchestrator's kill timer fired.
+  onDrained: async () => {
+    await Promise.allSettled([prisma.$disconnect(), closeRedis()]);
+  },
 });
 
 export default server;

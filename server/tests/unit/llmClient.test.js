@@ -72,6 +72,9 @@ function env(overrides = {}) {
     ANTHROPIC_MODEL: "claude-haiku-4-5",
     JWT_SECRET: "test-jwt-secret-at-least-32-bytes-long-ok",
     FRONTEND_ORIGIN: "http://localhost:5173",
+    // Required since step 44. This fixture builds a whole environment
+    // from scratch, so it has to carry every required variable.
+    REDIS_URL: "redis://localhost:6379",
     ...overrides,
   };
 }

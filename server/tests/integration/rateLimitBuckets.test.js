@@ -13,13 +13,26 @@ import {
  * BUILD-PLAN step 41 (OPS-2) / NFR-2.6.
  *
  * A bare Express app, not server/src/app.js — these three limiters are
- * MODULE-LEVEL SINGLETONS (one MemoryStore per limiter, created once at
- * import), so this file exercises the real counting/keying/messaging
- * logic directly and cheaply (no Postgres, no bcrypt, no session
- * signing). tests/integration/rateLimits.test.js proves the same limits
- * are correctly WIRED onto the real routes (through requireAuth, with
- * the real login/analyze flow) — this file and that one are checking
- * different things, not duplicating each other.
+ * MODULE-LEVEL SINGLETONS, so this file exercises the real
+ * counting/keying/messaging logic directly, without Postgres, bcrypt or
+ * session signing. tests/integration/rateLimits.test.js proves the same
+ * limits are correctly WIRED onto the real routes (through requireAuth,
+ * with the real login/analyze flow) — this file and that one check
+ * different things, not the same thing twice.
+ *
+ * MOVED FROM tests/unit/ AT STEP 44, and the move is the point rather
+ * than housekeeping. These assertions are about what a limiter COUNTS,
+ * and since step 44 the counting happens in Redis. §10 defines a unit
+ * test as one with no database, no network and no container; a test of
+ * counting that needs a live store no longer qualifies, whatever
+ * directory it sits in. Leaving it under unit/ would have been worse than
+ * cosmetic: a developer with docker-compose up would see it pass while
+ * CI's unit job — which starts no containers — saw it fail, which is the
+ * shape of bug that costs an afternoon.
+ *
+ * What genuinely remains unit-testable is the failure POLICY, which is
+ * pure: tests/unit/failurePolicyStore.test.js covers FR-5.6 with a fake
+ * store that throws on command.
  */
 function buildApp() {
   const app = express();
@@ -53,8 +66,8 @@ describe("rate limiters (BUILD-PLAN step 41, NFR-2.6)", () => {
   /** @type {import("express").Express} */
   let app;
 
-  beforeEach(() => {
-    resetRateLimitsForTests();
+  beforeEach(async () => {
+    await resetRateLimitsForTests();
     app = buildApp();
   });
 
@@ -149,7 +162,7 @@ describe("rate limiters (BUILD-PLAN step 41, NFR-2.6)", () => {
     for (let i = 0; i < 5; i++) await request(app).post("/auth");
     expect((await request(app).post("/auth")).status).toBe(429);
 
-    resetRateLimitsForTests();
+    await resetRateLimitsForTests();
 
     expect((await request(app).post("/auth")).status).toBe(200);
   });

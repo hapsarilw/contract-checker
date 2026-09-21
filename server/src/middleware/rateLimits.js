@@ -1,5 +1,9 @@
-import { rateLimit, MemoryStore } from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
 import { AppError } from "../lib/AppError.js";
+import { FailurePolicyStore } from "../lib/failurePolicyStore.js";
+import { getRedis } from "../lib/redis.js";
+import logger from "../observability/logger.js";
 
 /**
  * BUILD-PLAN step 41 (OPS-2) / NFR-2.6 — the three Phase 1 rate-limit
@@ -17,21 +21,19 @@ import { AppError } from "../lib/AppError.js";
  * §3.5's monthly quotas — different limits, different keys, different
  * steps.
  *
- * STORE: express-rate-limit's own default MemoryStore — left implicit
- * below by never passing a `store` option. §2.1 marks the store choice
- * itself [P1.5]: the API runs as TWO OR MORE stateless instances (§2's
- * second critical constraint), and a memory store keeps an independent
- * counter PER INSTANCE. That is INCORRECT the moment the fleet grows
- * past one — a client fanning requests across instances gets up to N×
- * the stated limit, and a client freshly rate-limited on instance A
- * reads as untouched on instance B, because instance B never saw those
- * requests. Every limiter below is built by the one `buildLimiter`
- * factory specifically so step 44's swap to a Redis-backed store is:
+ * STORE [step 44]: Redis, via rate-limit-redis, wrapped in
+ * FailurePolicyStore. Until this step the store was the default in-memory
+ * one, which keeps an independent counter PER INSTANCE — not a slower
+ * version of the right answer but a different, wrong limit, since a client
+ * fanning requests across N instances gets up to N× the stated ceiling and
+ * a client freshly limited on instance A reads as untouched on instance B.
+ * §2's second critical constraint rules that out.
  *
- *   store: new RedisStore({ sendCommand: (...args) => redisClient.call(...args) }),
- *
- * added once, inside `buildLimiter`, rather than three separate edits
- * that could drift out of sync with each other.
+ * FAILURE POLICY (FR-5.6) is per limiter, not global — see the table at
+ * each limiter below and the reasoning in lib/failurePolicyStore.js. The
+ * short version: analysis fails CLOSED because an unmetered analyze path
+ * spends money; everything else fails OPEN because an unmetered read does
+ * not.
  *
  * KEYING — the instruction this step calls out as the single most
  * common way IP limits go wrong for every user at once: app.js (step 6)
@@ -81,26 +83,57 @@ function humanizeRetryTime(totalSeconds) {
   return `${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 
-// Every store this module creates, so resetRateLimitsForTests() (bottom
-// of this file) can clear all three without each buildLimiter() call
-// having to thread its store back out individually.
+// Every store this module creates, so resetRateLimitsForTests() can clear
+// all three without each createLimiter() call threading its store back out.
+/** @type {import("../lib/failurePolicyStore.js").FailurePolicyStore[]} */
 const stores = [];
 
 /**
+ * Exported so an integration test can build a SECOND limiter over the same
+ * Redis and prove the counter is shared (the "limits hold across two
+ * instances" requirement). Standing up a second Node process inside the
+ * test run would be a heavier way to assert the same property of the store,
+ * and the property belongs to the store.
+ *
  * @param {{
  *   windowMs: number,
  *   limit: number,
+ *   prefix: string,
+ *   failurePolicy: import("../lib/failurePolicyStore.js").FailurePolicy,
  *   buildMessage: (retryTime: string) => string,
  *   keyGenerator?: (req: import("express").Request) => string,
  * }} options
  */
-function buildLimiter({ windowMs, limit, buildMessage, keyGenerator }) {
-  // Constructed explicitly, rather than left for rateLimit() to create
-  // implicitly, ONLY so resetRateLimitsForTests() has a handle to reset
-  // — express-rate-limit's own default behaviour is identical either
-  // way. (validate.js's `ERR_ERL_STORE_REUSE` check is why this can't be
-  // one shared store across all three limiters: each needs its own.)
-  const store = new MemoryStore();
+export function createLimiter({ windowMs, limit, prefix, failurePolicy, buildMessage, keyGenerator }) {
+  // Each limiter gets its own prefix so the three buckets cannot collide
+  // in one Redis database — without it, an IP's 100-request general count
+  // and its 5-attempt auth count would increment the same key.
+  const store = new FailurePolicyStore({
+    store: new RedisStore({
+      prefix,
+      // rate-limit-redis types this as (...args: string[]) while ioredis's
+      // `call` is (command, ...args) returning unknown. The split and the
+      // cast bridge the two signatures; neither library is wrong, they just
+      // describe the same raw-command call differently.
+      sendCommand: (/** @type {string[]} */ ...args) =>
+        /** @type {Promise<string | number | boolean | Array<string | number | boolean>>} */ (
+          getRedis().call(args[0], ...args.slice(1))
+        ),
+    }),
+    policy: failurePolicy,
+    onFailure: (err, policy) => {
+      logger.error(
+        {
+          prefix,
+          policy,
+          err: { message: err instanceof Error ? err.message : String(err) },
+        },
+        policy === "closed"
+          ? "FR-5.6: rate-limit store unavailable, refusing the request (fail closed)"
+          : "FR-5.6: rate-limit store unavailable, allowing the request unmetered (fail open)",
+      );
+    },
+  });
   stores.push(store);
 
   return rateLimit({
@@ -132,48 +165,81 @@ function buildLimiter({ windowMs, limit, buildMessage, keyGenerator }) {
 // "5 auth attempts" (NFR-2.6) reads as any authentication attempt, and
 // splitting the count per-route would let an attacker double the
 // effective ceiling just by alternating between the two endpoints.
-export const authLimiter = buildLimiter({
+export const authLimiter = createLimiter({
   windowMs: 15 * MINUTE_MS,
   limit: 5,
+  prefix: "rl:auth:",
+  // FR-5.6 names only two cases — analysis and read paths — and auth is
+  // neither, so this is a decision the spec left open. It fails OPEN, on
+  // two grounds. PRD D13, written into FR-5.4 for the spend ceiling, sets
+  // the precedent for what must survive degradation by name: "existing
+  // reports, history, LOGIN, and deletion continue to work". And the cost
+  // of the alternative is total: failing closed here means nobody can sign
+  // in during a Redis outage, including the users trying to read a report
+  // they already paid for. The trade is real and worth stating plainly —
+  // while Redis is down there is no cross-request brute-force ceiling. The
+  // control that should carry that weight is FR-1.10's per-ACCOUNT lockout,
+  // which is keyed on the account rather than the IP and lands at step 54;
+  // until then, an outage is a window, and that is an argument for step 54,
+  // not for making login unavailable.
+  failurePolicy: "open",
   buildMessage: (retryTime) =>
     `Too many sign-in attempts from this address. Try again in about ${retryTime}.`,
 });
 
-export const analyzeLimiter = buildLimiter({
+export const analyzeLimiter = createLimiter({
   windowMs: HOUR_MS,
   limit: 10,
-  // A `user:` prefix, not the bare id — this limiter's MemoryStore is
-  // never shared with the IP-keyed ones (each buildLimiter() call gets
-  // its own store instance), so this guards nothing today, but it keeps
-  // a key dumped in a log or a future shared store unambiguous about
-  // what kind of identity it is.
+  prefix: "rl:analyze:",
+  // FR-5.6, the case it exists for: an unmetered analyze path is a
+  // financial risk. Every call spends provider tokens, and FR-5.2 counts
+  // failures too, so an outage that removed the ceiling would be billed
+  // for. 503 SERVER_BUSY, not 429 — the client did nothing wrong.
+  failurePolicy: "closed",
+  // A `user:` prefix, not the bare id. Since step 44 the three limiters
+  // share one Redis database and are separated by key prefix, so this
+  // second marker is belt and braces — but it is what makes a key read
+  // unambiguously in a log or a SCAN, where `rl:analyze:user:abc` says
+  // what kind of identity it counts and a bare id does not.
   keyGenerator: (req) => `user:${req.auth.userId}`,
   buildMessage: (retryTime) =>
     `You've reached the limit of 10 contract analyses per hour. Try again in about ${retryTime}.`,
 });
 
-export const generalLimiter = buildLimiter({
+export const generalLimiter = createLimiter({
   windowMs: 15 * MINUTE_MS,
   limit: 100,
+  prefix: "rl:general:",
+  // Mounted on all of /api/v1, so it covers the read paths FR-5.6 names
+  // AND the analyze route. Failing open here does not weaken analysis:
+  // analyzeLimiter sits closer to that handler and fails closed, so an
+  // outage still stops an analysis. This one failing closed would instead
+  // take down history, document reads and deletion along with it.
+  failurePolicy: "open",
   buildMessage: (retryTime) => `Too many requests. Try again in about ${retryTime}.`,
 });
 
 /**
  * Test-only. app.js builds one Express `app` per process, so these
- * limiters' in-memory counters persist for as long as an integration
- * test FILE imports it — across every `it()` in that file, not reset
- * between them the way tests/integration/setup.js's `afterEach` already
- * resets the database and the mock LLM provider. Without this, a test
- * file making more than 5 auth calls (a routine thing for auth.test.js
- * to do across many `it()` blocks) starts seeing 429s on requests that
- * have nothing to do with rate limiting at all. Wired into that same
- * `afterEach` (tests/integration/setup.js) rather than called ad hoc
- * per file, matching how the database reset is handled.
+ * limiters' counters persist for as long as an integration test FILE
+ * imports it — across every `it()` in that file, not reset between them
+ * the way tests/integration/setup.js's `afterEach` already resets the
+ * database and the mock LLM provider. Without this, a test file making
+ * more than 5 auth calls (a routine thing for auth.test.js to do across
+ * many `it()` blocks) starts seeing 429s on requests that have nothing to
+ * do with rate limiting at all.
  *
- * Only meaningful against MemoryStore, today's only store — a future
- * Redis-backed store (step 44) would need its own equivalent, most
- * likely FLUSHDB against a dedicated test Redis instance.
+ * Since step 44 the counters live in Redis, so this is FLUSHDB against the
+ * ephemeral test instance rather than an in-process reset — which is only
+ * safe because that instance is created for the test run and holds nothing
+ * else (tests/integration/globalSetup.js). It is deliberately NOT
+ * `store.resetAll()` per limiter: rate-limit-redis implements that as a
+ * SCAN over the prefix, so a leaked key under a prefix no limiter uses any
+ * more would survive the reset and leak into the next test.
+ *
+ * Async now, and awaited by its caller — a reset that races the next test
+ * is the same defect as no reset at all.
  */
-export function resetRateLimitsForTests() {
-  for (const store of stores) store.resetAll();
+export async function resetRateLimitsForTests() {
+  await getRedis().flushdb();
 }

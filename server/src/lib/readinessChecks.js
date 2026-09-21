@@ -1,9 +1,10 @@
 import prisma from "./prisma.js";
+import { pingRedis } from "./redis.js";
 
 /**
- * FR-4.7 — each check is independent and structured the same way, so
- * wiring in the real Redis check at step 44 is the one-line change the
- * prompt asks for: replace `checkRedis` below with a real ping.
+ * FR-4.7 — each check is independent and structured the same way, so a
+ * caller can report which dependency is down rather than a single
+ * pass/fail. Redis became a real check at step 44.
  *
  * @typedef {{ ok: boolean, error?: string }} CheckResult
  */
@@ -34,14 +35,26 @@ function describeError(err) {
 }
 
 /**
- * Stubbed until step 44 (Redis-backed rate limits and quota counters).
- * Reports ok so an unwired dependency doesn't fail readiness for
- * something that isn't in the request path yet — once step 44 lands,
- * this becomes a real ping against ioredis and can fail like any other
- * check.
+ * A real PING since step 44, using the same client and the same NFR-3.7
+ * timeouts as the request path — a readiness check that used its own,
+ * looser connection could pass on a Redis the limiters would find
+ * unusable, which is the one thing it must never do.
+ *
+ * Note what a failure here means now that FR-5.6 exists: NOT that the API
+ * is unusable. Reads and auth fail open and keep working; only analysis
+ * fails closed. Reporting the dependency as down is still right — an
+ * operator needs to know, and the platform should stop sending new traffic
+ * to an instance that cannot meter spend — but the per-dependency
+ * breakdown (FR-4.7) is what tells them the difference between "degraded"
+ * and "down", which a single boolean would not.
  *
  * @returns {Promise<CheckResult>}
  */
 export async function checkRedis() {
-  return { ok: true };
+  try {
+    await pingRedis();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: describeError(err) };
+  }
 }

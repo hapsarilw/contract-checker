@@ -66,13 +66,13 @@ const positiveInt = (fallback) =>
 const nonNegativeNumber = () => z.coerce.number().nonnegative();
 
 /**
- * Appendix B marks REDIS_URL, LLM_PRICE_*, MONTHLY_SPEND_CEILING_USD,
+ * Appendix B marks LLM_PRICE_*, MONTHLY_SPEND_CEILING_USD,
  * AUDIT_SALT, EMAIL_PROVIDER_KEY, EMAIL_FROM, GIT_SHA and BUILD_TIMESTAMP "✓ [P1.5]" — required,
- * but only once the P1.5 features that consume them exist (Redis in step 44,
- * spend metering in step 46, email in step 51, the P1.5 gate in step 75).
- * Phase 1 (steps 1-43) has to boot without them, so they are optional here
- * and become effectively required in practice once their consuming step
- * lands and the deploy target needs them set.
+ * but only once the P1.5 features that consume them exist (spend metering
+ * in step 46, email in step 51, the P1.5 gate in step 75). Phase 1 (steps
+ * 1-43) had to boot without them, so they are optional here and become
+ * required once their consuming step lands — which is exactly what
+ * happened to REDIS_URL at step 44, and why it is no longer in this list.
  */
 const envSchema = z
   .object({
@@ -82,7 +82,9 @@ const envSchema = z
     DATABASE_URL: z.string().min(1, "required"),
     DATABASE_POOL_SIZE: positiveInt(10),
 
-    REDIS_URL: z.string().min(1).optional(),
+    // Required since step 44: rate limits are counted here, so an
+    // instance without it cannot enforce a fleet-wide limit at all.
+    REDIS_URL: z.string().min(1, "required"),
 
     ANTHROPIC_API_KEY: z.string().min(1, "required"),
     ANTHROPIC_MODEL: z.string().min(1, "required").superRefine((val, ctx) => {

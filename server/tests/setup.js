@@ -14,6 +14,10 @@ process.env.ANTHROPIC_MODEL ??= "claude-haiku-4-5";
 // §2.3: "ci: mock only — no network calls to the provider from CI." This
 // is what enforces that for every test run, not just CI's own env config.
 process.env.LLM_PROVIDER ??= "mock";
+// Required since step 44. Unit tests never connect — lib/redis.js builds
+// its client on first use, not at import — so this only has to satisfy the
+// config schema. Integration tests get a real one from globalSetup.js.
+process.env.REDIS_URL ??= "redis://localhost:6379";
 process.env.JWT_SECRET ??= "test-jwt-secret-at-least-32-bytes-long-ok";
 process.env.FRONTEND_ORIGIN ??= "http://localhost:5173";
 // Tests that deliberately exercise error paths (errorHandler.test.js)
