@@ -1194,6 +1194,12 @@ full payment; limitation of the freelancer's liability; a process for scope
 changes; the right to show the work in a portfolio. Phrase each as a plain
 sentence about what the absence means. Do not list more than the schema's
 maximum of 10, and only ones genuinely absent.
+That list is closed. Never name a protection that is not on it, and never
+name a narrower version of one that is present: a contract that states
+late-payment interest is not missing "an interest cap", and one with a
+scope-change process is not missing "a limit on scope-change requests". If
+all eight are present, return an empty array — that is a correct and
+ordinary answer, not a gap in your analysis.
 
 NOT A FINDING — protection is not risk:
 The checklist directly above is what a freelancer WANTS a contract to
@@ -1203,6 +1209,11 @@ liability; a stated revision limit; a kill fee; IP transferring on full
 payment; portfolio rights; a written process for scope changes. Reporting
 one of these as a risk teaches the freelancer to distrust the very terms
 protecting them, which is worse than reporting nothing.
+These protections rarely announce themselves by name. Recognise them by
+what they do: a clause paying for work completed plus a share of the fee
+for uncommenced work IS a kill fee; a clause capping revisions at a number
+IS a revision limit; a clause vesting ownership on full payment IS
+IP-on-payment. Work out what a clause does before deciding it is a risk.
 Also not findings: payment falling due within 30 days of the invoice, the
 delivery, the acceptance or the milestone — 30 days or fewer is normal
 whatever starts the clock; the agreed fee or rate itself, whatever the
@@ -1230,6 +1241,12 @@ JUDGMENT:
 - If the text is not a contract at all, say what it appears to be in
   document_type, return overall_risk "low", an empty findings array, and a
   summary stating that this does not appear to be a contract.
+
+BEFORE YOU ANSWER:
+Return ONE JSON object carrying every field of the schema — document_type,
+overall_risk, summary, findings, missing_clauses — including the ones whose
+value is an empty array. No markdown fences and no text outside the object.
+Escape any quotation mark that falls inside a string value.
 ```
 
 **User message template:**

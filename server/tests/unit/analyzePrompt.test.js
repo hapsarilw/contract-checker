@@ -129,12 +129,20 @@ describe("an accidental truncation is caught", () => {
     ]);
   });
 
-  it("ends with the last judgment rule", () => {
+  it("ends with the closing output contract", () => {
+    // This guard exists to catch a truncated prompt, not to fix which rule
+    // comes last. It moved in v6, when the output contract was restated at
+    // the end: the schema had drifted ~50 lines away from the response, and
+    // the model began omitting required fields and emitting malformed JSON.
     expect(
       SYSTEM_PROMPT.endsWith(
-        "summary stating that this does not appear to be a contract.",
+        "Escape any quotation mark that falls inside a string value.",
       ),
     ).toBe(true);
+    // The judgment rule that used to be last must still be present.
+    expect(FLAT_PROMPT).toContain(
+      "summary stating that this does not appear to be a contract.",
+    );
   });
 });
 
@@ -240,6 +248,23 @@ describe("PROMPT_VERSION (Appendix A's preamble)", () => {
     // trigger-agnostic and forbids an excerpt that reverses its clause's
     // sense. Benchmarked in docs/phase-1-dod.md §8.
     "analyze-v4": "bb440d9dd34a63e8d964bd93418d077591fcc285460a96cc823e6e5b7b48cc65",
+    // v5 (2026-09-21): PRD §11.1's fixture-03 gate — "exactly 0 findings, 0
+    // missing protections" — failed in 2 of 12 runs, both halves together.
+    // The two causes were specific. missing_clauses invented NARROWER
+    // variants of protections that were present ("no cap on scope-change
+    // requests"), so v5 states the eight-item list is closed. And a kill fee
+    // written out longhand was reported as a risk although "a kill fee" is
+    // already named under NOT A FINDING, so v5 says to recognise the
+    // protections by effect rather than by name. Benchmarked in
+    // docs/phase-1-dod.md §8.
+    "analyze-v5": "2884d1ef18ed63e04a0b5b956dcfb4082c86ff533c375d701cdcf8ee00a70f00",
+    // v6 (2026-09-21): v5 fixed the fixture-03 gate but tripled invalid
+    // first responses — 5 of 24 against v4's 0 of 24 on a matched baseline,
+    // as malformed JSON and a missing required "summary". Four revisions of
+    // judgement rules had pushed the schema ~50 lines from the answer, so v6
+    // restates the output contract as the prompt's last words. Semantics
+    // unchanged from v5.
+    "analyze-v6": "ba42dcda81d5f0e8ed79df76ec2ee3ecb9a91b25b038c6dfac929f26d390f4bb",
   };
 
   it("is an explicit, numbered tag", () => {

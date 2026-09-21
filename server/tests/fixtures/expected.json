@@ -124,9 +124,9 @@
       "intake": "accept",
       "overall_risk": "low",
       "findings": [],
-      "findings_note": "ZERO findings expected. This fixture exists to catch a model that invents problems to look useful, and to exercise the empty-report UI state. Any high or medium finding here is a false positive and a test failure.",
+      "findings_note": "ZERO findings expected, of ANY severity, together with an empty missing_clauses array. PRD 11.1 makes both halves one release gate - 'exactly 0 findings, 0 missing protections ... any nonzero blocks release' - so a single low-severity finding fails it just as a high one does. This fixture exists to catch a model that invents problems to look useful, and to exercise the empty-report UI state. An earlier wording here named only high and medium findings as failures; that was read as permission for a low one, which PRD 11.1 does not give.",
       "missing_protections": [],
-      "missing_note": "Deposit, late-payment interest, revision limit, kill fee, IP-on-payment, liability cap, scope-change process and portfolio rights are ALL present. An empty missing_clauses array is the correct output.",
+      "missing_note": "Deposit, late-payment interest, revision limit, kill fee, IP-on-payment, liability cap, scope-change process and portfolio rights are ALL present. An empty missing_clauses array is the correct output. A narrower variant of a protection that is present does not make it absent: this contract is not missing 'an interest cap' because it states late-payment interest, nor missing 'a limit on scope-change requests' because it has a scope-change process. Inventing such sub-requirements is the failure this fixture exists to catch.",
       "word_count": 895
     },
     {

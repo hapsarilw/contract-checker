@@ -106,13 +106,13 @@ cd client && npm run e2e # Playwright + axe; starts its own dev server if one is
      run against the real provider and there are logged rows to read it
      from. -->
 
-**USD 0.0181 per analysis** on `claude-sonnet-5` with prompt `analyze-v4`, at list pricing of USD 2.00 / Mtok input and USD 10.00 / Mtok output.
+**USD 0.0175 per analysis** on `claude-sonnet-5` with prompt `analyze-v6`, at list pricing of USD 2.00 / Mtok input and USD 10.00 / Mtok output.
 
-Read from four real `Analysis` rows, not estimated: fixtures 01–04 (contracts of 849–980 words, against the 4,000-word cap), 17,701 input and 3,714 output tokens, no retries, nothing discarded, slowest analysis 17.7s. Measured 2026-09-21 through the real `POST /documents` + `/analyze` path.
+Read from four real `Analysis` rows, not estimated: fixtures 01–04 (contracts of 849–980 words, against the 4,000-word cap), 19,093 input and 3,165 output tokens, no retries, nothing discarded, slowest analysis 16.2s. Measured 2026-09-21 through the real `POST /documents` + `/analyze` path.
 
 **Why this model.** The project started on `claude-haiku-4-5` (USD 0.0111 per analysis) because BUILD-PLAN D-F says to begin at the cheapest candidate and let the benchmark promote upward. The benchmark then did exactly that. Measured over three repeats of all four fixtures per condition, Haiku derived the wrong `overallRisk` on 3.33 of 4 documents with one document flapping between runs, while Sonnet 5 scored 4 of 4 with no variation — a fault two prompt revisions had failed to fix. Sonnet is also *faster* here (10.1s mean against 13.0s), because Haiku's noisier finding lists cost more output tokens than Sonnet's reasoning costs. Raising `output_config.effort` to `high` was tested and rejected: it bought precision but broke the "fixture 03 returns exactly zero findings" gate in one run of three, made risk correctness worse, and took 40.5s on a short contract against a 60s timeout. Full numbers in `docs/phase-1-dod.md` §8.
 
-Two caveats. The sample is four synthetic fixtures. And one release gate is still contested: SRS §10.4 requires the clean-contract fixture to return *exactly* zero findings, and one run in three returns a single `LOW` note on it — which the answer key's own criterion ("any high or medium finding here is a false positive") does not count as a failure. Recall, precision and per-document risk correctness all pass. See `docs/phase-1-dod.md` §8.
+Every PRD §11.1 accuracy gate passes at this configuration — recall 100%, precision 100%, the clean-contract fixture clean on both halves across 12 runs, per-document risk correct on all four. Two caveats. The sample is four synthetic fixtures. And roughly 1 analysis in 12 still needs the FR-3.2 retry because the model omits the `summary` field; it is retried once and has always succeeded, but the durable fix is to constrain the response with `output_config.format` rather than to ask for it in prose. See `docs/phase-1-dod.md` §8.
 
 ## What I learned
 

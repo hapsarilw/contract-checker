@@ -4,7 +4,7 @@ PRD §9, "Definition of done" for Phase 1, checked item by item (BUILD-PLAN step
 
 **Gate verdict: NOT PASSED.** Six of eight items are verified. The other two are outstanding, and neither can be closed by the builder alone: each needs an account or a person that only the owner can provide.
 
-**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright and has never moved off 100%. Precision failed at first and now passes (`analyze-v1` → `v4`, 100% against a ≥90% threshold); per-document risk correctness failed until the model changed, and now passes at 4/4. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate. Read §8 before choosing a model. Two findings there change what this project should ship: **two runs of the same prompt over the same documents at `temperature: 0` did not agree**, so the benchmark cannot gate a release until it runs repeats; and once repeats were added, **`claude-sonnet-5` at the existing `effort: low` fixed risk correctness outright (4/4, stable) as a configuration change alone**, which two prompt revisions had failed to do.
+**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright and has never moved off 100%. **Every PRD §11.1 release gate now passes** on `claude-sonnet-5` with `analyze-v6`: recall 100%, precision 100%, fixture 03 clean on both halves across 12 runs, and per-document risk correct on all four documents in every run. Getting there took a model change and six prompt revisions, and §8 records one correction to an earlier claim in this file that was wrong in its own favour. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate. Read §8 before choosing a model. Two findings there change what this project should ship: **two runs of the same prompt over the same documents at `temperature: 0` did not agree**, so the benchmark cannot gate a release until it runs repeats; and once repeats were added, **`claude-sonnet-5` at the existing `effort: low` fixed risk correctness outright (4/4, stable) as a configuration change alone**, which two prompt revisions had failed to do.
 
 | # | Item | Verdict |
 |---|---|---|
@@ -256,24 +256,64 @@ The target is gone: the deposit clause went from flagged 3 of 3 to flagged 0 of 
 
 **PRD §11.1's precision gate now passes for the first time** — 100% against a ≥90% threshold, stable across three runs. Recall passes. Risk correctness passes. One gate is contested.
 
-### The fixture 03 gate contradicts the answer key, and this is where it matters
+### Correction: there was no contradiction, and v4 failed the gate
 
-One v4 run of three returned a single finding on the clean contract: `LOW` / `termination`, on "Either party may terminate this Agreement upon fourteen (14) days written notice."
+The section previously here argued that SRS §10.4 and the answer key disagreed about fixture 03, and leaned on the key's `findings_note` — "any **high or medium** finding here is a false positive" — to claim `analyze-v4` passed "the criterion the corpus states about itself". **That was wrong, and it was wrong in the direction that flattered the result.**
 
-Two documents disagree about whether that is a failure:
+PRD §11.1 is the document that defines the release gates, and it is unambiguous:
 
-- **SRS §10.4** makes it one: "fixture 03 returns exactly zero findings" is listed among the release gates.
-- **The answer key's own `findings_note`** does not: "ZERO findings expected… **Any high or medium finding here is a false positive and a test failure.**" v4 produced no high or medium finding on fixture 03 in any run.
+> | **Clean contract returns zero findings** | fixture 03 | **exactly 0 findings, 0 missing protections** | **any nonzero blocks release** |
 
-So v4 passes the criterion the corpus states about itself and fails the one the SRS states about the corpus. That contradiction has been latent since both were written; it surfaces now because it is the only thing standing between this configuration and a full pass.
+The prompt says the same thing ("A clean, fair contract gets an empty findings array"). The answer key's note was merely ambiguous prose that named the worst case without excluding lesser ones; nothing reads it, and it has now been rewritten to defer to PRD §11.1 explicitly. So the gate was never contested — v4 simply failed it.
 
-**Recommendation: resolve the specification, do not tune the prompt at it.** Three reasons.
+**A second half of that gate had never been measured at all.** PRD §11.1 asks for *"0 findings, 0 missing protections"*. The sweep harness recorded findings and silently dropped `missing_clauses`, so every measurement in this record before this point covered half the gate. The harness now records both.
 
-- **The prompt fix would aim at the wrong target.** Suppressing every `LOW` observation on a clean contract is one instruction away from suppressing `LOW` observations generally — and under-reporting on a real contract is a far worse failure for this product than a mild note on a synthetic one. The asymmetry runs against chasing this.
-- **It cannot be measured at this sample size anyway.** One occurrence in three runs cannot be attributed to `v4` rather than to run-to-run variance; neither could a fix be shown to work. Proving anything about a 1-in-3 event needs far more than three repeats.
-- **The finding is defensible on its own terms.** Fourteen days' mutual notice is short. The prompt defines `low` as "minor, ambiguous, or worth clarifying rather than fighting", which is a fair description of it. The model applied the stated rule.
+### Measuring the gate properly, then fixing it
 
-The decision belongs to whoever owns the spec: either SRS §10.4 adopts the answer key's wording (no high or medium finding on fixture 03), or the answer key is amended to demand literally zero and the prompt is tuned to it with a repeat count large enough to measure a 1-in-3 event. This record does not choose; step 72 must.
+Fixture 03 is the cheapest document in the corpus, so the failure rate was sampled directly — 12 runs of that fixture alone, rather than inferring a rate from three runs of the whole corpus.
+
+| Prompt | Fixture-03 gate, 12 runs | Invalid first response, 12 runs on 02+04 | Invalid first response, corpus of 12 |
+|---|---|---|---|
+| `analyze-v4` | **2 of 12 fail** | 0 | 0 |
+| `analyze-v5` | 0 of 12 | 2 of 12 | 3 of 12 |
+| `analyze-v6` | **0 of 12** | **0 of 12** | 2 of 12 |
+
+**What v4 was doing wrong, from the 2 failing runs.** Both failed *both* halves of the gate at once, and the causes were specific rather than general noise:
+
+- **`missing_clauses` invented protections that were present**, as narrower sub-requirements of them: "No explicit cap on number of scope-change requests" against a contract that has a scope-change process; "no late-payment interest cap" against one that states late-payment interest. The eight-item checklist was never described as closed, so the model treated it as a starting point.
+- **A kill fee was reported as a risk.** The clause "Client shall pay for all work completed to the date of termination plus fifty percent (50%) of the fee for the remaining, uncommenced work" *is* a kill fee — one of the eight protections `NOT A FINDING` already names. The model did not connect the protection's name to its wording.
+
+`analyze-v5` addressed exactly those two: the checklist is now stated to be closed, and the protections are to be recognised by what a clause does rather than by whether it uses the label. That worked — 0 of 12.
+
+### v5 fixed the gate and broke something else, which a matched baseline caught
+
+v5's corpus run showed 3 retries in 12 analyses where v4 had none. Rather than assume, v4's prompt was re-run from git on the same two fixtures for the same repeat count, loaded into the harness without touching the working tree:
+
+- `analyze-v4`: **0 invalid first responses in 24** analyses
+- `analyze-v5`: **5 in 24** — about 21%
+
+Real, and attributable. Two distinct failures: malformed JSON mid-object, and a missing required `summary` field. Neither was truncation — both responses ended normally. The cause was structural rather than semantic: four revisions of judgement rules had pushed the response schema roughly fifty lines away from where the model answers, and the output contract lost its pull.
+
+**A 21% first-attempt failure rate is not survivable.** FR-3.2 allows exactly one retry, so a fifth of analyses reaching the retry path puts a user-facing `LLM_INVALID_OUTPUT` within reach on the second failure. v5 was not shippable on its own.
+
+`analyze-v6` changes no judgement rule. It restates the output contract as the prompt's closing words — every schema field including the empty ones, no fences, escape quotes inside strings. The truncation guard in `analyzePrompt.test.js` moved with it: that test exists to catch a truncated prompt, not to fix which rule comes last, and it now asserts the new ending while still requiring the old final rule to be present somewhere.
+
+### Where analyze-v6 lands
+
+| | v4 | v5 | **v6** |
+|---|---|---|---|
+| Recall, high-severity | 100% *(stable)* | 100% *(stable)* | **100%** *(stable)* |
+| Precision, `fair_clauses_do_not_flag` | 100% *(stable)* | 100% *(stable)* | **100%** *(stable)* |
+| Precision, all findings | 83.8% | 75.6% | 82.3% *(80.0–85.7%)* |
+| `overallRisk` correct, of 4 | 4.00 *(stable)* | 4.00 *(stable)* | **4.00** *(stable)* |
+| Fixture-03 gate, 12 runs | 2 fail | 0 fail | **0 fail** |
+| Invalid first response, 24 analyses | 0 | 5 | 2 |
+
+**Every PRD §11.1 release gate now passes:** recall 100% against ≥90%, precision 100% against ≥90%, fixture 03 clean on both halves across 12 runs, and `overallRisk` correct on all four documents in every run.
+
+**One regression is not fully closed and is recorded rather than buried.** v6 still produces an invalid first response in 2 of 24 analyses where v4 produced none — both of them the same failure, a missing top-level `summary`. The malformed-JSON half is gone. This is a handled event: FR-3.2 retries once, and every one of them succeeded, so no analysis failed and nothing reached a user. The trade is deliberate — v4 fails a release gate in 17% of runs, v6 needs an internal retry in 8% — and a gate failure is worse than a retry. Distinguishing 8% from 0% would need roughly 36 more analyses per candidate, which is not a good use of measurement budget for prose tweaking.
+
+**The structural fix is not more prompt text.** The Messages API can constrain the response shape directly through `output_config.format` (structured outputs), which the client already uses for `effort`. That would make the schema enforced by the API rather than requested in prose, and would retire this entire class of failure — the missing field, the stray fence, the unescaped quote — along with some of FR-3.2's retry machinery. It changes the LLM output contract (SRS §5.2, §5.4) and the mock provider with it, so it belongs to step 72 rather than to a prompt commit. Recommended there.
 
 ### Reproducing this
 
