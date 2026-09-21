@@ -66,13 +66,14 @@ const positiveInt = (fallback) =>
 const nonNegativeNumber = () => z.coerce.number().nonnegative();
 
 /**
- * Appendix B marks LLM_PRICE_*, MONTHLY_SPEND_CEILING_USD,
- * AUDIT_SALT, EMAIL_PROVIDER_KEY, EMAIL_FROM, GIT_SHA and BUILD_TIMESTAMP "✓ [P1.5]" — required,
- * but only once the P1.5 features that consume them exist (spend metering
- * in step 46, email in step 51, the P1.5 gate in step 75). Phase 1 (steps
- * 1-43) had to boot without them, so they are optional here and become
- * required once their consuming step lands — which is exactly what
- * happened to REDIS_URL at step 44, and why it is no longer in this list.
+ * Appendix B marks AUDIT_SALT, EMAIL_PROVIDER_KEY, EMAIL_FROM, GIT_SHA
+ * and BUILD_TIMESTAMP "✓ [P1.5]" — required,
+ * but only once the P1.5 features that consume them exist (email in step
+ * 51, the P1.5 gate in step 75). Phase 1 (steps 1-43) had to boot without
+ * them, so they are optional here and become required once their
+ * consuming step lands — which is what happened to REDIS_URL at step 44
+ * and to the three spend variables at step 46, and why none of them are
+ * in this list any more.
  */
 const envSchema = z
   .object({
@@ -103,9 +104,15 @@ const envSchema = z
     LLM_PROVIDER: z.enum(["anthropic", "mock"]).default("anthropic"),
     LLM_TIMEOUT_MS: positiveInt(60_000),
     LLM_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
-    LLM_PRICE_INPUT_PER_MTOK: nonNegativeNumber().optional(),
-    LLM_PRICE_OUTPUT_PER_MTOK: nonNegativeNumber().optional(),
-    MONTHLY_SPEND_CEILING_USD: nonNegativeNumber().optional(),
+    // Required since step 46. FR-5.3's estimate is computed from these, so
+    // an unset price does not mean "free" — it means the ceiling cannot be
+    // enforced at all. BUILD-PLAN D-F: re-set both whenever
+    // ANTHROPIC_MODEL changes, or the estimate silently meters the new
+    // model at the old price. scripts/benchmark.js, which already gates
+    // every model change, checks that for you.
+    LLM_PRICE_INPUT_PER_MTOK: nonNegativeNumber(),
+    LLM_PRICE_OUTPUT_PER_MTOK: nonNegativeNumber(),
+    MONTHLY_SPEND_CEILING_USD: nonNegativeNumber(),
 
     MONTHLY_ANALYSIS_QUOTA: positiveInt(50),
     HOURLY_ANALYSIS_LIMIT: positiveInt(10),

@@ -150,6 +150,23 @@ async function main() {
   if (config.LLM_PROVIDER !== "anthropic")
     console.warn(`WARNING: LLM_PROVIDER=${config.LLM_PROVIDER} — this measures the mock, not the model.\n`);
 
+  // BUILD-PLAN D-F names a trap this script is in the right place to
+  // catch: ANTHROPIC_MODEL changes, LLM_PRICE_* does not, and FR-5.3's
+  // spend estimate silently meters the new model at the old price. A model
+  // change is gated on this benchmark (FR-3.14), so the mismatch can be
+  // caught at exactly the moment it is introduced. A warning rather than a
+  // failure: list prices change, and a stale table here must never be able
+  // to block a release on its own.
+  const listed = PRICING[config.ANTHROPIC_MODEL];
+  if (listed && (listed.input !== config.LLM_PRICE_INPUT_PER_MTOK || listed.output !== config.LLM_PRICE_OUTPUT_PER_MTOK)) {
+    console.warn(
+      `WARNING: LLM_PRICE_* does not match the list price recorded here for ${config.ANTHROPIC_MODEL}.\n` +
+        `  configured: ${config.LLM_PRICE_INPUT_PER_MTOK} in / ${config.LLM_PRICE_OUTPUT_PER_MTOK} out per Mtok\n` +
+        `  listed:     ${listed.input} in / ${listed.output} out per Mtok\n` +
+        `  FR-5.3's spend estimate uses the configured values. Re-set them, or update this table if the price moved.\n`,
+    );
+  }
+
   console.log(`model ${config.ANTHROPIC_MODEL}  prompt ${PROMPT_VERSION}  effort ${config.llmParamProfile.effort ? "low" : "n/a"}`);
   console.log(`${prepared.length} document(s) x ${args.repeats} repeat(s)\n`);
 

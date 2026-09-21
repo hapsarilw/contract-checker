@@ -15,6 +15,9 @@ const VALID_ENV = {
   JWT_SECRET: "01234567890123456789012345678901",
   FRONTEND_ORIGIN: "https://app.example.com",
   REDIS_URL: "redis://localhost:6379",
+  LLM_PRICE_INPUT_PER_MTOK: "2",
+  LLM_PRICE_OUTPUT_PER_MTOK: "10",
+  MONTHLY_SPEND_CEILING_USD: "100",
 };
 
 function runConfig(envOverrides) {

@@ -75,6 +75,9 @@ function env(overrides = {}) {
     // Required since step 44. This fixture builds a whole environment
     // from scratch, so it has to carry every required variable.
     REDIS_URL: "redis://localhost:6379",
+    LLM_PRICE_INPUT_PER_MTOK: "2",
+    LLM_PRICE_OUTPUT_PER_MTOK: "10",
+    MONTHLY_SPEND_CEILING_USD: "100",
     ...overrides,
   };
 }

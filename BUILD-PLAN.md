@@ -1394,7 +1394,7 @@ Write TR-14 (docs/SRS.md section 10.2): with the counter forced past the ceiling
 **Done when**
 - [ ] TR-14 passes: analyze blocked, reads and login unaffected
 - [ ] `ANALYSIS_ENABLED=false` independently disables analysis
-- [ ] Spend gauge exported; 50/80/100% thresholds wired
+- [ ] Spend gauge exported; 50/80/100% thresholds wired — **thresholds done, export partial, 2026-09-21.** `getSpendState()` in `server/src/services/spend.js` produces the `llm_spend_usd_month` figure with its ratio against the ceiling, and 50/80/100% are wired with once-per-crossing alerting. The HTTP surface is step 67's for the same reason as step 45's counter state: §6.6 puts metrics on an internal port and names the metric set
 
 ---
 

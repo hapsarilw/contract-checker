@@ -18,6 +18,11 @@ process.env.LLM_PROVIDER ??= "mock";
 // its client on first use, not at import — so this only has to satisfy the
 // config schema. Integration tests get a real one from globalSetup.js.
 process.env.REDIS_URL ??= "redis://localhost:6379";
+// Required since step 46 (FR-5.3). Round numbers, not the real ones: a
+// test asserting on spend should read its own arithmetic, not a price list.
+process.env.LLM_PRICE_INPUT_PER_MTOK ??= "1";
+process.env.LLM_PRICE_OUTPUT_PER_MTOK ??= "10";
+process.env.MONTHLY_SPEND_CEILING_USD ??= "100";
 process.env.JWT_SECRET ??= "test-jwt-secret-at-least-32-bytes-long-ok";
 process.env.FRONTEND_ORIGIN ??= "http://localhost:5173";
 // Tests that deliberately exercise error paths (errorHandler.test.js)
