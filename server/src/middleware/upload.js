@@ -209,7 +209,7 @@ export function sanitizeFilename(filename) {
 
   const cleaned = filename
     // eslint-disable-next-line no-control-regex -- stripping control characters is the point
-    .replace(/[ --]/g, "")
+    .replace(/[\x00-\x1f\x7f-\x9f]/g, "")
     .replace(/[/\\]/g, "")
     .trim();
 

@@ -217,7 +217,7 @@ describe("multer limits are translated into the API's error vocabulary", () => {
     // through toAppError() unchanged and surfaced as 500 INTERNAL for
     // ANY control character in an uploaded filename.
     const boundary = "----clausecheck-test-boundary-3";
-    const filenameWithControlChar = "contract .pdf";
+    const filenameWithControlChar = "contract\x00\x1f.pdf";
     const body = Buffer.concat([
       Buffer.from(
         `--${boundary}\r\n` +
@@ -256,7 +256,7 @@ describe("sanitizeFilename (FR-2.14)", () => {
   });
 
   it("strips control characters, which are invisible wherever the name is shown", () => {
-    expect(sanitizeFilename("contract .pdf")).toBe("contract.pdf");
+    expect(sanitizeFilename("contract\x00\x1f\x7f.pdf")).toBe("contract.pdf");
   });
 
   it("truncates to 255 characters", () => {
@@ -269,7 +269,7 @@ describe("sanitizeFilename (FR-2.14)", () => {
   });
 
   it("returns null for a name that sanitises away to nothing", () => {
-    expect(sanitizeFilename(" ")).toBeNull();
+    expect(sanitizeFilename("\x00\x01")).toBeNull();
     expect(sanitizeFilename("   ")).toBeNull();
   });
 
