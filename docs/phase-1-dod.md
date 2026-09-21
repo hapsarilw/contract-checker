@@ -4,7 +4,7 @@ PRD §9, "Definition of done" for Phase 1, checked item by item (BUILD-PLAN step
 
 **Gate verdict: NOT PASSED.** Six of eight items are verified. The other two are outstanding, and neither can be closed by the builder alone: each needs an account or a person that only the owner can provide.
 
-**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright and has never moved off 100%. Precision failed at first and was fixed by a prompt revision (`analyze-v1` → `v3`); per-document risk correctness is still 3/4 and did not respond to the prompt. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate. Read §8 before choosing a model. Two findings there change what this project should ship: **two runs of the same prompt over the same documents at `temperature: 0` did not agree**, so the benchmark cannot gate a release until it runs repeats; and once repeats were added, **`claude-sonnet-5` at the existing `effort: low` fixed risk correctness outright (4/4, stable) as a configuration change alone**, which two prompt revisions had failed to do.
+**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright and has never moved off 100%. Precision failed at first and now passes (`analyze-v1` → `v4`, 100% against a ≥90% threshold); per-document risk correctness failed until the model changed, and now passes at 4/4. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate. Read §8 before choosing a model. Two findings there change what this project should ship: **two runs of the same prompt over the same documents at `temperature: 0` did not agree**, so the benchmark cannot gate a release until it runs repeats; and once repeats were added, **`claude-sonnet-5` at the existing `effort: low` fixed risk correctness outright (4/4, stable) as a configuration change alone**, which two prompt revisions had failed to do.
 
 | # | Item | Verdict |
 |---|---|---|
@@ -224,6 +224,56 @@ Verified through the real pipeline afterwards, not only through the sweep harnes
 Measured cost from those four `Analysis` rows: 16,653 input and 3,837 output tokens, **USD 0.0717 total, USD 0.0179 per analysis** — within 3% of the sweep's USD 0.0174, and the figure now quoted in the README.
 
 **Next prompt target:** the deposit/net-30 false positive, which fails 3 of 3 and is therefore measurable, using this same three-repeat harness. Not done here.
+
+### Prompt analyze-v4: the last reproducible false positive (2026-09-21)
+
+With the model settled, the remaining precision failure was a single clause failing 3 of 3 — measurable at last. This is the revision aimed at it, measured with the same three-repeat harness on the shipping configuration (`claude-sonnet-5`, `effort: low`, `max_tokens` 4096).
+
+**The mechanism, which was not what it looked like.** The model was not flagging the deposit. It was **splitting the clause** and quoting only its second half:
+
+> returned, 3 of 3: `"with the balance due within thirty (30) days of final delivery"`
+> actual clause: `"Fifty percent (50%) of the total fee is due upon execution of this Agreement, with the balance due within thirty (30) days of final delivery."`
+
+Excerpted that way the clause reads as a payment delayed a month past delivery. Read whole it is a 50% deposit with a net-30 balance — a *good* payment term. Two gaps in `analyze-v3` let this through, and both are mine:
+
+1. **The 30-day threshold named only one trigger event.** `v3` said "payment terms of net-30 or sooner" and the payment category said "more than 30 days after **invoice**". This clause counts 30 days from *delivery*. A literal reader concludes the rule does not cover it.
+2. **The verbatim rule actively invites half a sentence.** "Choose the shortest span that proves the finding" is the right instruction for a clause that is simply bad, and the wrong one for a clause whose two halves balance each other. Nothing in `v3` bounded it.
+
+**What v4 changed.** The threshold is now trigger-agnostic — "more than 30 days after whatever starts the clock — invoice, delivery, acceptance or milestone" — in both the category definition and the `NOT A FINDING` list. And the verbatim rule gained a bound: an excerpt may not reverse the sense of the clause it came from; where a clause both gives and takes, quote enough to carry both or do not report it. That second rule is the general one — it closes a class of misleading findings, not one fixture's clause.
+
+**Results, three repeats each, same configuration:**
+
+| | analyze-v3 | analyze-v4 |
+|---|---|---|
+| Recall, high-severity | 100% *(stable)* | 100% *(stable)* |
+| Precision, `fair_clauses_do_not_flag` | 66.7% *(stable)* | **100%** *(stable)* |
+| Precision, all findings | 75.2% *(70.6–80.0%)* | **83.8%** *(80.0–85.7%)* |
+| `overallRisk` correct, of 4 | 4.00 *(stable)* | 4.00 *(stable)* |
+| Fixture 03 findings | 0 *(stable)* | 0.3 *(spread 0–1)* |
+| Cost per analysis | USD 0.0174 | USD 0.0177 |
+
+The target is gone: the deposit clause went from flagged 3 of 3 to flagged 0 of 3, and the other two fair clauses stayed clean. Broad precision rose 8.6 points. Recall and risk correctness did not move.
+
+**PRD §11.1's precision gate now passes for the first time** — 100% against a ≥90% threshold, stable across three runs. Recall passes. Risk correctness passes. One gate is contested.
+
+### The fixture 03 gate contradicts the answer key, and this is where it matters
+
+One v4 run of three returned a single finding on the clean contract: `LOW` / `termination`, on "Either party may terminate this Agreement upon fourteen (14) days written notice."
+
+Two documents disagree about whether that is a failure:
+
+- **SRS §10.4** makes it one: "fixture 03 returns exactly zero findings" is listed among the release gates.
+- **The answer key's own `findings_note`** does not: "ZERO findings expected… **Any high or medium finding here is a false positive and a test failure.**" v4 produced no high or medium finding on fixture 03 in any run.
+
+So v4 passes the criterion the corpus states about itself and fails the one the SRS states about the corpus. That contradiction has been latent since both were written; it surfaces now because it is the only thing standing between this configuration and a full pass.
+
+**Recommendation: resolve the specification, do not tune the prompt at it.** Three reasons.
+
+- **The prompt fix would aim at the wrong target.** Suppressing every `LOW` observation on a clean contract is one instruction away from suppressing `LOW` observations generally — and under-reporting on a real contract is a far worse failure for this product than a mild note on a synthetic one. The asymmetry runs against chasing this.
+- **It cannot be measured at this sample size anyway.** One occurrence in three runs cannot be attributed to `v4` rather than to run-to-run variance; neither could a fix be shown to work. Proving anything about a 1-in-3 event needs far more than three repeats.
+- **The finding is defensible on its own terms.** Fourteen days' mutual notice is short. The prompt defines `low` as "minor, ambiguous, or worth clarifying rather than fighting", which is a fair description of it. The model applied the stated rule.
+
+The decision belongs to whoever owns the spec: either SRS §10.4 adopts the answer key's wording (no high or medium finding on fixture 03), or the answer key is amended to demand literally zero and the prompt is tuned to it with a repeat count large enough to measure a 1-in-3 event. This record does not choose; step 72 must.
 
 ### Reproducing this
 

@@ -1139,10 +1139,17 @@ at most 300 characters. Every excerpt is programmatically checked against the
 source text; an excerpt that is not present verbatim is discarded, so a
 paraphrased excerpt destroys the finding. Never merge text from two places
 into one excerpt.
+"Shortest" never means half a sentence whose other half changes its meaning.
+Where a clause both gives and takes — a deposit alongside a payment deadline,
+a restriction alongside its time limit — quote enough to carry both, or do
+not report it at all. An excerpt that reverses the sense of the clause it
+came from is worse than no finding.
 
 CATEGORIES:
 - payment: amounts, schedule, invoicing terms, deposits, late fees, currency,
-  expenses. Example red flag: payment due more than 30 days after invoice.
+  expenses. Red flag: payment falling due more than 30 days after whatever
+  starts the clock — invoice, delivery, acceptance or milestone. Thirty days
+  or fewer is ordinary commercial practice, whichever event starts it.
 - ip: ownership, assignment or licensing of work product, pre-existing
   materials, portfolio rights, moral rights. Example: assignment of all work
   including work created before the agreement.
@@ -1196,11 +1203,15 @@ liability; a stated revision limit; a kill fee; IP transferring on full
 payment; portfolio rights; a written process for scope changes. Reporting
 one of these as a risk teaches the freelancer to distrust the very terms
 protecting them, which is worse than reporting nothing.
-Also not findings: payment terms of net-30 or sooner, which are normal; the
-agreed fee or rate itself, whatever the amount, because the freelancer
-negotiated it; and ordinary administrative machinery that costs nothing,
-such as naming a point of contact, a notices address, counterparts, or
-headings.
+Also not findings: payment falling due within 30 days of the invoice, the
+delivery, the acceptance or the milestone — 30 days or fewer is normal
+whatever starts the clock; the agreed fee or rate itself, whatever the
+amount, because the freelancer negotiated it; and ordinary administrative
+machinery that costs nothing, such as naming a point of contact, a notices
+address, counterparts, or headings.
+A clause that pays part of the fee up front and the balance within 30 days
+is a good payment clause, not a risk. Reporting only its second half, as
+though the deposit were not there, inverts it.
 Report one of these only when its own wording carries the harm — a
 liability cap set far above the total fee, or a deposit the client may
 reclaim after work has started. Then say in the explanation what makes this

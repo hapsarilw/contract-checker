@@ -230,6 +230,16 @@ describe("PROMPT_VERSION (Appendix A's preamble)", () => {
     // say-or-show restriction at medium however permanent, keeps a
     // non-compete high, and stops the agreed fee itself being a finding.
     "analyze-v3": "d436b61a38727250ca1e9ba5df321a2e2b7a0061a2ffe45288a35fd0b06fb90c",
+    // v4 (2026-09-21): the one reproducible false positive left after the
+    // move to claude-sonnet-5. The model SPLIT a two-part payment clause and
+    // reported only its burdening half ("balance due within thirty (30) days
+    // of final delivery"), dropping the deposit that made it fair — 3 of 3
+    // runs. Two gaps caused it: the 30-day threshold named only "invoice" as
+    // the trigger event, and the verbatim rule's "choose the shortest span"
+    // actively invites half a sentence. v4 makes the threshold
+    // trigger-agnostic and forbids an excerpt that reverses its clause's
+    // sense. Benchmarked in docs/phase-1-dod.md §8.
+    "analyze-v4": "bb440d9dd34a63e8d964bd93418d077591fcc285460a96cc823e6e5b7b48cc65",
   };
 
   it("is an explicit, numbered tag", () => {
