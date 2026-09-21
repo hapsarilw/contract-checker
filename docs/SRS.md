@@ -960,7 +960,11 @@ A script (`scripts/benchmark.js`) runs the full pipeline over the accepted fixtu
 - on a schedule weekly, to catch provider-side model drift;
 - before any production model change (FR-3.14).
 
-Thresholds from PRD §11.1 are **release gates**: recall ≥ 90% and precision ≥ 90% on high-severity planted clauses; fixture 03 returns exactly zero findings; every document's derived `overall_risk` matches the key. Below 85% on either measure fails the build. Results are written to a committed history file so a regression is attributable to a specific change.
+Thresholds from PRD §11.1 are **release gates**: recall ≥ 90% and precision ≥ 90% on high-severity planted clauses; fixture 03 returns exactly zero findings **and zero missing protections**; every document's derived `overall_risk` matches the key. Below 85% on either measure fails the build. Results are written to a committed history file so a regression is attributable to a specific change.
+
+**The benchmark runs each document several times and gates on the WORST repeat, never on the mean** (default 3, `--repeats N`). This is not caution: two runs of an identical prompt over identical documents at `temperature: 0` were measured disagreeing with each other — on which document's risk was wrong, on whether a fair clause was flagged, and by several points of precision. A single-run gate therefore flaps, blocking good changes and passing bad ones, and a mean over repeats rounds away exactly the intermittent failure a gate exists to catch. The report states the range alongside the mean for the same reason.
+
+A metric the corpus cannot supply is reported `SKIPPED`, never as passing: a corpus with no `fair_clauses_do_not_flag` entries must not report 100% precision.
 
 Because this test calls a real model, it is the one place CI reaches the provider — with its own key, its own spend ceiling, and a run cost bounded by the corpus size.
 

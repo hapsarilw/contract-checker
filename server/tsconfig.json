@@ -16,6 +16,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.js", "tests/**/*.js", "*.config.js"],
+  "include": ["src/**/*.js", "tests/**/*.js", "*.config.js", "../scripts/**/*.js"],
   "exclude": ["node_modules", "coverage", "dist", "tests/fixtures"]
 }

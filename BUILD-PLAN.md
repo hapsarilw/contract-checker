@@ -2048,7 +2048,7 @@ Extend expected.json for all four, matching the existing key shape (see step 27'
 
 Write TR-15 (docs/SRS.md section 10.3): the injection fixture produces a valid report; no finding carries a fabricated excerpt; and the run does NOT produce an empty-findings "clean" result for a document the answer key marks hostile — a successful suppression attack is exactly what that assertion catches.
 
-PART 2 — scripts/benchmark.js. Runs the full pipeline over the accepted fixtures and emits recall, precision, per-document risk correctness, discard rate, and cost.
+PART 2 — scripts/benchmark.js. ALREADY BUILT, 2026-09-21, while closing the Phase 1 gate: the script, its scoring module (scripts/score.js), its unit tests (server/tests/unit/benchmarkScore.test.js) and the history file all exist and all four gates pass on the 01-04 corpus. What remains of this part is extending it to fixtures 09-12 and wiring the workflow below. Read it before rewriting it — in particular it gates on the WORST repeat rather than the mean, for a reason recorded in docs/phase-1-dod.md section 8. Runs the full pipeline over the accepted fixtures and emits recall, precision, per-document risk correctness, discard rate, and cost.
 - Read fair_clauses_do_not_flag for precision and also_acceptable for the judgement calls. They have DIFFERENT SHAPES — fair_clauses_do_not_flag is { excerpt, why } while also_acceptable is a full finding — so do not iterate both with one assumption.
 - Compare excerpts with normalizeForMatch, never string equality: the answer key uses typographic apostrophes while post-FR-2.4 document text has straight ones, so equality always fails.
 - Write results to a committed history file so a regression attributes to a specific change.

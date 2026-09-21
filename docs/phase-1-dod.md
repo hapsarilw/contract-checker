@@ -317,13 +317,27 @@ Real, and attributable. Two distinct failures: malformed JSON mid-object, and a 
 
 ### Reproducing this
 
-Scoring remains provisional — step 72's `scripts/benchmark.js` formalises it, and this run was driven by a throwaway script rather than a committed one. The rules below are the ones that produced the numbers above, unchanged from what this section specified before the run:
-- **Match rule:** a returned finding matches an expected one when, after `normalizeForMatch` (`server/src/services/verify.js`, the same normalisation the verifier uses, imported rather than copied), one excerpt contains the other.
-- **Recall:** matched ÷ expected, over high-severity key findings only (7: five in 01, none in 02, two in 04). Recall over all severities reported alongside.
-- **Precision:** both figures above — §11.1's `fair_clauses_do_not_flag` rate, and returned findings matching `findings` or `also_acceptable` ÷ all returned findings over 01, 02, 04.
-- **Also record:** fixture 03's finding count, each document's derived `overallRisk` against the key, `discardedFindings`, token counts, and `retryCount`.
+Everything above was measured with a throwaway harness. That harness is now a committed script, because it found four distinct defects in one session and would otherwise have been rebuilt from scratch at step 72:
 
-Note the finding field is `clauseExcerpt` in the API response and `excerpt` in the answer key; a scorer that assumes one name silently matches nothing.
+```sh
+cd server && npm run benchmark              # 3 repeats, the default
+cd server && npm run benchmark -- --repeats 12 --fixtures 03-copywriting-clean
+```
+
+- `scripts/benchmark.js` — the runner. It drives the **real** provider client, so the §5.4 parameter profile for the configured model is exercised; the throwaway harness built its own request parameters and would have missed a model that rejects `temperature` receiving it anyway. It skips Postgres and HTTP, which have no bearing on accuracy and would make the CI job unrunnable.
+- `scripts/score.js` — the scoring, kept separate because it is pure and therefore testable, and because importing `config.js` would make a unit test exit the process. Covered by `server/tests/unit/benchmarkScore.test.js`.
+- `scripts/benchmark-history.jsonl` — one row per run, carrying the git sha, model, prompt version and every metric, so a regression attributes to a commit.
+
+The rules it implements are the ones this section specified before any of these runs, unchanged:
+
+- **Match rule:** after `normalizeForMatch` (imported from the real verifier, never copied), one excerpt contains the other. Never string equality — the key uses typographic apostrophes and the stored text has straight ones.
+- **Recall:** matched ÷ expected over high-severity key findings only.
+- **Precision:** PRD §11.1's definition, the `fair_clauses_do_not_flag` rate. The broader figure — returned findings matching `findings` or `also_acceptable` — is printed as context and is explicitly not a gate; it counts defensible judgement calls as false positives and so reads pessimistically.
+- **Gates apply to the worst repeat, not the mean**, and a metric the corpus cannot supply is `SKIPPED` rather than passing.
+
+Two traps worth keeping: the finding field is `clauseExcerpt` in the API response and `excerpt` in the answer key, so a scorer that assumes one name silently matches nothing and reports a clean zero; and `fair_clauses_do_not_flag` is `{excerpt, why}` while `also_acceptable` is a whole finding, so the two are never iterated under one assumption.
+
+**Still owed to step 72:** fixtures 09–12, TR-15, and `.github/workflows/benchmark.yml` — including the decision about how a CI run writes the history file, and the rule that it must never run from a fork, since it is the only job holding a provider key.
 
 ---
 
