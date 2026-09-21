@@ -4,7 +4,7 @@ PRD §9, "Definition of done" for Phase 1, checked item by item (BUILD-PLAN step
 
 **Gate verdict: NOT PASSED.** Six of eight items are verified. The other two are outstanding, and neither can be closed by the builder alone: each needs an account or a person that only the owner can provide.
 
-**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright and has never moved off 100%. Precision failed at first and was fixed by a prompt revision (`analyze-v1` → `v3`); per-document risk correctness is still 3/4 and did not respond to the prompt. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate. Read §8 before choosing a model, and note in particular that **two runs of the same prompt over the same documents at `temperature: 0` did not agree**, which means the benchmark cannot gate a release until it runs repeats.
+**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright and has never moved off 100%. Precision failed at first and was fixed by a prompt revision (`analyze-v1` → `v3`); per-document risk correctness is still 3/4 and did not respond to the prompt. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate. Read §8 before choosing a model. Two findings there change what this project should ship: **two runs of the same prompt over the same documents at `temperature: 0` did not agree**, so the benchmark cannot gate a release until it runs repeats; and once repeats were added, **`claude-sonnet-5` at the existing `effort: low` fixed risk correctness outright (4/4, stable) as a configuration change alone**, which two prompt revisions had failed to do.
 
 | # | Item | Verdict |
 |---|---|---|
@@ -177,6 +177,38 @@ That makes a model comparison the next reasonable experiment rather than a prema
 ### Cost after the change
 
 The prompt grew, so input tokens per analysis grew with it. Measured over the eight v3 analyses: 28,391 input and 12,047 output tokens, **USD 0.0886 total, USD 0.0111 per analysis** at `claude-haiku-4-5` list pricing. v2 measured USD 0.0104 per analysis over four. Both are below the v1 figure of USD 0.0132, because v1's larger finding counts and one retry cost more output than the longer prompt costs input — the precision fix paid for itself.
+
+### Model comparison with repeats (2026-09-21)
+
+The prompt work above ended with a method problem, not an accuracy problem: one run per condition could not tell two prompts apart. So the next experiment fixed the measurement first — **three repeats of all four fixtures per condition, scored on spread as well as mean** — and then swept the model and the effort parameter together. 36 analyses, USD 0.77.
+
+Three conditions. **A** is what ships today. **B** changes `ANTHROPIC_MODEL` and nothing else — the drop-in swap FR-3.14 says should never require editing the call site. **C** additionally raises `output_config.effort` to `high` and `max_tokens` to 16,000, testing the hypothesis recorded above that severity judgement would reward deeper reasoning.
+
+| | A · haiku-4-5, effort n/a | B · sonnet-5, effort `low` | C · sonnet-5, effort `high` |
+|---|---|---|---|
+| Recall, high-severity | 100% *(stable)* | 100% *(stable)* | 100% *(stable)* |
+| Precision, `fair_clauses_do_not_flag` | 66.7% *(spread 33.3–100%)* | 66.7% *(stable)* | **100%** *(stable)* |
+| Precision, all findings | 74.7% *(68.2–83.3%)* | 75.2% *(70.6–80.0%)* | **79.2%** *(75.0–81.3%)* |
+| Fixture 03 returns zero findings | yes *(stable)* | yes *(stable)* | **no — 1 finding in 1 of 3** |
+| `overallRisk` correct, of 4 | 3.33 *(3–4)* | **4.00** *(stable)* | 3.67 *(3–4)* |
+| Cost per analysis | USD 0.0095 | USD 0.0174 | USD 0.0371 |
+| Mean / max duration | 13.0s / 24.0s | 10.1s / 17.1s | 29.4s / **40.5s** |
+
+**The finding: `claude-sonnet-5` at the existing `effort: low` fixes the one thing two prompt revisions could not.** Risk correctness goes from 3.33 with a flapping document to **4.00, stable across three repeats**, and it does so as a pure configuration change — no code edit, no spec change, no `max_tokens` change. It is also *faster* than Haiku here (10.1s mean against 13.0s), because Haiku's larger, noisier finding lists cost more output tokens than Sonnet's reasoning costs.
+
+**The hypothesis recorded above — that raising effort would help — is contradicted, and the reversal is worth stating plainly.** Effort `high` does buy precision: it is the only condition that never flags a fair clause, and it has the best broad precision. But it breaks two things the cheaper condition gets right:
+
+- **It violates a hard gate.** SRS §10.4 requires fixture 03 to return *exactly* zero findings. Condition C returned one in a third of runs — a `LOW`/`IP` finding on the fragment "unless Client notifies Writer otherwise in writing". A deeper-reasoning model finds something to say about a clean contract.
+- **`overallRisk` gets *worse*, not better** — 3.67 against B's 4.00, with fixture 02 flapping 2 of 3.
+- **Latency would likely break FR-3.6 at the word cap.** C's slowest run was 40.5s on a ~900-word contract. `MAX_DOCUMENT_WORDS` is 4,000 — 4.4× longer — against a 60s `LLM_TIMEOUT_MS`. Condition C looks affordable only because these fixtures are short.
+
+**Why the repeats earned their cost.** Condition A's fair-clause precision ranged from 33.3% to 100% across three identical runs. The single run recorded in the prompt-revision table above happened to land on 3/3, and was read at the time as "the precision fix worked". It did work in the aggregate — but that particular cell was luck, and a one-run gate would have enshrined it. This is the concrete instance of the reproducibility problem the previous section predicted.
+
+**What remains broken, and why it is now tractable.** B still fails PRD §11.1's precision gate at 66.7%, so this does not unblock release. But the failure is no longer diffuse: it is *one clause*, fixture 04's "Fifty percent (50%) of the total fee is due upon execution… balance due within thirty (30) days of final delivery", flagged in **3 of 3** runs. The other two fair clauses are left alone in 3 of 3. A reproducible 3/3 failure is a target a prompt revision can be measured against — which is exactly what was missing when v2 and v3 were indistinguishable. Prompt iteration becomes worth resuming *after* the model change, not before it.
+
+Worth noting that `analyze-v3` already contains the instruction this clause violates ("payment terms of net-30 or sooner, which are normal; … a deposit or upfront payment of any size"). Sonnet 5 at `effort: low` reads past it consistently; at `effort: high` it obeys it. So the next prompt revision's job is to make that rule un-missable at low effort, not to invent a new rule.
+
+**Recommendation:** set `ANTHROPIC_MODEL=claude-sonnet-5`, leave `output_config.effort` at `low` and `max_tokens` at 4096, accept the 1.8× cost (USD 0.0095 → USD 0.0174 per analysis), and treat the deposit/net-30 false positive as the next prompt target with this same three-repeat harness as the measurement. FR-3.14 gates a model change on the benchmark having been run; this is that run.
 
 ### Reproducing this
 
