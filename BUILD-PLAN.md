@@ -1369,7 +1369,7 @@ Write TR-13 (docs/SRS.md section 10.2): the 11th analysis in an hour returns 429
 **Done when**
 - [ ] TR-13 passes, including the failed-analysis increment
 - [ ] The quota check sits after ownership and before the PENDING guard
-- [ ] Counter state is visible via metrics
+- [ ] Counter state is visible via metrics — **partially done 2026-09-21.** `getQuotaState()` in `server/src/services/quota.js` reads both counters from Redis with no database query, which is what FR-5.5 actually requires, and it is what the tests inspect. The HTTP surface is NOT built: §6.6 puts metrics on an internal port and defines the metric set, and inventing a registry and an endpoint here would pre-empt step 67 (OPS-4), whose entire content that is. Step 67 wires `getQuotaState` to a gauge
 
 ---
 

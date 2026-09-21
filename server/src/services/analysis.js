@@ -8,14 +8,17 @@ import logger from "../observability/logger.js";
 import { PROMPT_VERSION } from "../prompts/analyze.js";
 import { parseAnalysisResult } from "../schemas/analysisResult.js";
 import { getLlmProvider } from "./llm/index.js";
+import { assertWithinQuota, consumeQuota } from "./quota.js";
 import { deriveOverallRisk } from "./risk.js";
 import { normalizeForMatch, verifyFindings } from "./verify.js";
 
 /**
  * SRS §2.2 — the analyze sequence, run synchronously (FR-3.7) in the order
  * the spec gives it. The order is load-bearing: ownership comes before the
- * quota check, so a rate-limit response cannot reveal that another user's
- * document exists, and both come before the PENDING guard and any LLM spend.
+ * quota check, so a quota response cannot reveal that another user's
+ * document exists, and both come before the PENDING guard and any LLM
+ * spend — refusing on quota after paying the provider would defeat the
+ * point of having one.
  *
  * Every terminal state, failures included, writes the analysis row with its
  * instrumentation (FR-3.5): cost and failure rate are only measurable if a
@@ -55,8 +58,11 @@ export async function analyzeDocument({ documentId, userId }) {
   // Step 1, continued. FR-1.7 [P1.5] slot, step 52: an UNVERIFIED account
   // gets 403 EMAIL_NOT_VERIFIED here, before quota and before any spend.
 
-  // Step 2. Quota and platform spend ceiling (§3.5) [P1.5] slot, step 45:
-  // after ownership, before the PENDING insert and the provider call.
+  // Step 2. Quota (§3.5, FR-5.1) — after ownership, so a quota response
+  // cannot reveal that another user's document exists, and before the
+  // PENDING insert and any provider spend. The platform spend ceiling
+  // (FR-5.4) joins it here at step 46.
+  await assertWithinQuota(userId);
 
   // Steps 3 and 4 are one statement. The partial unique index
   // analysis_one_pending_per_document is the guard (FR-3.8); a read before
@@ -87,9 +93,13 @@ export async function analyzeDocument({ documentId, userId }) {
     discardedFindings: 0,
   };
 
-  // Step 11. Usage and spend counters (§3.5) [P1.5] slot, step 45: they count
-  // every terminal outcome, failures included, so they belong alongside both
-  // the return and the failure record below, not only on success.
+  // Step 11. Usage counters (§3.5, FR-5.2). They count every terminal
+  // outcome, FAILURES INCLUDED — a failed provider call still consumed
+  // provider tokens, so a quota that only counted successes would be a
+  // free retry loop: fail, retry, fail, retry, unmetered and billed. That
+  // is why the increment is in the `finally` below and not in the success
+  // branch, which is where it would naturally have gone. Spend metering
+  // joins it there at step 46.
   try {
     const completed = await runAnalysis(document, analysis.id, record, startedAt);
     logOutcome(
@@ -126,6 +136,12 @@ export async function analyzeDocument({ documentId, userId }) {
     }
     logOutcome(document, analysis.id, "FAILED", errorCode, record, durationMs, 0);
     throw err;
+  } finally {
+    // FR-5.2, and the reason this is a `finally`: the analysis reached a
+    // terminal state either way, and either way it spent provider tokens.
+    // consumeQuota never throws, so it cannot turn a served report into an
+    // error or replace the original failure with a bookkeeping one.
+    await consumeQuota(userId);
   }
 }
 
