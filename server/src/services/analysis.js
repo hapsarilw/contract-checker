@@ -163,9 +163,29 @@ async function runAnalysis(document, analysisId, record, startedAt) {
   const provider = getLlmProvider();
   const requestId = getRequestId();
 
+  /**
+   * FR-3.10's total ceiling, created ONCE for the whole operation and
+   * shared by both retry budgets — the transport retries inside each
+   * provider call, and FR-3.2's single schema retry below. The spec is
+   * explicit that the two "do not compose beyond a total 90-second
+   * ceiling", and a deadline is what makes that true: a ceiling enforced
+   * inside the retry layer would hand each schema retry a fresh ninety
+   * seconds, which is exactly the composition being forbidden.
+   *
+   * KNOWN AND ACCEPTED EDGE (NFR-3.5): the graceful-shutdown drain is
+   * also 90 seconds, so it equals this worst case rather than exceeding
+   * it. An analysis that starts immediately before SIGTERM and then uses
+   * its entire budget can still be cut off at the drain boundary. Widening
+   * the drain would only move the boundary, since the ceiling is what the
+   * platform proxy timeout is sized against; the honest answer is that
+   * this is a narrow window, it fails as a normal analysis failure with a
+   * recorded row, and the user can retry.
+   */
+  const deadlineAt = startedAt + config.timeouts.analyzeCeiling;
+
   // Steps 5 and 6. One retry on invalid output, with Appendix A's correction
   // appended to the same conversation. One, not a loop.
-  const first = await provider.analyze({ documentText: document.rawText, requestId });
+  const first = await provider.analyze({ documentText: document.rawText, requestId, deadlineAt });
   addUsage(record, first);
   let parsed = parseAnalysisResult(first.rawText);
   if (!parsed.success) {
@@ -173,6 +193,7 @@ async function runAnalysis(document, analysisId, record, startedAt) {
     const second = await provider.analyze({
       documentText: document.rawText,
       requestId,
+      deadlineAt,
       correction: { invalidResponse: first.rawText, errorSummary: parsed.errorSummary },
     });
     addUsage(record, second);

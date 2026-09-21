@@ -82,6 +82,14 @@ function env(overrides = {}) {
   };
 }
 
+/**
+ * A breaker that is always closed and records nothing. §10 defines a unit
+ * test as one with no network; the real breaker reads Redis, and its own
+ * fail-open path would otherwise stand in for a closed circuit here,
+ * letting these tests pass while asserting something they never ran.
+ */
+const CLOSED_BREAKER = { assertClosed: async () => {}, record: () => {} };
+
 const DOCUMENT = "CONSULTING AGREEMENT\n\nThe Client shall pay within ninety (90) days.";
 
 /**
@@ -324,7 +332,7 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
   const cfg = parseConfig(env());
 
   it("selects the mock for LLM_PROVIDER=mock and the SDK client otherwise", () => {
-    expect(createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }).backend).toBeInstanceOf(
+    expect(createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER }).backend).toBeInstanceOf(
       MockLlmProvider,
     );
     expect(
@@ -341,7 +349,7 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
   });
 
   it("returns every instrumentation field from a successful mock call", async () => {
-    const result = await createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }).analyze({
+    const result = await createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER }).analyze({
       documentText: DOCUMENT,
       requestId: "r1",
     });
@@ -356,7 +364,7 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
   });
 
   it("turns a scripted mock timeout into LLM_TIMEOUT (504)", async () => {
-    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" });
+    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER });
     /** @type {MockLlmProvider} */ (provider.backend).scriptTimeout();
 
     const err = await provider
@@ -373,18 +381,23 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
     expect(/** @type {AppError} */ (translated).code).toBe("LLM_TIMEOUT");
   });
 
-  it("passes other provider errors through unchanged, for the FR-3.10/FR-3.11 policy to handle", async () => {
-    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" });
+  it("retries a 429 rather than surfacing it — FR-3.10 arrived at step 47", async () => {
+    // Until step 47 this asserted that a RateLimitError passed straight
+    // through, "for the FR-3.10/FR-3.11 policy to handle". That policy now
+    // exists, so the same input has a different and correct answer: one
+    // 429 followed by a healthy response is a successful analysis.
+    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER });
     /** @type {MockLlmProvider} */ (provider.backend).scriptHttpError(429);
 
-    const err = await provider
-      .analyze({ documentText: DOCUMENT })
-      .catch((error) => error);
-    expect(err).toBeInstanceOf(RateLimitError);
+    const result = await provider.analyze({ documentText: DOCUMENT });
+
+    expect(result.rawText).toContain("overall_risk");
+    // Two calls: the 429 and the retry that succeeded.
+    expect(/** @type {MockLlmProvider} */ (provider.backend).calls).toHaveLength(2);
   });
 
   it("records the retry correction on the mock, so the orchestrator's retry can be asserted", async () => {
-    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" });
+    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER });
     const correction = { invalidResponse: "{", errorSummary: "not valid JSON" };
     await provider.analyze({ documentText: DOCUMENT, requestId: "r2", correction });
     expect(/** @type {MockLlmProvider} */ (provider.backend).calls[0].correction).toEqual(

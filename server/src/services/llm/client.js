@@ -70,7 +70,7 @@ export function buildMessageParams({ profile, documentText, correction }) {
 }
 
 /**
- * @param {{ llmParamProfile: ParamProfile, ANTHROPIC_API_KEY: string, timeouts: { llm: number } }} cfg
+ * @param {{ llmParamProfile: ParamProfile, ANTHROPIC_API_KEY: string, timeouts: { llm: number, analyzeCeiling: number } }} cfg
  * @param {{ anthropic?: { messages: { create(params: MessageParams, options: { signal: AbortSignal, headers?: Record<string, string> }): PromiseLike<ProviderMessage> } } }} [deps]
  */
 export function createAnthropicProvider(

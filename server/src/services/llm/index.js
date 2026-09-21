@@ -3,6 +3,8 @@ import config from "../../config.js";
 import { AppError } from "../../lib/AppError.js";
 import { createAnthropicProvider } from "./client.js";
 import { MockLlmProvider } from "./mockProvider.js";
+import { assertCircuitClosed, recordProviderCall } from "./circuitBreaker.js";
+import { withProviderRetries } from "./retry.js";
 
 /**
  * FR-3.6: a timeout is LLM_TIMEOUT (504). Two SDK shapes mean timeout:
@@ -27,20 +29,61 @@ export function translateProviderError(err) {
  * §2.3 — LLM_PROVIDER selects the backend, and callers see one interface
  * either way. `backend` is exposed so tests can script the mock.
  *
+ * THE THREE RESILIENCE LAYERS OF STEP 47 COMPOSE HERE, above the backend
+ * rather than inside it, so they apply identically to the real client and
+ * to the scripted mock — which is what lets TR-17 exercise a 529 storm
+ * and an open breaker without touching the network.
+ *
+ *   assertCircuitClosed   FR-3.12, outermost: an open breaker must
+ *                         short-circuit BEFORE the retry loop, or an
+ *                         outage would still cost three attempts per
+ *                         request, which is the queueing the breaker
+ *                         exists to prevent.
+ *   withProviderRetries   FR-3.10 / FR-3.11.
+ *   backend.analyze       the call itself, with its own 60 s timeout.
+ *
+ * Every ATTEMPT is recorded into the breaker, not every analysis: FR-3.12
+ * counts calls, and a retried analysis makes up to three of them.
+ * Counting analyses would need three times the outage to trip.
+ *
  * @param {Parameters<typeof createAnthropicProvider>[0] & { LLM_PROVIDER: "anthropic" | "mock" }} cfg
- * @param {Parameters<typeof createAnthropicProvider>[1]} [deps]
+ * @param {Parameters<typeof createAnthropicProvider>[1] & {
+ *   breaker?: {
+ *     assertClosed: () => Promise<void>,
+ *     record: (outcome: "success" | "failure") => Promise<void> | void,
+ *   },
+ * }} [deps]
  */
-export function createLlmProvider(cfg, deps) {
+export function createLlmProvider(cfg, deps = {}) {
+  // The breaker is injectable for the same reason the SDK client is: a
+  // test of the retry layer should be able to hold the breaker still,
+  // and a unit test (§10: no network) should not reach Redis at all.
+  // Without this the breaker's own fail-open path would quietly stand in
+  // for a closed circuit, and the test would pass while asserting
+  // something it had not exercised.
+  const { breaker = { assertClosed: assertCircuitClosed, record: recordProviderCall }, ...backendDeps } = deps;
   const backend =
     cfg.LLM_PROVIDER === "mock"
       ? new MockLlmProvider()
-      : createAnthropicProvider(cfg, deps);
+      : createAnthropicProvider(cfg, backendDeps);
   return {
     backend,
-    /** @param {Parameters<ReturnType<typeof createAnthropicProvider>["analyze"]>[0]} request */
+    /**
+     * @param {Parameters<ReturnType<typeof createAnthropicProvider>["analyze"]>[0]
+     *   & { deadlineAt?: number }} request
+     */
     async analyze(request) {
+      await breaker.assertClosed();
+      const { deadlineAt, ...call } = request;
       try {
-        return await backend.analyze(request);
+        return await withProviderRetries(() => backend.analyze(call), {
+          // Without a caller-supplied deadline the operation is bounded
+          // by the analyze ceiling alone. analysis.js always supplies one;
+          // this default keeps a direct caller from getting an unbounded
+          // retry loop.
+          deadlineAt: deadlineAt ?? Date.now() + cfg.timeouts.analyzeCeiling,
+          onAttempt: (outcome) => breaker.record(outcome),
+        });
       } catch (err) {
         throw translateProviderError(err);
       }
