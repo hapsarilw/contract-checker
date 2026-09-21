@@ -31,6 +31,7 @@ import config from "./config.js";
 import logger from "./observability/logger.js";
 import prisma from "./lib/prisma.js";
 import { attachGracefulShutdown } from "./lib/gracefulShutdown.js";
+import { flushEmails } from "./lib/email.js";
 import { closeRedis } from "./lib/redis.js";
 
 const server = app.listen(config.PORT, () => {
@@ -67,6 +68,9 @@ attachGracefulShutdown({
   // keeps the event loop alive, so SIGTERM would drain cleanly and then
   // hang until the orchestrator's kill timer fired.
   onDrained: async () => {
+    // Email first, because a message one retry from delivered is worth
+    // waiting for (bounded — flushEmails gives up after five seconds).
+    await flushEmails();
     await Promise.allSettled([prisma.$disconnect(), closeRedis()]);
   },
 });

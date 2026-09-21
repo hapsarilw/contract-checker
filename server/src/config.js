@@ -140,8 +140,17 @@ const envSchema = z
       .string()
       .regex(/^https?:\/\/[^*\s/]+(:\d+)?$/, "must be an exact origin, no wildcard, no path"),
 
+    // Which transport sends transactional email (step 51). Only "sink" exists
+    // today: it writes each message to a local directory instead of sending
+    // it, which is what development and the step-73 E2E tests need. A real
+    // provider is added by extending this enum and adding one file under
+    // src/lib/email/ — the rest of the system never learns which
+    // one is in use. EMAIL_PROVIDER_KEY becomes required for any provider
+    // other than "sink" at that point.
+    EMAIL_PROVIDER: z.enum(["sink"]).default("sink"),
     EMAIL_PROVIDER_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().email().optional(),
+    EMAIL_SINK_DIR: z.string().min(1).optional(),
 
     SENTRY_DSN: z.string().min(1).optional(),
     LOG_LEVEL: z
@@ -155,6 +164,21 @@ const envSchema = z
     BUILD_TIMESTAMP: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
+    // The sink provider writes messages to disk instead of sending them. In
+    // production that would silently swallow every verification and
+    // password-reset email — accounts created, nobody able to verify —
+    // with no error anywhere, because "written to a file" is a success.
+    // Refusing to boot is the only place that failure is loud.
+    if (env.NODE_ENV === "production" && env.EMAIL_PROVIDER === "sink") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["EMAIL_PROVIDER"],
+        message:
+          'the "sink" provider only writes messages to disk and must not run in production; ' +
+          "configure a real transactional email provider",
+      });
+    }
+
     // FR-3.7 / NFR-3.5: LLM_TIMEOUT_MS is the one env-tunable link in the
     // timeout chain, so it is the one that can break it. A value at or
     // above the analyze ceiling means the ceiling cuts off an analysis the

@@ -1525,6 +1525,8 @@ Write tests: a provider failure does not fail the caller; the counter increments
 **Done when**
 - [ ] A provider failure never propagates to the triggering request
 - [ ] Bodies and addresses stay out of logs
+
+> **Built 2026-09-21 against a local sink, with no real provider chosen.** `EMAIL_PROVIDER` is an enum with one value, `sink`, and `config.js` refuses to boot with it in production — so the API cannot be deployed until a real provider is added. That is deliberate, not an omission: adding one is extending the enum and writing one file under `server/src/lib/email/`, and `EMAIL_PROVIDER_KEY` / `EMAIL_FROM` become required at that point. Step 71 is where this bites, and the choice of provider and a verified sending domain are the owner's.
 - [ ] A mail sink is available for dev and E2E
 - [ ] `email_send_total` exported
 

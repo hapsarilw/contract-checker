@@ -114,3 +114,35 @@ describe("config.js — validated at boot (SRS §8, Appendix B)", () => {
     expect(config).not.toHaveProperty("PATH");
   });
 });
+
+describe("config.js — the email provider (step 51)", () => {
+  it('defaults to the "sink" provider outside production', () => {
+    const result = runConfig({});
+    expect(result.status).toBe(0);
+  });
+
+  it("refuses to boot with the sink provider in production", () => {
+    // "Written to a file" counts as success, so a sink in production would
+    // swallow every verification and reset email with no error anywhere —
+    // accounts created, nobody able to verify. Boot is the only place that
+    // failure is loud.
+    const result = runConfig({ NODE_ENV: "production", EMAIL_PROVIDER: "sink" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("EMAIL_PROVIDER");
+    expect(result.stderr).toMatch(/must not run in production/);
+  });
+
+  it("refuses the sink in production even when EMAIL_PROVIDER is simply unset", () => {
+    // The default is "sink", so forgetting to configure a provider must
+    // not fall through to it silently.
+    const result = runConfig({ NODE_ENV: "production" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("EMAIL_PROVIDER");
+  });
+
+  it("rejects a provider it does not know", () => {
+    const result = runConfig({ EMAIL_PROVIDER: "carrier-pigeon" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("EMAIL_PROVIDER");
+  });
+});
