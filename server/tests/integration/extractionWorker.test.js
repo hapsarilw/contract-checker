@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import { execFile } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { randomUUID } from "node:crypto";
@@ -40,7 +41,7 @@ async function signedIn() {
 }
 
 const upload = (cookie, buffer, filename = "contract.pdf") =>
-  request(app).post("/api/v1/documents").set("Cookie", cookie).attach("file", buffer, filename);
+  request(testServer()).post("/api/v1/documents").set("Cookie", cookie).attach("file", buffer, filename);
 
 /** A contract long enough to clear the 200-word floor. */
 const wordyPdf = () =>
@@ -97,7 +98,7 @@ describe("FR-2.11 — extraction runs in a worker, bounded to ten seconds", () =
     // /api/health makes no dependency calls by design (step 8), so a slow
     // answer here can only mean the event loop was blocked.
     const startedAt = Date.now();
-    const health = await request(app).get("/api/health");
+    const health = await request(testServer()).get("/api/health");
     const elapsed = Date.now() - startedAt;
 
     expect(health.status).toBe(200);
@@ -209,7 +210,7 @@ describe("the requestId survives the worker boundary", () => {
     const { cookie } = await signedIn();
     const requestId = `e2e-${Date.now()}`;
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .set("X-Request-Id", requestId)

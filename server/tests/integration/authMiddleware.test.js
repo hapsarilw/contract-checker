@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
-import app from "../../src/app.js";
+import { testServer } from "./testServer.js";
 import prisma from "../../src/lib/prisma.js";
 import { createUser } from "./factories.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
@@ -21,20 +21,20 @@ const tokenFor = (user, overrides = {}) =>
 
 describe("requireAuth (FR-1.4)", () => {
   it("rejects a request with no cookie", async () => {
-    const res = await request(app).get("/api/v1/auth/me");
+    const res = await request(testServer()).get("/api/v1/auth/me");
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });
 
   it("rejects a garbage token", async () => {
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor("not-a-jwt"));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor("not-a-jwt"));
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });
 
   it("accepts a valid session and attaches the user", async () => {
     const user = await createUser({ email: "valid@example.test" });
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
 
     expect(res.status).toBe(200);
     expect(res.body.user.id).toBe(user.id);
@@ -42,7 +42,7 @@ describe("requireAuth (FR-1.4)", () => {
 
   it("never lets the password hash reach the response", async () => {
     const user = await createUser({ email: "nohash@example.test" });
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
 
     expect(JSON.stringify(res.body)).not.toContain("$2b$");
     expect(res.body.user).not.toHaveProperty("passwordHash");
@@ -58,7 +58,7 @@ describe("token revocation via tokenVersion (FR-1.9, PRD D5)", () => {
     // or account deletion does (steps 53-57): bump one integer.
     await prisma.user.update({ where: { id: user.id }, data: { tokenVersion: 1 } });
 
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(token));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(token));
 
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("SESSION_REVOKED");
@@ -69,8 +69,8 @@ describe("token revocation via tokenVersion (FR-1.9, PRD D5)", () => {
     const token = tokenFor(user);
     await prisma.user.update({ where: { id: user.id }, data: { tokenVersion: 5 } });
 
-    const revoked = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(token));
-    const missing = await request(app).get("/api/v1/auth/me");
+    const revoked = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(token));
+    const missing = await request(testServer()).get("/api/v1/auth/me");
 
     expect(revoked.body.error.code).toBe("SESSION_REVOKED");
     expect(missing.body.error.code).toBe("UNAUTHENTICATED");
@@ -82,7 +82,7 @@ describe("token revocation via tokenVersion (FR-1.9, PRD D5)", () => {
     await prisma.user.update({ where: { id: user.id }, data: { tokenVersion: 1 } });
 
     const reissued = signSessionToken({ userId: user.id, tokenVersion: 1 });
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(reissued));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(reissued));
 
     expect(res.status).toBe(200);
   });
@@ -91,7 +91,7 @@ describe("token revocation via tokenVersion (FR-1.9, PRD D5)", () => {
     const user = await createUser({ email: "forgedtv@example.test" });
     const forged = tokenFor(user, { tokenVersion: 999 });
 
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(forged));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(forged));
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("SESSION_REVOKED");
   });
@@ -100,7 +100,7 @@ describe("token revocation via tokenVersion (FR-1.9, PRD D5)", () => {
 describe("account state enforcement", () => {
   it("rejects a SUSPENDED account with 403 ACCOUNT_SUSPENDED", async () => {
     const user = await createUser({ email: "suspended@example.test", state: "SUSPENDED" });
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("ACCOUNT_SUSPENDED");
@@ -108,7 +108,7 @@ describe("account state enforcement", () => {
 
   it("does NOT block an UNVERIFIED account — FR-1.7 gates analysis, not the door", async () => {
     const user = await createUser({ email: "unverified2@example.test", state: "UNVERIFIED" });
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
 
     expect(res.status).toBe(200);
     expect(res.body.user.state).toBe("UNVERIFIED");
@@ -116,7 +116,7 @@ describe("account state enforcement", () => {
 
   it("does NOT block a LOCKED account — FR-1.10's lockout stops password guessing at login, and an existing session was not obtained by guessing", async () => {
     const user = await createUser({ email: "locked@example.test", state: "LOCKED" });
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(tokenFor(user)));
 
     expect(res.status).toBe(200);
   });
@@ -126,7 +126,7 @@ describe("account state enforcement", () => {
     const token = tokenFor(user);
     await prisma.user.delete({ where: { id: user.id } });
 
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", cookieFor(token));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookieFor(token));
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });

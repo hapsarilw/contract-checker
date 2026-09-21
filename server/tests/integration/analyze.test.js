@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import { once } from "node:events";
 import app from "../../src/app.js";
 import config from "../../src/config.js";
@@ -271,7 +272,7 @@ describe("TR-4 — ownership (FR-1.5)", () => {
   it("requires a session", async () => {
     const { document } = await ownedDocument();
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post(`/api/v1/documents/${document.id}/analyze`)
       .set("Content-Type", "application/json");
 
@@ -347,7 +348,7 @@ describe("TR-7 — every excerpt fails verification (FR-3.4)", () => {
     });
     expect(row.findings).toHaveLength(0);
 
-    const read = await request(app)
+    const read = await request(testServer())
       .get(`/api/v1/documents/${document.id}`)
       .set("Cookie", cookie);
     expect(read.body.analysis.status).toBe("FAILED");

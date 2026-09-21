@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
-import app from "../../src/app.js";
+import { testServer } from "./testServer.js";
 import prisma from "../../src/lib/prisma.js";
 import { createUser, createDocument, createAnalysis } from "./factories.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
@@ -37,13 +37,13 @@ async function createDocumentSeries(userId, count, { stepMs = 1000, baseTime = D
 
 describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
   it("returns 401 without a session", async () => {
-    const res = await request(app).get("/api/v1/documents");
+    const res = await request(testServer()).get("/api/v1/documents");
     expect(res.status).toBe(401);
   });
 
   it("returns an empty page for a user with no documents", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ documents: [], page: { nextCursor: null, hasMore: false } });
@@ -53,7 +53,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
     const { cookie, user } = await loggedInCookie();
     await createDocument({ userId: user.id, filename: "contract.pdf" });
 
-    const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
 
     expect(Object.keys(res.body).sort()).toEqual(["documents", "page"]);
     expect(Object.keys(res.body.page).sort()).toEqual(["hasMore", "nextCursor"]);
@@ -66,7 +66,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
     const { cookie, user } = await loggedInCookie();
     await createDocument({ userId: user.id, filename: null, sourceType: "PASTE" });
 
-    const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
     expect(res.body.documents[0].filename).toBe("Pasted text");
   });
 
@@ -74,7 +74,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
     const { cookie, user } = await loggedInCookie();
     const series = await createDocumentSeries(user.id, 5);
 
-    const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
     expect(res.body.documents.map((d) => d.id)).toEqual(series.map((d) => d.id));
   });
 
@@ -84,7 +84,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
     await createDocument({ userId: user.id });
     await createDocument({ userId: otherUser.id });
 
-    const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
     expect(res.body.documents).toHaveLength(1);
   });
 
@@ -93,7 +93,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       const { cookie, user } = await loggedInCookie();
       await createDocument({ userId: user.id });
 
-      const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
       expect(res.body.documents[0].overallRisk).toBeNull();
       expect(res.body.documents[0].findingCount).toBe(0);
     });
@@ -116,7 +116,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
         createdAt: new Date(), // newer than the COMPLETED one above
       });
 
-      const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
       // The PENDING analysis is newer but must not be picked — FR-4.1
       // says "latest COMPLETED analysis", and step 18's GET /:id
       // deliberately uses a different rule (latest of any status) for a
@@ -145,7 +145,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
         createdAt: new Date(),
       });
 
-      const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
       expect(res.body.documents[0].overallRisk).toBe("HIGH");
       expect(res.body.documents[0].findingCount).toBe(2);
     });
@@ -168,7 +168,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
         findings: [{ severity: "HIGH" }, { severity: "MEDIUM" }],
       });
 
-      const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
       expect(res.body.documents[0].overallRisk).toBe("HIGH");
       expect(res.body.documents[0].findingCount).toBe(2);
     });
@@ -177,7 +177,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
   describe("a malformed or tampered cursor (§4.4)", () => {
     it("returns 400 VALIDATION_ERROR for outright garbage, never a decode stack trace", async () => {
       const { cookie } = await loggedInCookie();
-      const res = await request(app)
+      const res = await request(testServer())
         .get("/api/v1/documents")
         .query({ cursor: "not-a-valid-cursor-at-all!!!" })
         .set("Cookie", cookie);
@@ -191,7 +191,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       const { cookie } = await loggedInCookie();
       const tampered = Buffer.from(JSON.stringify({ wrong: "shape" }), "utf8").toString("base64url");
 
-      const res = await request(app)
+      const res = await request(testServer())
         .get("/api/v1/documents")
         .query({ cursor: tampered })
         .set("Cookie", cookie);
@@ -223,7 +223,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       })),
     });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .get("/api/v1/documents")
       .query({ limit: 500 })
       .set("Cookie", cookie);
@@ -238,12 +238,12 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       const { cookie, user } = await loggedInCookie();
       const series = await createDocumentSeries(user.id, 25);
 
-      const page1 = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+      const page1 = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
       expect(page1.body.documents).toHaveLength(20);
       expect(page1.body.page.hasMore).toBe(true);
       expect(page1.body.page.nextCursor).toBeTypeOf("string");
 
-      const page2 = await request(app)
+      const page2 = await request(testServer())
         .get("/api/v1/documents")
         .query({ cursor: page1.body.page.nextCursor })
         .set("Cookie", cookie);
@@ -263,7 +263,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       // Oldest -> newest: doc0 ... doc9. Newest-first order: doc9 ... doc0.
       const series = await createDocumentSeries(user.id, 10);
 
-      const page1 = await request(app)
+      const page1 = await request(testServer())
         .get("/api/v1/documents")
         .query({ limit: 5 })
         .set("Cookie", cookie);
@@ -276,9 +276,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       // "skip 5" second fetch silently skips whatever used to be row 6.
       // Keyset pagination has no "row 6" concept to shift.
       const deletedId = page1Ids[2];
-      await request(app).delete(`/api/v1/documents/${deletedId}`).set("Cookie", cookie).set("Content-Type", "application/json");
+      await request(testServer()).delete(`/api/v1/documents/${deletedId}`).set("Cookie", cookie).set("Content-Type", "application/json");
 
-      const page2 = await request(app)
+      const page2 = await request(testServer())
         .get("/api/v1/documents")
         .query({ limit: 5, cursor: page1.body.page.nextCursor })
         .set("Cookie", cookie);
@@ -302,7 +302,7 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       const { cookie, user } = await loggedInCookie();
       const series = await createDocumentSeries(user.id, 10);
 
-      const page1 = await request(app)
+      const page1 = await request(testServer())
         .get("/api/v1/documents")
         .query({ limit: 5 })
         .set("Cookie", cookie);
@@ -313,9 +313,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       // row on the next fetch instead of skipping one.
       const notYetSeenIds = series.slice(5, 10).map((d) => d.id);
       const deletedId = notYetSeenIds[1];
-      await request(app).delete(`/api/v1/documents/${deletedId}`).set("Cookie", cookie).set("Content-Type", "application/json");
+      await request(testServer()).delete(`/api/v1/documents/${deletedId}`).set("Cookie", cookie).set("Content-Type", "application/json");
 
-      const page2 = await request(app)
+      const page2 = await request(testServer())
         .get("/api/v1/documents")
         .query({ limit: 5, cursor: page1.body.page.nextCursor })
         .set("Cookie", cookie);

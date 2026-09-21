@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import { createHash } from "node:crypto";
-import app from "../../src/app.js";
 import prisma from "../../src/lib/prisma.js";
 import { getRedis } from "../../src/lib/redis.js";
 import { getEmailService } from "../../src/lib/email.js";
@@ -54,7 +54,7 @@ async function tokenSentTo(address) {
   return link ? new URL(link).searchParams.get("token") : null;
 }
 
-const verify = (token) => json(request(app).post("/api/v1/auth/verify-email")).send({ token });
+const verify = (token) => json(request(testServer()).post("/api/v1/auth/verify-email")).send({ token });
 
 beforeEach(() => {
   sink().clear();
@@ -62,7 +62,7 @@ beforeEach(() => {
 
 describe("TR-9 — registration", () => {
   it("creates an UNVERIFIED user and emails a verification link", async () => {
-    const res = await json(request(app).post("/api/v1/auth/register")).send({
+    const res = await json(request(testServer()).post("/api/v1/auth/register")).send({
       email: "newcomer@example.test",
       password: "correct-horse-battery",
     });
@@ -76,7 +76,7 @@ describe("TR-9 — registration", () => {
   });
 
   it("stores only a hash, never the plaintext token, and expires it in 24 hours", async () => {
-    await json(request(app).post("/api/v1/auth/register")).send({
+    await json(request(testServer()).post("/api/v1/auth/register")).send({
       email: "hashed@example.test",
       password: "correct-horse-battery",
     });
@@ -95,7 +95,7 @@ describe("TR-9 — registration", () => {
   });
 
   it("issues a 32-byte token", async () => {
-    await json(request(app).post("/api/v1/auth/register")).send({
+    await json(request(testServer()).post("/api/v1/auth/register")).send({
       email: "bytes@example.test",
       password: "correct-horse-battery",
     });
@@ -118,7 +118,7 @@ describe("TR-9 — analysis is gated, and only analysis", () => {
     const { user, cookie } = await unverifiedUser();
     const document = await createDocument({ userId: user.id, rawText: CONTRACT, wordCount: countWords(CONTRACT) });
 
-    const res = await json(request(app).post(`/api/v1/documents/${document.id}/analyze`).set("Cookie", cookie));
+    const res = await json(request(testServer()).post(`/api/v1/documents/${document.id}/analyze`).set("Cookie", cookie));
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("EMAIL_NOT_VERIFIED");
@@ -134,7 +134,7 @@ describe("TR-9 — analysis is gated, and only analysis", () => {
     const other = await createUser();
     const foreign = await createDocument({ userId: other.id, rawText: CONTRACT, wordCount: countWords(CONTRACT) });
 
-    const res = await json(request(app).post(`/api/v1/documents/${foreign.id}/analyze`).set("Cookie", cookie));
+    const res = await json(request(testServer()).post(`/api/v1/documents/${foreign.id}/analyze`).set("Cookie", cookie));
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
@@ -144,27 +144,27 @@ describe("TR-9 — analysis is gated, and only analysis", () => {
     const password = "correct-horse-battery";
     const user = await createUser({ state: "UNVERIFIED", password });
 
-    const login = await json(request(app).post("/api/v1/auth/login")).send({ email: user.email, password });
+    const login = await json(request(testServer()).post("/api/v1/auth/login")).send({ email: user.email, password });
     expect(login.status).toBe(200);
     expect(login.body.user.state).toBe("UNVERIFIED");
     const cookie = login.headers["set-cookie"][0].split(";")[0];
 
-    expect((await request(app).get("/api/v1/auth/me").set("Cookie", cookie)).status).toBe(200);
-    expect((await request(app).get("/api/v1/documents").set("Cookie", cookie)).status).toBe(200);
+    expect((await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookie)).status).toBe(200);
+    expect((await request(testServer()).get("/api/v1/documents").set("Cookie", cookie)).status).toBe(200);
 
     const words = Array.from({ length: 300 }, (_unused, i) => `clause${i}`).join(" ");
-    const created = await json(request(app).post("/api/v1/documents").set("Cookie", cookie)).send({ text: words });
+    const created = await json(request(testServer()).post("/api/v1/documents").set("Cookie", cookie)).send({ text: words });
     expect(created.status).toBe(201);
 
     const id = created.body.document.id;
-    expect((await request(app).get(`/api/v1/documents/${id}`).set("Cookie", cookie)).status).toBe(200);
-    expect((await json(request(app).delete(`/api/v1/documents/${id}`).set("Cookie", cookie))).status).toBe(200);
+    expect((await request(testServer()).get(`/api/v1/documents/${id}`).set("Cookie", cookie)).status).toBe(200);
+    expect((await json(request(testServer()).delete(`/api/v1/documents/${id}`).set("Cookie", cookie))).status).toBe(200);
   }, 60_000);
 });
 
 describe("TR-9 — consuming the token", () => {
   async function registered(email = "consume@example.test") {
-    await json(request(app).post("/api/v1/auth/register")).send({ email, password: "correct-horse-battery" });
+    await json(request(testServer()).post("/api/v1/auth/register")).send({ email, password: "correct-horse-battery" });
     const token = /** @type {string} */ (await tokenSentTo(email));
     const user = await prisma.user.findUniqueOrThrow({ where: { email } });
     return { token, user };
@@ -184,7 +184,7 @@ describe("TR-9 — consuming the token", () => {
     const cookie = `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion })}`;
     const document = await createDocument({ userId: user.id, rawText: CONTRACT, wordCount: countWords(CONTRACT) });
     mock().scriptValidResponse({ overall_risk: "low", findings: [] });
-    expect((await json(request(app).post(`/api/v1/documents/${document.id}/analyze`).set("Cookie", cookie))).status).toBe(200);
+    expect((await json(request(testServer()).post(`/api/v1/documents/${document.id}/analyze`).set("Cookie", cookie))).status).toBe(200);
   });
 
   it("is single-use: the same token is refused the second time", async () => {
@@ -296,9 +296,9 @@ describe("TR-9 — consuming the token", () => {
   });
 
   it("rejects a malformed body with 400, without touching the database", async () => {
-    expect((await json(request(app).post("/api/v1/auth/verify-email")).send({})).status).toBe(400);
-    expect((await json(request(app).post("/api/v1/auth/verify-email")).send({ token: "short" })).status).toBe(400);
-    expect((await json(request(app).post("/api/v1/auth/verify-email")).send({ token: "x".repeat(5000) })).status).toBe(400);
+    expect((await json(request(testServer()).post("/api/v1/auth/verify-email")).send({})).status).toBe(400);
+    expect((await json(request(testServer()).post("/api/v1/auth/verify-email")).send({ token: "short" })).status).toBe(400);
+    expect((await json(request(testServer()).post("/api/v1/auth/verify-email")).send({ token: "x".repeat(5000) })).status).toBe(400);
   });
 
   it("is a POST: a GET on the same path does not consume the token", async () => {
@@ -306,7 +306,7 @@ describe("TR-9 — consuming the token", () => {
     // token, the scanner would spend it before the person saw the email.
     const { token, user } = await registered("scanner@example.test");
 
-    const res = await request(app).get(`/api/v1/auth/verify-email?token=${token}`);
+    const res = await request(testServer()).get(`/api/v1/auth/verify-email?token=${token}`);
 
     expect(res.status).toBe(404);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).state).toBe("UNVERIFIED");
@@ -315,12 +315,12 @@ describe("TR-9 — consuming the token", () => {
 
 describe("FR-1.7 — resend, 3 an hour per account and 10 an hour per IP", () => {
   const resend = (cookie, ip) => {
-    const req = json(request(app).post("/api/v1/auth/resend-verification").set("Cookie", cookie));
+    const req = json(request(testServer()).post("/api/v1/auth/resend-verification").set("Cookie", cookie));
     return ip ? req.set("X-Forwarded-For", ip) : req;
   };
 
   it("requires a signed-in user", async () => {
-    expect((await json(request(app).post("/api/v1/auth/resend-verification"))).status).toBe(401);
+    expect((await json(request(testServer()).post("/api/v1/auth/resend-verification"))).status).toBe(401);
   });
 
   it("sends a fresh email with a working token", async () => {

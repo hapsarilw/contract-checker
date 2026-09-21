@@ -1,5 +1,6 @@
-import { afterEach } from "vitest";
+import { afterAll, afterEach, beforeAll } from "vitest";
 import { truncateAll } from "./db.js";
+import { startTestServer, stopTestServer } from "./testServer.js";
 import { getLlmProvider } from "../../src/services/llm/index.js";
 import { MockLlmProvider } from "../../src/services/llm/mockProvider.js";
 import { resetRateLimitsForTests } from "../../src/middleware/rateLimits.js";
@@ -21,4 +22,18 @@ afterEach(async () => {
   if (provider instanceof MockLlmProvider) provider.reset();
   await resetRateLimitsForTests();
   await truncateAll();
+});
+
+/**
+ * One HTTP server per test file, rather than one per request. See
+ * testServer.js for the measurements that made this necessary: supertest
+ * creates and destroys a server for every `request(app)` call, and at
+ * thousands of cycles a response occasionally reaches the wrong client.
+ */
+beforeAll(async () => {
+  await startTestServer();
+});
+
+afterAll(async () => {
+  await stopTestServer();
 });

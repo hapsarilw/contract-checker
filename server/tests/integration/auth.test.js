@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import app from "../../src/app.js";
 import prisma from "../../src/lib/prisma.js";
 import config from "../../src/config.js";
 import { createUser } from "./factories.js";
@@ -24,7 +24,7 @@ function sessionCookieValue(res) {
 
 describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
   it("creates an UNVERIFIED user whose password is a bcrypt hash, never the plaintext", async () => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: "new@example.test", password: VALID_PASSWORD });
 
@@ -39,7 +39,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
   });
 
   it("never returns the password hash or tokenVersion to the client", async () => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: "shape@example.test", password: VALID_PASSWORD });
 
@@ -54,7 +54,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
   });
 
   it("trims and lowercases the email before storing it (FR-1.1)", async () => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: "  MiXeD@Example.COM  ", password: VALID_PASSWORD });
 
@@ -66,7 +66,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
   it("returns 409 EMAIL_TAKEN for a duplicate email", async () => {
     await createUser({ email: "taken@example.test" });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: "taken@example.test", password: VALID_PASSWORD });
 
@@ -77,7 +77,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
   it("treats a differently-cased duplicate as taken — normalisation happens before the uniqueness check", async () => {
     await createUser({ email: "case@example.test" });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: "CASE@Example.test", password: VALID_PASSWORD });
 
@@ -88,7 +88,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
     ["9 characters", "123456789"],
     ["201 characters", "a".repeat(201)],
   ])("rejects a password of %s with 400 VALIDATION_ERROR", async (_label, password) => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: `len-${_label.replace(/\W/g, "")}@example.test`, password });
 
@@ -100,7 +100,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
     ["10 characters", "1234567890"],
     ["200 characters", "a".repeat(200)],
   ])("accepts a password of exactly %s — the bounds are inclusive", async (_label, password) => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: `ok-${_label.replace(/\W/g, "")}@example.test`, password });
 
@@ -109,7 +109,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
 
   it("never echoes the submitted password back in a validation error", async () => {
     const password = "short";
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: "leak@example.test", password });
 
@@ -118,7 +118,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
   });
 
   it("rejects a malformed email", async () => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/register")
       .send({ email: "not-an-email", password: VALID_PASSWORD });
 
@@ -131,7 +131,7 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
   it("sets the session cookie with all four required attributes (FR-1.3)", async () => {
     await createUser({ email: "cookie@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "cookie@example.test", password: VALID_PASSWORD });
 
@@ -149,7 +149,7 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
     expect(config.isProduction).toBe(false);
     await createUser({ email: "insecure@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "insecure@example.test", password: VALID_PASSWORD });
 
@@ -159,7 +159,7 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
   it("issues a JWT that decodes to { sub, tv } and expires in 7 days", async () => {
     const user = await createUser({ email: "jwt@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "jwt@example.test", password: VALID_PASSWORD });
 
@@ -173,7 +173,7 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
 
   it("signs with HS256, not none — an unsigned forgery must not verify", async () => {
     const user = await createUser({ email: "alg@example.test", password: VALID_PASSWORD });
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "alg@example.test", password: VALID_PASSWORD });
 
@@ -183,7 +183,7 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
     // The classic algorithm-confusion attack: same claims, alg "none",
     // no signature. It must not be accepted by /me.
     const forged = jwt.sign({ sub: user.id, tv: user.tokenVersion }, "", { algorithm: "none" });
-    const meRes = await request(app)
+    const meRes = await request(testServer())
       .get("/api/v1/auth/me")
       .set("Cookie", `${SESSION_COOKIE_NAME}=${forged}`);
 
@@ -194,11 +194,11 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
     it("returns identical response bodies apart from the per-request requestId", async () => {
       await createUser({ email: "known@example.test", password: VALID_PASSWORD });
 
-      const unknownEmail = await request(app)
+      const unknownEmail = await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: "nobody@example.test", password: VALID_PASSWORD });
 
-      const wrongPassword = await request(app)
+      const wrongPassword = await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: "known@example.test", password: "definitely-not-it" });
 
@@ -215,10 +215,10 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
     it("sets no session cookie on either failure", async () => {
       await createUser({ email: "nocookie@example.test", password: VALID_PASSWORD });
 
-      const unknownEmail = await request(app)
+      const unknownEmail = await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: "ghost@example.test", password: VALID_PASSWORD });
-      const wrongPassword = await request(app)
+      const wrongPassword = await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: "nocookie@example.test", password: "wrong-password-here" });
 
@@ -233,13 +233,13 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
       // whether the unknown-email path burns the SAME bcrypt work as a
       // real comparison. Against a cost-4 fixture the ratio is ~50x and
       // says nothing about production.
-      await request(app)
+      await request(testServer())
         .post("/api/v1/auth/register")
         .send({ email: "timing@example.test", password: VALID_PASSWORD });
 
       const time = async (body) => {
         const startedAt = process.hrtime.bigint();
-        await request(app).post("/api/v1/auth/login").send(body);
+        await request(testServer()).post("/api/v1/auth/login").send(body);
         return Number(process.hrtime.bigint() - startedAt) / 1e6;
       };
 
@@ -259,7 +259,7 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
   it("rejects a login whose password is empty with 401, not 400 — every credential guess funnels to one answer", async () => {
     await createUser({ email: "empty@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "empty@example.test", password: "" });
 
@@ -270,7 +270,7 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
   it("does not length-validate the login password — a short guess is 401, never 400", async () => {
     await createUser({ email: "shortguess@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "shortguess@example.test", password: "short" });
 
@@ -281,11 +281,11 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
 describe("POST /api/v1/auth/logout", () => {
   it("clears the session cookie", async () => {
     await createUser({ email: "logout@example.test", password: VALID_PASSWORD });
-    const login = await request(app)
+    const login = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "logout@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/logout")
       .set("Cookie", sessionCookieValue(login))
       // Required even though there is no body: FR-1.12(c) applies to
@@ -302,7 +302,7 @@ describe("POST /api/v1/auth/logout", () => {
   });
 
   it("requires a session (FR-1.4)", async () => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/logout")
       .set("Content-Type", "application/json");
     expect(res.status).toBe(401);
@@ -313,11 +313,11 @@ describe("POST /api/v1/auth/logout", () => {
 describe("GET /api/v1/auth/me", () => {
   it("returns the current user including account state", async () => {
     const user = await createUser({ email: "me@example.test", password: VALID_PASSWORD, state: "UNVERIFIED" });
-    const login = await request(app)
+    const login = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "me@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
 
     expect(res.status).toBe(200);
     expect(res.body.user.id).toBe(user.id);
@@ -328,17 +328,17 @@ describe("GET /api/v1/auth/me", () => {
   it("does NOT block an UNVERIFIED account — verification gates analysis, not the door (FR-1.7)", async () => {
     await createUser({ email: "unverified@example.test", password: VALID_PASSWORD, state: "UNVERIFIED" });
 
-    const login = await request(app)
+    const login = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "unverified@example.test", password: VALID_PASSWORD });
     expect(login.status).toBe(200);
 
-    const me = await request(app).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
+    const me = await request(testServer()).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
     expect(me.status).toBe(200);
   });
 
   it("returns 401 without a cookie", async () => {
-    const res = await request(app).get("/api/v1/auth/me");
+    const res = await request(testServer()).get("/api/v1/auth/me");
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });
@@ -349,7 +349,7 @@ describe("GET /api/v1/auth/me", () => {
       algorithm: "HS256",
     });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .get("/api/v1/auth/me")
       .set("Cookie", `${SESSION_COOKIE_NAME}=${forged}`);
 
@@ -363,7 +363,7 @@ describe("GET /api/v1/auth/me", () => {
       expiresIn: -60,
     });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .get("/api/v1/auth/me")
       .set("Cookie", `${SESSION_COOKIE_NAME}=${expired}`);
 
@@ -372,13 +372,13 @@ describe("GET /api/v1/auth/me", () => {
 
   it("returns 401 when the token's subject no longer exists", async () => {
     const user = await createUser({ email: "deleted@example.test", password: VALID_PASSWORD });
-    const login = await request(app)
+    const login = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "deleted@example.test", password: VALID_PASSWORD });
 
     await prisma.user.delete({ where: { id: user.id } });
 
-    const res = await request(app).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
+    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
     expect(res.status).toBe(401);
   });
 });

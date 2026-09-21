@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import request from "supertest";
-import app from "../../src/app.js";
+import { testServer } from "./testServer.js";
 import prisma from "../../src/lib/prisma.js";
 import { getRedis } from "../../src/lib/redis.js";
 import { countWords } from "../../src/services/extraction.js";
@@ -53,7 +53,7 @@ async function ownedDocument() {
 }
 
 const analyze = (documentId, cookie) =>
-  request(app)
+  request(testServer())
     .post(`/api/v1/documents/${documentId}/analyze`)
     .set("Cookie", cookie)
     .set("Content-Type", "application/json");

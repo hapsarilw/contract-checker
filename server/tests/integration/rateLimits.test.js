@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import express from "express";
-import app from "../../src/app.js";
 import { countWords } from "../../src/services/extraction.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
 import { createDocument, createUser } from "./factories.js";
@@ -43,7 +43,7 @@ async function ownedDocument() {
 
 /** @param {string} documentId @param {string} cookie @param {string} [forwardedFor] */
 function analyze(documentId, cookie, forwardedFor) {
-  const req = request(app)
+  const req = request(testServer())
     .post(`/api/v1/documents/${documentId}/analyze`)
     .set("Cookie", cookie)
     .set("Content-Type", "application/json");
@@ -53,13 +53,13 @@ function analyze(documentId, cookie, forwardedFor) {
 describe("auth rate limiting on the real routes (NFR-2.6: 5 / 15 min / IP)", () => {
   it("the 6th auth attempt in a window returns 429 RATE_LIMITED, with Retry-After and a retry time in the message", async () => {
     for (let i = 0; i < 5; i++) {
-      const res = await request(app)
+      const res = await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: "nobody@example.test", password: "wrong-password-entirely" });
       expect(res.status).toBe(401);
     }
 
-    const blocked = await request(app)
+    const blocked = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "nobody@example.test", password: "wrong-password-entirely" });
 
@@ -72,7 +72,7 @@ describe("auth rate limiting on the real routes (NFR-2.6: 5 / 15 min / IP)", () 
 
   it("register and login share ONE combined counter per IP — 'auth attempts' is not per-route", async () => {
     for (let i = 0; i < 3; i++) {
-      await request(app)
+      await request(testServer())
         .post("/api/v1/auth/register")
         .send({
           email: `combined-${i}@example.test`,
@@ -80,12 +80,12 @@ describe("auth rate limiting on the real routes (NFR-2.6: 5 / 15 min / IP)", () 
         });
     }
     for (let i = 0; i < 2; i++) {
-      await request(app)
+      await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: "combined-0@example.test", password: "wrong" });
     }
 
-    const blocked = await request(app)
+    const blocked = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "combined-0@example.test", password: "wrong" });
 
@@ -175,20 +175,20 @@ describe("the limit holds across instances (step 44, §2's second critical const
     // become the limit for everything.
     const ip = "203.0.113.55";
     for (let i = 0; i < 5; i++) {
-      await request(app).post("/api/v1/auth/login").set("X-Forwarded-For", ip).send({
+      await request(testServer()).post("/api/v1/auth/login").set("X-Forwarded-For", ip).send({
         email: `nobody-${i}@example.com`,
         password: "not-the-right-password",
       });
     }
     // Auth is now at its cap for this IP.
-    const capped = await request(app).post("/api/v1/auth/login").set("X-Forwarded-For", ip).send({
+    const capped = await request(testServer()).post("/api/v1/auth/login").set("X-Forwarded-For", ip).send({
       email: "nobody@example.com",
       password: "not-the-right-password",
     });
     expect(capped.status).toBe(429);
 
     // A read path from the same IP is untouched: different bucket.
-    const read = await request(app).get("/api/v1/documents").set("X-Forwarded-For", ip);
+    const read = await request(testServer()).get("/api/v1/documents").set("X-Forwarded-For", ip);
     expect(read.status).not.toBe(429);
   });
 });
@@ -232,7 +232,7 @@ describe("FR-5.6 — when Redis is unavailable", () => {
     const { cookie } = await ownedDocument();
 
     await withRedisDown(async () => {
-      const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
       expect(res.status).toBe(200);
       expect(res.body.documents).toEqual(expect.any(Array));
     });
@@ -248,7 +248,7 @@ describe("FR-5.6 — when Redis is unavailable", () => {
     const user = await createUser({ password });
 
     await withRedisDown(async () => {
-      const res = await request(app)
+      const res = await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: user.email, password });
       expect(res.status).toBe(200);
@@ -272,13 +272,13 @@ describe("FR-5.6 — when Redis is unavailable", () => {
     const { cookie } = await ownedDocument();
 
     await withRedisDown(async () => {
-      const ready = await request(app).get("/api/ready");
+      const ready = await request(testServer()).get("/api/ready");
       expect(ready.status).toBe(503);
       expect(ready.body.checks.redis.ok).toBe(false);
       // The per-dependency breakdown (FR-4.7) is what distinguishes
       // "degraded" from "down" — Postgres is fine and reads still work.
       expect(ready.body.checks.postgres.ok).toBe(true);
-      expect((await request(app).get("/api/v1/documents").set("Cookie", cookie)).status).toBe(200);
+      expect((await request(testServer()).get("/api/v1/documents").set("Cookie", cookie)).status).toBe(200);
     });
   });
 });

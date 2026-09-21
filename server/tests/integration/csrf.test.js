@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import app from "../../src/app.js";
 import config from "../../src/config.js";
 import { createUser } from "./factories.js";
@@ -20,7 +21,7 @@ describe("TR-19 — CSRF and origin enforcement (FR-1.12)", () => {
     const user = await createUser({ email: "csrf-cred@example.test" });
     const token = signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/logout")
       .set("Cookie", `${SESSION_COOKIE_NAME}=${token}`)
       .set("Origin", FOREIGN_ORIGIN)
@@ -31,7 +32,7 @@ describe("TR-19 — CSRF and origin enforcement (FR-1.12)", () => {
   });
 
   it("rejects a state-changing request bearing a foreign Origin header", async () => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .set("Origin", FOREIGN_ORIGIN)
       .send({ email: "someone@example.test", password: VALID_PASSWORD });
@@ -43,7 +44,7 @@ describe("TR-19 — CSRF and origin enforcement (FR-1.12)", () => {
   it("rejects a state-changing request with Content-Type text/plain", async () => {
     // text/plain is one of the three encodings an HTML form can produce,
     // which is exactly why it is not on the allowlist.
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .set("Content-Type", "text/plain")
       .send(JSON.stringify({ email: "someone@example.test", password: VALID_PASSWORD }));
@@ -55,7 +56,7 @@ describe("TR-19 — CSRF and origin enforcement (FR-1.12)", () => {
   it("allows a legitimate same-origin JSON request", async () => {
     await createUser({ email: "csrf-ok@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .set("Origin", config.FRONTEND_ORIGIN)
       .send({ email: "csrf-ok@example.test", password: VALID_PASSWORD });
@@ -66,7 +67,7 @@ describe("TR-19 — CSRF and origin enforcement (FR-1.12)", () => {
 
 describe("clause (c) — the details that make it work", () => {
   it("rejects application/x-www-form-urlencoded, the other form encoding", async () => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .set("Content-Type", "application/x-www-form-urlencoded")
       .send("email=someone@example.test&password=whatever");
@@ -78,7 +79,7 @@ describe("clause (c) — the details that make it work", () => {
   it("accepts application/json with a charset parameter", async () => {
     await createUser({ email: "charset@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .set("Content-Type", "application/json; charset=utf-8")
       .send(JSON.stringify({ email: "charset@example.test", password: VALID_PASSWORD }));
@@ -91,7 +92,7 @@ describe("clause (c) — the details that make it work", () => {
   it("allows an ABSENT Origin — non-browser clients omit it, and the attack it guards is a browser being made to send a request", async () => {
     await createUser({ email: "noorigin@example.test", password: VALID_PASSWORD });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "noorigin@example.test", password: VALID_PASSWORD });
 
@@ -102,7 +103,7 @@ describe("clause (c) — the details that make it work", () => {
     // Malformed JSON that would fail the body parser — the 403 proves
     // the guard ran first and no parsing work was spent on a hostile
     // request.
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/auth/login")
       .set("Origin", FOREIGN_ORIGIN)
       .set("Content-Type", "application/json")
@@ -126,14 +127,14 @@ describe("clause (c) — the details that make it work", () => {
     //
     // This test exists to make that constraint deliberate and visible
     // rather than something the next person discovers from a bug report.
-    const withoutHeader = await request(app)
+    const withoutHeader = await request(testServer())
       .post("/api/v1/auth/logout")
       .set("Cookie", `${SESSION_COOKIE_NAME}=${token}`);
 
     expect(withoutHeader.status).toBe(403);
     expect(withoutHeader.body.error.code).toBe("CSRF_CHECK_FAILED");
 
-    const withHeader = await request(app)
+    const withHeader = await request(testServer())
       .post("/api/v1/auth/logout")
       .set("Cookie", `${SESSION_COOKIE_NAME}=${token}`)
       .set("Content-Type", "application/json");
@@ -142,13 +143,13 @@ describe("clause (c) — the details that make it work", () => {
   });
 
   it("does not apply to safe methods — GET with a foreign Origin still works", async () => {
-    const res = await request(app).get("/api/health").set("Origin", FOREIGN_ORIGIN);
+    const res = await request(testServer()).get("/api/health").set("Origin", FOREIGN_ORIGIN);
     expect(res.status).toBe(200);
   });
 
   it("guards DELETE and PATCH too, not only POST", async () => {
     for (const method of ["delete", "patch", "put"]) {
-      const agent = request(app);
+      const agent = request(testServer());
       const res = await agent[method]("/api/v1/auth/logout")
         .set("Origin", FOREIGN_ORIGIN)
         .set("Content-Type", "application/json");

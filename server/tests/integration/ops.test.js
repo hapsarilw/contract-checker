@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import http from "node:http";
-import app from "../../src/app.js";
 import prisma from "../../src/lib/prisma.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -55,7 +55,7 @@ describe("ops routes — liveness, readiness, version (FR-4.7, FR-4.8)", () => {
     it("returns 200 without touching the database", async () => {
       const querySpy = vi.spyOn(prisma, "$queryRaw").mockResolvedValue([{ "?column?": 1 }]);
 
-      const res = await request(app).get("/api/health");
+      const res = await request(testServer()).get("/api/health");
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ status: "ok" });
@@ -68,12 +68,12 @@ describe("ops routes — liveness, readiness, version (FR-4.7, FR-4.8)", () => {
     it("returns 200 even when the database is completely unreachable", async () => {
       vi.spyOn(prisma, "$queryRaw").mockRejectedValue(new Error("connection refused"));
 
-      const res = await request(app).get("/api/health");
+      const res = await request(testServer()).get("/api/health");
       expect(res.status).toBe(200);
     });
 
     it("lives outside /api/v1", async () => {
-      const res = await request(app).get("/api/v1/health");
+      const res = await request(testServer()).get("/api/v1/health");
       expect(res.status).toBe(404);
     });
   });
@@ -82,7 +82,7 @@ describe("ops routes — liveness, readiness, version (FR-4.7, FR-4.8)", () => {
     it("returns 200 with a per-dependency breakdown when Postgres is reachable", async () => {
       vi.spyOn(prisma, "$queryRaw").mockResolvedValue([{ "?column?": 1 }]);
 
-      const res = await request(app).get("/api/ready");
+      const res = await request(testServer()).get("/api/ready");
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
@@ -97,7 +97,7 @@ describe("ops routes — liveness, readiness, version (FR-4.7, FR-4.8)", () => {
     it("returns 503 with a per-dependency breakdown when Postgres is unreachable", async () => {
       vi.spyOn(prisma, "$queryRaw").mockRejectedValue(new Error("connection refused"));
 
-      const res = await request(app).get("/api/ready");
+      const res = await request(testServer()).get("/api/ready");
 
       expect(res.status).toBe(503);
       expect(res.body.status).toBe("not_ready");
@@ -109,21 +109,21 @@ describe("ops routes — liveness, readiness, version (FR-4.7, FR-4.8)", () => {
     });
 
     it("lives outside /api/v1", async () => {
-      const res = await request(app).get("/api/v1/ready");
+      const res = await request(testServer()).get("/api/v1/ready");
       expect(res.status).toBe(404);
     });
   });
 
   describe("GET /api/version", () => {
     it("returns null for gitSha and buildTimestamp when unset (Phase 1)", async () => {
-      const res = await request(app).get("/api/version");
+      const res = await request(testServer()).get("/api/version");
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ gitSha: null, buildTimestamp: null });
     });
 
     it("lives outside /api/v1", async () => {
-      const res = await request(app).get("/api/v1/version");
+      const res = await request(testServer()).get("/api/v1/version");
       expect(res.status).toBe(404);
     });
 

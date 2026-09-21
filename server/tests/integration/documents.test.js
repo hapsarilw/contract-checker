@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import http from "node:http";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
@@ -31,7 +32,7 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
     const { cookie } = await loggedInCookie();
     const text = "INDEPENDENT CONTRACTOR AGREEMENT\n" + wordsOfLength(250);
 
-    const res = await request(app).post("/api/v1/documents").set("Cookie", cookie).send({ text });
+    const res = await request(testServer()).post("/api/v1/documents").set("Cookie", cookie).send({ text });
 
     expect(res.status).toBe(201);
     expect(Object.keys(res.body)).toEqual(["document"]);
@@ -46,7 +47,7 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
 
   it("persists the normalised text, word count, hash and byte size", async () => {
     const { cookie, user } = await loggedInCookie();
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .send({ text: wordsOfLength(300) });
@@ -61,7 +62,7 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
 
   it("returns 422 DOCUMENT_TOO_SHORT through the real route, with the actual count in the message", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .send({ text: wordsOfLength(50) });
@@ -72,7 +73,7 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
   });
 
   it("returns 401 without a session", async () => {
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Content-Type", "application/json")
       .send({ text: wordsOfLength(250) });
@@ -81,14 +82,14 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
 
   it("returns 400 VALIDATION_ERROR when text is missing entirely", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(app).post("/api/v1/documents").set("Cookie", cookie).send({});
+    const res = await request(testServer()).post("/api/v1/documents").set("Cookie", cookie).send({});
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("returns 422 DOCUMENT_TOO_SHORT, not 400, for an all-whitespace paste — one gate for the same failure, not two", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .send({ text: "    \n\n   " });
@@ -101,7 +102,7 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
 describe("POST /api/v1/documents — upload intake stores the right sourceType", () => {
   it("stores UPLOAD_PDF for a real PDF fixture", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .attach("file", readFixture("01-design-services-hostile.pdf"), "contract.pdf");
@@ -115,7 +116,7 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
     const { cookie } = await loggedInCookie();
     const docx = await buildDocx({ paragraphs: [wordsOfLength(250)] });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .attach("file", docx, "contract.docx");
@@ -126,7 +127,7 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
 
   it("sanitises the stored filename (FR-2.14)", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .attach("file", readFixture("01-design-services-hostile.pdf"), "../../etc/passwd.pdf");
@@ -138,7 +139,7 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
 
   it("returns 422 UNSUPPORTED_FILE_TYPE for a renamed .txt, never touching a parser", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .attach("file", Buffer.from("plain text pretending to be a pdf", "utf8"), "contract.pdf");
@@ -154,7 +155,7 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
   // of them could turn a scan into a generic 500 or a 400 instead.
   it("returns 422 DOCUMENT_TOO_SHORT naming a scanned image for an image-only PDF (fixture 06), and stores nothing", async () => {
     const { cookie, user } = await loggedInCookie();
-    const res = await request(app)
+    const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
       .attach("file", readFixture("06-scanned-no-text-layer.pdf"), "scan.pdf");
@@ -234,7 +235,7 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
     const { cookie, user } = await loggedInCookie();
     const document = await createDocument({ userId: user.id });
 
-    const res = await request(app).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
+    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.document.id).toBe(document.id);
@@ -252,7 +253,7 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
       findings: [{ severity: "LOW" }, { severity: "HIGH" }, { severity: "MEDIUM" }],
     });
 
-    const res = await request(app).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
+    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(Object.keys(res.body.analysis).sort()).toEqual(
@@ -273,7 +274,7 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
       findings: [{ severity: "LOW" }],
     });
 
-    const res = await request(app).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
+    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.analysis).not.toHaveProperty("modelRisk");
@@ -289,7 +290,7 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
     const userB = await createUser();
     const documentOfB = await createDocument({ userId: userB.id });
 
-    const res = await request(app).get(`/api/v1/documents/${documentOfB.id}`).set("Cookie", cookieA);
+    const res = await request(testServer()).get(`/api/v1/documents/${documentOfB.id}`).set("Cookie", cookieA);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
@@ -297,7 +298,7 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
 
   it("returns 404 for a nonexistent document id", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(app)
+    const res = await request(testServer())
       .get("/api/v1/documents/nonexistent-id-12345")
       .set("Cookie", cookie);
     expect(res.status).toBe(404);
@@ -305,7 +306,7 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
 
   it("returns 401 without a session", async () => {
     const document = await createDocument();
-    const res = await request(app).get(`/api/v1/documents/${document.id}`);
+    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`);
     expect(res.status).toBe(401);
   });
 });
@@ -326,7 +327,7 @@ describe("DELETE /api/v1/documents/:id (FR-4.3, PRD D2 — hard delete)", () => 
     expect(await prisma.analysis.count({ where: { id: analysis.id } })).toBe(1);
     expect(await prisma.finding.count({ where: { analysisId: analysis.id } })).toBe(2);
 
-    const res = await request(app)
+    const res = await request(testServer())
       .delete(`/api/v1/documents/${document.id}`)
       .set("Cookie", cookie)
       .set("Content-Type", "application/json");
@@ -344,7 +345,7 @@ describe("DELETE /api/v1/documents/:id (FR-4.3, PRD D2 — hard delete)", () => 
     const { cookie, user } = await loggedInCookie();
     const document = await createDocument({ userId: user.id });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .delete(`/api/v1/documents/${document.id}`)
       .set("Cookie", cookie)
       .set("Content-Type", "application/json");
@@ -358,7 +359,7 @@ describe("DELETE /api/v1/documents/:id (FR-4.3, PRD D2 — hard delete)", () => 
     const userB = await createUser();
     const documentOfB = await createDocument({ userId: userB.id });
 
-    const res = await request(app)
+    const res = await request(testServer())
       .delete(`/api/v1/documents/${documentOfB.id}`)
       .set("Cookie", cookieA)
       .set("Content-Type", "application/json");
@@ -370,7 +371,7 @@ describe("DELETE /api/v1/documents/:id (FR-4.3, PRD D2 — hard delete)", () => 
 
   it("returns 401 without a session", async () => {
     const document = await createDocument();
-    const res = await request(app)
+    const res = await request(testServer())
       .delete(`/api/v1/documents/${document.id}`)
       .set("Content-Type", "application/json");
     expect(res.status).toBe(401);

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
-import app from "../../src/app.js";
+import { testServer } from "./testServer.js";
 import prisma from "../../src/lib/prisma.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
 import { MAX_ENTRIES } from "../../src/services/zipLimits.js";
@@ -40,7 +40,7 @@ async function signedIn() {
 }
 
 const upload = (cookie, buffer, filename) =>
-  request(app)
+  request(testServer())
     .post("/api/v1/documents")
     .set("Cookie", cookie)
     .attach("file", buffer, filename);

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
-import app from "../../src/app.js";
+import { testServer } from "./testServer.js";
 import config from "../../src/config.js";
 import prisma from "../../src/lib/prisma.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
@@ -40,7 +40,7 @@ async function seed(userId, count, byteSize = 1_000) {
 }
 
 const paste = (cookie, text = TEXT) =>
-  request(app)
+  request(testServer())
     .post("/api/v1/documents")
     .set("Cookie", cookie)
     .set("Content-Type", "application/json")
@@ -131,7 +131,7 @@ describe("FR-2.13 — the message and the remedy", () => {
     await seed(user.id, config.MAX_DOCS_PER_USER - 1);
     expect((await paste(cookie)).status).toBe(422);
 
-    const deleted = await request(app)
+    const deleted = await request(testServer())
       .delete(`/api/v1/documents/${first.id}`)
       .set("Cookie", cookie)
       .set("Content-Type", "application/json");

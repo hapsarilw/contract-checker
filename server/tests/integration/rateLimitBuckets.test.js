@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import express from "express";
 import request from "supertest";
 import { errorHandler } from "../../src/middleware/errorHandler.js";
@@ -63,51 +63,65 @@ function buildApp() {
 }
 
 describe("rate limiters (BUILD-PLAN step 41, NFR-2.6)", () => {
-  /** @type {import("express").Express} */
-  let app;
+  /**
+   * The bare app is served by ONE server per test rather than one per
+   * request. `request(server)` makes supertest create and destroy an
+   * ephemeral server for every call, and at that rate a response
+   * occasionally lands on a request that did not ask for it — which here
+   * looked like a limiter failing to count. See testServer.js for the
+   * measurements; this file needs its own server because the app under
+   * test is the bare one built below, not the real one.
+   */
+  /** @type {import("node:http").Server} */
+  let server;
 
   beforeEach(async () => {
     await resetRateLimitsForTests();
-    app = buildApp();
+    server = buildApp().listen(0);
+    await new Promise((resolve) => server.once("listening", resolve));
+  });
+
+  afterEach(async () => {
+    await new Promise((resolve) => server.close(() => resolve(undefined)));
   });
 
   it("allows exactly 5 auth attempts per IP per window, then 429s the 6th", async () => {
     for (let i = 0; i < 5; i++) {
-      expect((await request(app).post("/auth")).status).toBe(200);
+      expect((await request(server).post("/auth")).status).toBe(200);
     }
-    const res = await request(app).post("/auth");
+    const res = await request(server).post("/auth");
     expect(res.status).toBe(429);
     expect(res.body.error.code).toBe("RATE_LIMITED");
   });
 
   it("allows exactly 100 general requests per IP per window, then 429s the 101st", async () => {
     for (let i = 0; i < 100; i++) {
-      expect((await request(app).get("/general")).status).toBe(200);
+      expect((await request(server).get("/general")).status).toBe(200);
     }
-    const res = await request(app).get("/general");
+    const res = await request(server).get("/general");
     expect(res.status).toBe(429);
     expect(res.body.error.code).toBe("RATE_LIMITED");
   }, 20_000);
 
   it("allows exactly 10 analyses per user per hour, then 429s the 11th", async () => {
     for (let i = 0; i < 10; i++) {
-      const res = await request(app).post("/analyze").set("X-Test-User", "user-a");
+      const res = await request(server).post("/analyze").set("X-Test-User", "user-a");
       expect(res.status).toBe(200);
     }
-    const res = await request(app).post("/analyze").set("X-Test-User", "user-a");
+    const res = await request(server).post("/analyze").set("X-Test-User", "user-a");
     expect(res.status).toBe(429);
     expect(res.body.error.code).toBe("RATE_LIMITED");
   });
 
   it("keys the analyze limiter by user, not IP: varying the IP never resets or splits the same user's count", async () => {
     for (let i = 0; i < 10; i++) {
-      const res = await request(app)
+      const res = await request(server)
         .post("/analyze")
         .set("X-Test-User", "user-a")
         .set("X-Forwarded-For", `198.51.100.${i}`); // a different IP on every single request
       expect(res.status).toBe(200);
     }
-    const blocked = await request(app)
+    const blocked = await request(server)
       .post("/analyze")
       .set("X-Test-User", "user-a")
       .set("X-Forwarded-For", "203.0.113.99"); // yet another, never-seen-before IP
@@ -116,21 +130,21 @@ describe("rate limiters (BUILD-PLAN step 41, NFR-2.6)", () => {
 
   it("gives a different user their own, independent bucket", async () => {
     for (let i = 0; i < 10; i++) {
-      await request(app).post("/analyze").set("X-Test-User", "user-a");
+      await request(server).post("/analyze").set("X-Test-User", "user-a");
     }
     expect(
-      (await request(app).post("/analyze").set("X-Test-User", "user-a")).status,
+      (await request(server).post("/analyze").set("X-Test-User", "user-a")).status,
     ).toBe(429);
 
-    const otherUser = await request(app).post("/analyze").set("X-Test-User", "user-b");
+    const otherUser = await request(server).post("/analyze").set("X-Test-User", "user-b");
     expect(otherUser.status).toBe(200);
   });
 
   it("keys the IP-based limiters on the real client address (trust proxy), not the proxy's own", async () => {
     for (let i = 0; i < 5; i++) {
-      await request(app).post("/auth").set("X-Forwarded-For", "203.0.113.5");
+      await request(server).post("/auth").set("X-Forwarded-For", "203.0.113.5");
     }
-    const blocked = await request(app)
+    const blocked = await request(server)
       .post("/auth")
       .set("X-Forwarded-For", "203.0.113.5");
     expect(blocked.status).toBe(429);
@@ -140,15 +154,15 @@ describe("rate limiters (BUILD-PLAN step 41, NFR-2.6)", () => {
     // (incorrectly) keyed on the connecting socket address instead of
     // X-Forwarded-For would treat this as the SAME client and stay
     // blocked; keying on the real client address gives it a fresh bucket.
-    const freshIp = await request(app)
+    const freshIp = await request(server)
       .post("/auth")
       .set("X-Forwarded-For", "203.0.113.9");
     expect(freshIp.status).toBe(200);
   });
 
   it("a 429 carries a Retry-After header and a message stating a retry time", async () => {
-    for (let i = 0; i < 5; i++) await request(app).post("/auth");
-    const res = await request(app).post("/auth");
+    for (let i = 0; i < 5; i++) await request(server).post("/auth");
+    const res = await request(server).post("/auth");
 
     expect(res.status).toBe(429);
     expect(res.headers["retry-after"]).toBeDefined();
@@ -159,11 +173,11 @@ describe("rate limiters (BUILD-PLAN step 41, NFR-2.6)", () => {
   });
 
   it("resetRateLimitsForTests() clears every limiter's counters — what tests/integration/setup.js relies on", async () => {
-    for (let i = 0; i < 5; i++) await request(app).post("/auth");
-    expect((await request(app).post("/auth")).status).toBe(429);
+    for (let i = 0; i < 5; i++) await request(server).post("/auth");
+    expect((await request(server).post("/auth")).status).toBe(429);
 
     await resetRateLimitsForTests();
 
-    expect((await request(app).post("/auth")).status).toBe(200);
+    expect((await request(server).post("/auth")).status).toBe(200);
   });
 });

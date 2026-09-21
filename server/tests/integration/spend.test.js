@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import request from "supertest";
-import app from "../../src/app.js";
+import { testServer } from "./testServer.js";
 import config from "../../src/config.js";
 import prisma from "../../src/lib/prisma.js";
 import { getRedis } from "../../src/lib/redis.js";
@@ -53,7 +53,7 @@ async function signedInUser({ password = "Password123!" } = {}) {
 }
 
 const analyze = (documentId, cookie) =>
-  request(app)
+  request(testServer())
     .post(`/api/v1/documents/${documentId}/analyze`)
     .set("Cookie", cookie)
     .set("Content-Type", "application/json");
@@ -164,7 +164,7 @@ describe("TR-14 — at the ceiling, analysis stops and everything else does not 
     await createAnalysis({ documentId: document.id, status: "COMPLETED", overallRisk: "LOW", summary: "A stored report." });
     await forcePastCeiling();
 
-    const res = await request(app).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
+    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(res.body.analysis.summary).toBe("A stored report.");
   });
@@ -173,7 +173,7 @@ describe("TR-14 — at the ceiling, analysis stops and everything else does not 
     const { cookie } = await signedInUser();
     await forcePastCeiling();
 
-    const res = await request(app).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
     expect(res.status).toBe(200);
   });
 
@@ -181,7 +181,7 @@ describe("TR-14 — at the ceiling, analysis stops and everything else does not 
     const { user, password } = await signedInUser();
     await forcePastCeiling();
 
-    const res = await request(app).post("/api/v1/auth/login").send({ email: user.email, password });
+    const res = await request(testServer()).post("/api/v1/auth/login").send({ email: user.email, password });
     expect(res.status).toBe(200);
   });
 
@@ -192,7 +192,7 @@ describe("TR-14 — at the ceiling, analysis stops and everything else does not 
     const { document, cookie } = await signedInUser();
     await forcePastCeiling();
 
-    const res = await request(app)
+    const res = await request(testServer())
       .delete(`/api/v1/documents/${document.id}`)
       .set("Cookie", cookie)
       // csrfGuard requires an allowed Content-Type on a

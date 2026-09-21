@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import app from "../../src/app.js";
 import config from "../../src/config.js";
 
@@ -9,7 +10,7 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
   });
 
   it("returns the standard error shape for an unknown route", async () => {
-    const res = await request(app).get("/this/route/does/not/exist");
+    const res = await request(testServer()).get("/this/route/does/not/exist");
 
     expect(res.status).toBe(404);
     expect(Object.keys(res.body)).toEqual(["error"]);
@@ -19,20 +20,20 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
   });
 
   it("returns a matching X-Request-Id header and body requestId on every response", async () => {
-    const res = await request(app).get("/unknown");
+    const res = await request(testServer()).get("/unknown");
     expect(res.headers["x-request-id"]).toBeTypeOf("string");
     expect(res.body.error.requestId).toBe(res.headers["x-request-id"]);
   });
 
   it("echoes back an inbound X-Request-Id instead of generating a new one", async () => {
-    const res = await request(app).get("/unknown").set("X-Request-Id", "client-supplied-abc");
+    const res = await request(testServer()).get("/unknown").set("X-Request-Id", "client-supplied-abc");
     expect(res.headers["x-request-id"]).toBe("client-supplied-abc");
     expect(res.body.error.requestId).toBe("client-supplied-abc");
   });
 
   describe("security headers (NFR-2.2, NFR-2.3, FR-7.9)", () => {
     it("sets a Content-Security-Policy matching FR-7.9's directives", async () => {
-      const res = await request(app).get("/unknown");
+      const res = await request(testServer()).get("/unknown");
       const csp = res.headers["content-security-policy"];
 
       expect(csp).toBeTypeOf("string");
@@ -47,21 +48,21 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
     });
 
     it("sets other standard helmet security headers", async () => {
-      const res = await request(app).get("/unknown");
+      const res = await request(testServer()).get("/unknown");
       expect(res.headers["x-content-type-options"]).toBe("nosniff");
     });
 
     it("does NOT set HSTS outside production (NFR-2.2)", async () => {
       // tests/setup.js seeds NODE_ENV=test, so config.isProduction is false.
       expect(config.isProduction).toBe(false);
-      const res = await request(app).get("/unknown");
+      const res = await request(testServer()).get("/unknown");
       expect(res.headers["strict-transport-security"]).toBeUndefined();
     });
   });
 
   describe("CORS (NFR-2.4, FR-1.12(b))", () => {
     it("allows exactly config.FRONTEND_ORIGIN, with credentials", async () => {
-      const res = await request(app).get("/unknown").set("Origin", config.FRONTEND_ORIGIN);
+      const res = await request(testServer()).get("/unknown").set("Origin", config.FRONTEND_ORIGIN);
 
       expect(res.headers["access-control-allow-origin"]).toBe(config.FRONTEND_ORIGIN);
       expect(res.headers["access-control-allow-credentials"]).toBe("true");
@@ -75,7 +76,7 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
       // does NOT match its own origin, so the browser still refuses to
       // let its script read the response, even though the header is
       // technically present on the wire.
-      const res = await request(app).get("/unknown").set("Origin", "https://evil.example.com");
+      const res = await request(testServer()).get("/unknown").set("Origin", "https://evil.example.com");
 
       expect(res.headers["access-control-allow-origin"]).toBe(config.FRONTEND_ORIGIN);
       expect(res.headers["access-control-allow-origin"]).not.toBe("https://evil.example.com");
@@ -83,7 +84,7 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
 
     it("never reflects an arbitrary Origin back", async () => {
       const attackerOrigin = "https://attacker.test";
-      const res = await request(app).get("/unknown").set("Origin", attackerOrigin);
+      const res = await request(testServer()).get("/unknown").set("Origin", attackerOrigin);
 
       expect(res.headers["access-control-allow-origin"]).not.toBe(attackerOrigin);
     });
@@ -97,7 +98,7 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
     // cover the same fix through /documents.
 
     it("an unparseable JSON body returns 400 VALIDATION_ERROR, not 500", async () => {
-      const res = await request(app)
+      const res = await request(testServer())
         .post("/api/v1/auth/login")
         .set("Content-Type", "application/json")
         .send("{ this is not valid json");
@@ -107,7 +108,7 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
     });
 
     it("an oversized JSON body returns 413 FILE_TOO_LARGE, not 500, with a message about the 1 MB paste limit", async () => {
-      const res = await request(app)
+      const res = await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: "x@example.test", password: "x".repeat(2 * 1024 * 1024) });
 
@@ -120,7 +121,7 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
       // AppError never carries a `.type` property — this proves the
       // detector in app.js can't accidentally intercept an application
       // error and relabel it.
-      const res = await request(app)
+      const res = await request(testServer())
         .post("/api/v1/auth/login")
         .send({ email: "nobody@example.test", password: "wrong-password" });
 

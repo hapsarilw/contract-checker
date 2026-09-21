@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
+import { testServer } from "./testServer.js";
 import bcrypt from "bcrypt";
-import app from "../../src/app.js";
 import prisma from "../../src/lib/prisma.js";
 import { getEmailService, resetEmailForTests } from "../../src/lib/email.js";
 import { extractFirstLink } from "../../src/lib/email/sinkProvider.js";
@@ -32,10 +32,10 @@ const sink = () =>
 
 const json = (req) => req.set("Content-Type", "application/json");
 
-const forgot = (email) => json(request(app).post("/api/v1/auth/forgot-password")).send({ email });
+const forgot = (email) => json(request(testServer()).post("/api/v1/auth/forgot-password")).send({ email });
 const reset = (token, password = NEW_PASSWORD) =>
-  json(request(app).post("/api/v1/auth/reset-password")).send({ token, password });
-const login = (email, password) => json(request(app).post("/api/v1/auth/login")).send({ email, password });
+  json(request(testServer()).post("/api/v1/auth/reset-password")).send({ token, password });
+const login = (email, password) => json(request(testServer()).post("/api/v1/auth/login")).send({ email, password });
 
 /** The reset token from the most recent email to an address. */
 function tokenFromEmail(email) {
@@ -95,14 +95,23 @@ describe("TR-10 — forgot-password does not disclose whether an account exists"
     // lookup, so the detached work is still unfinished when the call
     // returns.
     const user = await createUser({ password: PASSWORD });
+    /** @type {string[]} */
+    const order = [];
     /** @type {Promise<unknown>[]} */
     const work = [];
 
-    await requestPasswordReset(user.email, { detach: (p) => work.push(p) });
+    await requestPasswordReset(user.email, {
+      detach: (p) => work.push(p.then(() => order.push("work finished"))),
+    });
+    order.push("call returned");
 
-    expect(work).toHaveLength(1);
-    expect(await prisma.authToken.count({ where: { type: "PASSWORD_RESET" } })).toBe(0);
     await Promise.all(work);
+
+    // Ordering, not a row count. Counting rows was a race of my own
+    // making: the detached insert can land before the count query runs,
+    // and the test then failed for a reason that had nothing to do with
+    // what it claims to check.
+    expect(order).toEqual(["call returned", "work finished"]);
     expect(await prisma.authToken.count({ where: { type: "PASSWORD_RESET" } })).toBe(1);
   }, 30_000);
 
@@ -223,12 +232,12 @@ describe("TR-10 — reset does all four things", () => {
     // means the reset changed a password and nothing else.
     const user = await createUser({ password: PASSWORD });
     const cookie = `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion })}`;
-    expect((await request(app).get("/api/v1/auth/me").set("Cookie", cookie)).status).toBe(200);
+    expect((await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookie)).status).toBe(200);
 
     const token = /** @type {string} */ (await requestResetAndWait(user.email));
     await reset(token);
 
-    const after = await request(app).get("/api/v1/auth/me").set("Cookie", cookie);
+    const after = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookie);
     expect(after.status).toBe(401);
     expect(after.body.error.code).toBe("SESSION_REVOKED");
   }, 30_000);
