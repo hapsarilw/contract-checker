@@ -62,3 +62,30 @@ export const verifyEmailSchema = z
     token: z.string().min(20, "is not a valid token").max(128, "is not a valid token"),
   })
   .strict();
+
+/**
+ * FR-1.8. The email is validated and normalised the same way registration
+ * does it, so "  Alice@Example.COM " and "alice@example.com" are one
+ * account here too — otherwise a user who signed up with stray whitespace
+ * could never reset.
+ */
+export const forgotPasswordSchema = z
+  .object({
+    email: emailField,
+  })
+  .strict();
+
+/**
+ * The new password is held to registration's rules. Rejecting a weak one
+ * at reset is not redundant: reset is exactly where someone under pressure
+ * picks something short.
+ */
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(20, "is not a valid token").max(128, "is not a valid token"),
+    password: z
+      .string()
+      .min(PASSWORD_MIN_LENGTH, `must be at least ${PASSWORD_MIN_LENGTH} characters`)
+      .max(PASSWORD_MAX_LENGTH, `must be at most ${PASSWORD_MAX_LENGTH} characters`),
+  })
+  .strict();

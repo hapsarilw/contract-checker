@@ -239,6 +239,44 @@ export const resendVerificationIpLimiter = createLimiter({
     `Too many verification emails have been requested from this address. Try again in about ${retryTime}.`,
 });
 
+/**
+ * FR-1.8's forgot-password path. The spec sets no limit here, unlike
+ * FR-1.7's resend, but an unmetered one is the same abuse vector: every
+ * request mails an address the requester does not have to own, so it is a
+ * way to flood a THIRD PARTY's inbox, and it costs money doing it.
+ *
+ * Keyed on the SUBMITTED email as well as the IP. Keying on the submitted
+ * string rather than on a found account is what keeps this from becoming
+ * the oracle the 202 response refuses to be: the counter moves identically
+ * whether or not the address exists, so a 429 says nothing about who has
+ * an account.
+ *
+ * Fails CLOSED, matching resend-verification, and the cost is real and
+ * worth stating: during a Redis outage someone who has forgotten their
+ * password cannot reset it. Sign-in and everything else keep working, so
+ * this is a delay for a few people rather than an outage for everyone —
+ * and an unmetered mailer pointed at arbitrary addresses is the worse of
+ * the two failures.
+ */
+export const forgotPasswordEmailLimiter = createLimiter({
+  windowMs: HOUR_MS,
+  limit: 3,
+  prefix: "rl:forgot-email:",
+  failurePolicy: "closed",
+  keyGenerator: (req) => `email:${String(req.body?.email ?? "").trim().toLowerCase()}`,
+  buildMessage: (retryTime) =>
+    `A reset link has already been requested for that address. Check your inbox and spam folder, or try again in about ${retryTime}.`,
+});
+
+export const forgotPasswordIpLimiter = createLimiter({
+  windowMs: HOUR_MS,
+  limit: 10,
+  prefix: "rl:forgot-ip:",
+  failurePolicy: "closed",
+  buildMessage: (retryTime) =>
+    `Too many password reset requests from this address. Try again in about ${retryTime}.`,
+});
+
 export const generalLimiter = createLimiter({
   windowMs: 15 * MINUTE_MS,
   limit: 100,

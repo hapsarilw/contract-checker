@@ -5,11 +5,24 @@ import { requireAuth } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import {
   authLimiter,
+  forgotPasswordEmailLimiter,
+  forgotPasswordIpLimiter,
   resendVerificationIpLimiter,
   resendVerificationUserLimiter,
 } from "../middleware/rateLimits.js";
-import { loginSchema, registerSchema, verifyEmailSchema } from "../schemas/auth.js";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  registerSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+} from "../schemas/auth.js";
 import { resendVerification, sendVerificationEmail, verifyEmail } from "../services/emailVerification.js";
+import {
+  requestPasswordReset,
+  resetPassword,
+  sendPasswordChangedNotice,
+} from "../services/passwordReset.js";
 import {
   SESSION_COOKIE_NAME,
   authenticate,
@@ -138,5 +151,60 @@ router.post(
     }
   },
 );
+
+// POST /api/v1/auth/forgot-password — FR-1.8. ALWAYS 202.
+//
+// The response is the same object with the same status whether or not the
+// address belongs to an account, because anything else is an account
+// enumeration endpoint. "If that address has an account" is the honest
+// phrasing of a deliberate non-answer, and it is what lets the server
+// refuse to say more without appearing to malfunction.
+//
+// The limiters are mounted BEFORE validation on purpose: a malformed body
+// should still spend quota, or the limit is bypassed by sending rubbish.
+// Keyed on the submitted string, so the counter behaves identically for
+// addresses that exist and addresses that do not — a 429 must not become
+// the oracle the 202 refuses to be.
+router.post(
+  "/forgot-password",
+  forgotPasswordIpLimiter,
+  forgotPasswordEmailLimiter,
+  validateBody(forgotPasswordSchema),
+  async (req, res, next) => {
+    try {
+      await requestPasswordReset(req.body.email);
+      res.status(202).json({
+        message: "If that address has an account, a password reset link is on its way.",
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/v1/auth/reset-password — FR-1.8, FR-1.9.
+//
+// Unauthenticated: the whole point is that the person cannot sign in. Not
+// behind authLimiter either — that bucket is 5 attempts shared with login,
+// and someone who has just reset their password and is typing it in would
+// collide with it. The token is 256 random bits, so guessing is not the
+// threat that limiter exists for, and the general limiter still applies.
+//
+// Answers 200 without a session cookie. Holding a mailbox link proves the
+// mailbox, not that this browser is that person — and issuing a cookie
+// here would mean minting one in the same breath as invalidating every
+// other one. They sign in with the new password.
+router.post("/reset-password", validateBody(resetPasswordSchema), async (req, res, next) => {
+  try {
+    const { email } = await resetPassword(req.body.token, req.body.password);
+    // After the transaction committed, never before: a notice about a
+    // reset that then rolled back would invite the reader to panic about a
+    // change that never happened.
+    sendPasswordChangedNotice(email);
+    res.status(200).json({ reset: true });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;
