@@ -33,10 +33,39 @@ export function requestIdMiddleware(req, res, next) {
 /**
  * Returns the current request's id, or undefined outside any request
  * context (startup code, background jobs before their own correlation
- * exists). Survives async boundaries — AsyncLocalStorage's context
- * follows the async chain (promises, timers, the worker/provider call),
+ * exists).
+ *
+ * It follows the ASYNC chain — promises, timers, the provider call —
  * unlike a value read off `req` inside a callback that closed over it.
+ * It does NOT follow a WORKER THREAD, and that distinction cost this
+ * comment its previous wording. A worker is a separate JavaScript
+ * context with its own AsyncLocalStorage; nothing in the parent's store
+ * is visible there, so log lines emitted inside the extraction worker
+ * came out with no requestId at all — correlation missing at exactly the
+ * point you most want it, since a parse that hangs or blows up is the
+ * thing you are trying to trace. `runWithRequestId` below is how the id
+ * crosses that boundary.
  */
 export function getRequestId() {
   return als.getStore()?.requestId;
+}
+
+/**
+ * Re-establishes a request context around `fn` from an id carried across
+ * a boundary AsyncLocalStorage cannot cross — today, the extraction
+ * worker (FR-2.11), which receives the id in its workerData and wraps
+ * its work in this.
+ *
+ * Deliberately the same store the middleware populates, so everything
+ * downstream — logger.js's mixin above all — works inside the worker
+ * without knowing it is in one.
+ *
+ * @template T
+ * @param {string | undefined} requestId
+ * @param {() => T} fn
+ * @returns {T}
+ */
+export function runWithRequestId(requestId, fn) {
+  if (!requestId) return fn();
+  return als.run({ requestId }, fn);
 }

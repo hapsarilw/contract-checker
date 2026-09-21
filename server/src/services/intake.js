@@ -2,8 +2,7 @@ import config from "../config.js";
 import { AppError } from "../lib/AppError.js";
 import { detectSourceType } from "../middleware/upload.js";
 import { normalize, countWords, hashText } from "./extraction.js";
-import { extractPdfText } from "./pdf.js";
-import { extractDocxText } from "./docx.js";
+import { extractInWorker } from "./extractionWorker.js";
 
 /**
  * The intake pipeline (§2.2 steps 1-4's document half; FR-2.1, FR-2.5,
@@ -15,7 +14,10 @@ import { extractDocxText } from "./docx.js";
  * alongside the filename and userId it already has.
  *
  * Precedence (matches upload.js's comment, extended one step further):
- *   type detection -> parser errors -> word-count bounds
+ *   type detection -> structural limits -> parser errors -> extraction
+ *   timeout -> word-count bounds
+ * Everything from "structural limits" to "extraction timeout" happens
+ * inside the worker (FR-2.11); the timeout is the parent's.
  * A file typed wrong never reaches a parser; a file that fails to parse
  * never reaches the word-count check; both fire before anything is
  * normalised or hashed.
@@ -37,8 +39,11 @@ export async function intakeUpload(buffer) {
     throw new AppError("UNSUPPORTED_FILE_TYPE");
   }
 
-  const extracted =
-    sourceType === "UPLOAD_PDF" ? await extractPdfText(buffer) : await extractDocxText(buffer);
+  // FR-2.11 / NFR-1.4 — parsing runs in a worker thread, bounded to ten
+  // seconds. Both parsers are synchronous CPU work on a buffer the user
+  // chose; on the main thread a pathological document stops the event
+  // loop for every other request, not just its own.
+  const extracted = await extractInWorker(buffer, sourceType);
 
   return finalizeIntake(extracted, sourceType);
 }

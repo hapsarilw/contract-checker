@@ -5,6 +5,7 @@ import { loadOwnedDocument } from "../lib/ownership.js";
 import { serializeDocument, serializeAnalysis, serializeDocumentListRow } from "../lib/serializers.js";
 import { requireAuth } from "../middleware/auth.js";
 import { analyzeLimiter } from "../middleware/rateLimits.js";
+import { limitConcurrentUploads } from "../middleware/uploadConcurrency.js";
 import {
   rejectOversizeByContentLength,
   singleFileUpload,
@@ -39,6 +40,10 @@ router.post(
   "/",
   requireAuth,
   rejectOversizeByContentLength,
+  // FR-2.12, between the cheap header check and the expensive buffering:
+  // a slot claimed after multer has read the bytes has already failed to
+  // bound the memory it exists to bound.
+  limitConcurrentUploads,
   singleFileUpload,
   async (req, res, next) => {
     try {
