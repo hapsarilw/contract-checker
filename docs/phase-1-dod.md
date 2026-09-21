@@ -1,8 +1,10 @@
 # Phase 1 definition of done — verification record
 
-PRD §9, "Definition of done" for Phase 1, checked item by item (BUILD-PLAN step 43). Verified 2026-09-15 against the repository as of this file's commit.
+PRD §9, "Definition of done" for Phase 1, checked item by item (BUILD-PLAN step 43). Verified 2026-09-15 against the repository as of this file's commit. **Item 8 re-checked 2026-09-21** once a real `ANTHROPIC_API_KEY` existed; see the revision note at the end of that section.
 
-**Gate verdict: NOT PASSED.** Five of eight items are verified. The other three are outstanding, and none of them can be closed by the builder alone: each needs an account, a credential, or a person that only the owner can provide.
+**Gate verdict: NOT PASSED.** Six of eight items are verified. The other two are outstanding, and neither can be closed by the builder alone: each needs an account or a person that only the owner can provide.
+
+**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright; precision and per-document risk correctness do not. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate, but they do mean `claude-haiku-4-5` is not yet a defensible production default. Read §8 before choosing a model.
 
 | # | Item | Verdict |
 |---|---|---|
@@ -13,7 +15,7 @@ PRD §9, "Definition of done" for Phase 1, checked item by item (BUILD-PLAN step
 | 5 | A fabricated excerpt planted in a test is discarded and never shown | **Verified** |
 | 6 | User A cannot retrieve user B's document (404) | **Verified** |
 | 7 | README documents the architecture, the excerpt-verification defense, and the failure handling | **Verified** |
-| 8 | The accuracy benchmark reports recall and precision as numbers | **Outstanding** |
+| 8 | The accuracy benchmark reports recall and precision as numbers | **Verified** 2026-09-21 (the numbers exist; two of them are below PRD §11.1's release thresholds — see §8) |
 
 ---
 
@@ -25,14 +27,15 @@ Nothing is deployed. There is no hosting configuration in the repository and `.g
 
 ## 2. A real person completes the journey unaided — Outstanding
 
-This hasn't happened, and it can't be simulated. Two things currently stand in the way:
+This hasn't happened, and it can't be simulated. One thing still stands in the way:
 
-- **It needs a real model.** With the mock provider the report is a fixed placeholder, so a tester would be reading output the product never generated. Item 8's blocker (no API key) applies here too.
 - **It needs a URL, or the tester at the builder's machine.** In practice that means item 1 first.
+
+**Resolved 2026-09-21:** the "it needs a real model" blocker is gone. A key exists, `LLM_PROVIDER=anthropic` runs end to end against `claude-haiku-4-5`, and §8's run shows the reports are genuinely model-generated rather than the mock's placeholder. What a tester would read today is real output — see §8's precision result for what they'd be reading wrong.
 
 **Caution for when it happens:** PRD §9's Phase 1.5 introduction says the system is not yet lawful to point at real confidential documents. The privacy policy, the subprocessor list, and the no-training commitment aren't published yet. The tester should use a contract they're free to share (not one under NDA), and should know where the text is sent.
 
-**To close:** after items 1 and 8, have someone who has never seen the app register, upload a contract, and read the report while you watch without helping. Record where they hesitated.
+**To close:** after item 1, have someone who has never seen the app register, upload a contract, and read the report while you watch without helping. Record where they hesitated.
 
 ## 3. Scanned image-only PDF → the specific "no text layer" error — Verified
 
@@ -76,17 +79,72 @@ Evidence:
 
 `README.md` (step 42) has sections for the architecture (including SRS §2's two critical constraints), the excerpt-verification defense (mechanism, reasoning, and PRD D9's ban on fuzzy matching), and failure handling. The failure-handling section states plainly that provider-outage retries and the circuit breaker (FR-3.10, FR-3.12) are specified but not yet built. Its "Measured cost per analysis" section says "Not yet measured" rather than estimating, as PRD §10.1 requires.
 
-## 8. Accuracy benchmark — recall and precision as numbers — Outstanding
+## 8. Accuracy benchmark — recall and precision as numbers — Verified 2026-09-21
 
-**No numbers are recorded, deliberately.** This environment has no `ANTHROPIC_API_KEY` (checked in the shell, `server/.env`, `client/.env`, and the repository root, without printing any value). The only provider available is the mock, and running fixtures 01–04 through it would measure the mock, not the model. By default it returns an empty findings array, so recall would be 0% by construction. Recording that as "preliminary recall" would be a fabricated result wearing a real result's label. The Done-when condition "recall and precision exist as numbers" is therefore **not met**.
+The numbers exist and were measured, not estimated. Item 8 asks for exactly that, so it is closed. Two of the numbers are below PRD §11.1's release thresholds; §11.1's gates belong to step 72, not to this one, so they do not block step 43 — but they are recorded here in full because they change what model the project should ship with.
 
-**To close:** provide a key with a spend ceiling and run `POST /documents` + `/analyze` once each for fixtures 01, 02, 03, and 04 with `LLM_PROVIDER=anthropic`. That's four analyses, low cents at the 4,000-word cap (PRD §10.1). Record the real token counts from the `Analysis` rows; those same rows are what the README's cost section needs.
+**The run.** Four analyses through the real HTTP API (`POST /api/v1/documents` with the fixture's `.txt` as pasted text, then `POST /api/v1/documents/:id/analyze`), `LLM_PROVIDER=anthropic`, `ANTHROPIC_MODEL=claude-haiku-4-5`, prompt `analyze-v1`, against a local Postgres. The `.txt` form was used rather than `.pdf` so the measurement isolates model accuracy from PDF extraction; the fixture verifier already proves the two forms carry the same excerpts.
 
-Scoring for this manual run is provisional. Step 72's `scripts/benchmark.js` formalises it. It's written down here so the numbers are reproducible:
-- **Match rule:** a returned finding matches an expected one when, after `normalizeForMatch` (`server/src/services/verify.js`, the same normalisation the verifier uses), one excerpt contains the other.
-- **Recall (PRD §11.1's gate metric):** matched ÷ expected, over high-severity findings only. The key has 7: five in 01, none in 02, two in 04. Also report recall over all severities for context.
-- **Precision:** returned findings that match an entry in the key's `findings` or `also_acceptable`, ÷ all returned findings, over 01, 02, and 04. Any hit on a `fair_clauses_do_not_flag` entry (fixture 04) is reported by name as a false positive.
-- **Also record:** fixture 03's finding count (the gate requires exactly 0), each document's derived `overallRisk` against the key's `overall_risk`, and `discardedFindings` per run.
+### Gate metrics
+
+| Metric | Result | PRD §11.1 threshold | Verdict |
+|---|---|---|---|
+| Recall, high-severity planted clauses | **7/7 = 100%** | ≥ 90%, < 85% blocks | **Passes** |
+| Precision, `fair_clauses_do_not_flag` (§11.1's definition) | **2/3 = 66.7%** | ≥ 90%, < 85% blocks | **Fails — would block release** |
+| Precision, all returned findings vs `findings` + `also_acceptable` (the broader rule §8 wrote down in advance) | **15/26 = 57.7%** | not a §11.1 gate | Context |
+| Fixture 03 returns exactly zero findings | **0 findings** | exactly 0 | **Passes** |
+| Every document's derived `overallRisk` matches the key | **3/4** | all 4 | **Fails — would block release** |
+
+The two precision figures measure different things and PRD §11.1's table names only the first. Step 72's `scripts/benchmark.js` must settle which one the CI gate computes; the §11.1 wording ("clauses flagged that the key marks fair", sourced from `fair_clauses_do_not_flag`) is the narrower one and is the gate as written today.
+
+### Per document
+
+| Fixture | Risk expected | Risk derived | Model's own claim | Findings returned | Key findings matched | Discarded | Duration |
+|---|---|---|---|---|---|---|---|
+| 01 design-services-hostile | HIGH | HIGH ✓ | HIGH | 11 | 7/7 | 0 | 41.3 s |
+| 02 dev-retainer-moderate | MEDIUM | **HIGH ✗** | MEDIUM | 8 | 4/4 | 0 | 15.2 s |
+| 03 copywriting-clean | LOW | LOW ✓ | LOW | 0 | n/a | 0 | 1.8 s |
+| 04 video-production-mixed | HIGH | HIGH ✓ | MEDIUM | 7 | 3/3 | 0 | 13.7 s |
+
+Every planted finding in the key was found, at every severity, in all three documents that have any — 14/14 overall. The model's weakness here is not blindness; it is over-flagging.
+
+### The two failures, named
+
+**Fixture 02's risk is wrong, and it is the model's per-finding severity that is wrong, not the server's rule.** The key rates this contract MEDIUM and plants no high-severity clause in it. The model returned one finding at HIGH — the bug-fix obligation, "Developer shall address bug reports submitted by Client relating to the Services…" — and FR-3.9's derivation correctly turned one HIGH finding into an overall HIGH. Note that the model's *own* `modelRisk` claim for this document was MEDIUM, matching the key: it contradicted itself between the finding severity and the overall claim, and the server rule faithfully propagated the finding. This is a prompt/severity-calibration problem for step 72, not a risk-derivation bug. (The same divergence on fixture 04 runs the other way and vindicates FR-3.9: the model claimed MEDIUM, the server derived HIGH, and HIGH is what the key says.)
+
+**One fair clause was flagged.** Fixture 04, the payment term the key marks favourable: "Fifty percent (50%) of the total fee is due upon execution of this Agreement, with the balance due within thirty (30) days of final delivery." The model returned a fragment of it — "with the balance due within thirty (30) days of final delivery." — as MEDIUM/PAYMENT. The other two fair clauses (IP on full payment, two revision rounds included) were correctly left alone. Flagging a 50%-deposit/net-30 term as a risk is the exact failure mode `fair_clauses_do_not_flag` exists to catch: it teaches a freelancer to distrust a clause that is in their favour.
+
+The 11 unmatched findings behind the 57.7% figure are a mix. Some are defensible judgement calls the key simply doesn't list (a Delaware forum-selection clause against a solo freelancer; an unspecified liability cap). Others are noise — fixture 02's "Client shall designate a single point of contact" is an ordinary administrative term returned as a finding in two separate documents. Step 72 should decide which of these belong in `also_acceptable` and which are true false positives; recording them as false positives here is the conservative reading.
+
+### Cost and instrumentation
+
+From the four `Analysis` rows, which is what PRD §10.1 and the README's cost section need:
+
+| | Input tokens | Output tokens | Retries |
+|---|---|---|---|
+| 01 | 7,340 | 4,750 | **1** |
+| 02 | 2,251 | 1,565 | 0 |
+| 03 | 2,317 | 111 | 0 |
+| 04 | 2,299 | 1,294 | 0 |
+| **Total** | **14,207** | **7,720** | 1 |
+
+At `claude-haiku-4-5` list pricing (USD 1.00 per Mtok input, USD 5.00 per Mtok output): **USD 0.0528 for four analyses, USD 0.0132 average per analysis.** Fixture 01's input token count is inflated by its retry — the retry resends the conversation — so a clean single-call analysis of a ~900-word contract costs closer to USD 0.009.
+
+**Fixture 01 retried once, against the real model, and succeeded on the retry.** This was not scripted. It is independent corroboration of item 4 (FR-3.2's single-retry-with-correction path), which until now had only been exercised against the mock provider.
+
+### What this means for the model choice
+
+BUILD-PLAN D-F says to start at the cheapest candidate and let the benchmark, not intuition, promote up the price ladder. The benchmark has now spoken, and its answer is *not yet*: Haiku 4.5 finds everything but over-flags, which is the failure that PRD §11.1's precision gate and `fair_clauses_do_not_flag` were written to block. Before promoting to `claude-sonnet-5` or `claude-opus-5`, step 72 should first try a prompt revision aimed at severity calibration and at leaving favourable clauses alone — a prompt fix is free at inference time and a model upgrade is not, and a model that over-flags on a weak prompt may over-flag on a strong one too. Whatever is tried, re-run this measurement; PRD §11.1 makes it a gate on every prompt, schema, matcher, or model change.
+
+### Reproducing this
+
+Scoring remains provisional — step 72's `scripts/benchmark.js` formalises it, and this run was driven by a throwaway script rather than a committed one. The rules below are the ones that produced the numbers above, unchanged from what this section specified before the run:
+- **Match rule:** a returned finding matches an expected one when, after `normalizeForMatch` (`server/src/services/verify.js`, the same normalisation the verifier uses, imported rather than copied), one excerpt contains the other.
+- **Recall:** matched ÷ expected, over high-severity key findings only (7: five in 01, none in 02, two in 04). Recall over all severities reported alongside.
+- **Precision:** both figures above — §11.1's `fair_clauses_do_not_flag` rate, and returned findings matching `findings` or `also_acceptable` ÷ all returned findings over 01, 02, 04.
+- **Also record:** fixture 03's finding count, each document's derived `overallRisk` against the key, `discardedFindings`, token counts, and `retryCount`.
+
+Note the finding field is `clauseExcerpt` in the API response and `excerpt` in the answer key; a scorer that assumes one name silently matches nothing.
 
 ---
 
@@ -99,7 +157,8 @@ Scoring for this manual run is provisional. Step 72's `scripts/benchmark.js` for
 | server `npm run fixtures:verify` | OK: 18 excerpts verified, 3 fabricated confirmed absent |
 | client unit, `analyzeErrors` + `AnalyzingPanel` | 23 passed |
 | client e2e, `analyzing.spec.js` LLM_INVALID_OUTPUT + ALL_FINDINGS_DISCARDED | 2 passed |
+| **2026-09-21** — accuracy run, fixtures 01–04 against the real provider (§8) | 4 analyses COMPLETED, 0 discarded findings, 1 retry |
 
 ## After the gate: Phase 1.5 is a gate, not a backlog
 
-PRD §9 (and decision D6): Phase 1's definition of done proves the system *works*. It doesn't make the system operable, or lawful to point at real confidential documents. Missing today: email verification and password reset, per-user quotas and a spend ceiling, the retention job, provider retry and circuit breaker, dashboards and alerts, a rehearsed backup restore, and a published privacy policy, terms, and subprocessor list. **No public launch until step 75**, whatever happens to items 1, 2, and 8 above.
+PRD §9 (and decision D6): Phase 1's definition of done proves the system *works*. It doesn't make the system operable, or lawful to point at real confidential documents. Missing today: email verification and password reset, per-user quotas and a spend ceiling, the retention job, provider retry and circuit breaker, dashboards and alerts, a rehearsed backup restore, and a published privacy policy, terms, and subprocessor list. **No public launch until step 75**, whatever happens to items 1 and 2 above — and §8's precision result is a second, independent reason not to rush it.
