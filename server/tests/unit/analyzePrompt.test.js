@@ -214,6 +214,22 @@ describe("PROMPT_VERSION (Appendix A's preamble)", () => {
    */
   const RECORDED_FINGERPRINTS = {
     "analyze-v1": "0812f893dce9c9d031e8369fdc772c934979f73b785d93ae7bfded61dec446c9",
+    // v2 (2026-09-21): precision fix. v1 measured 100% recall but flagged
+    // clauses that PROTECT the freelancer as risks — a liability cap, a
+    // 50%-deposit/net-30 payment term — and rated a bounded six-month
+    // obligation high. v2 adds the NOT A FINDING section, makes SEVERITY
+    // turn on whether the exposure is bounded, and adds the
+    // worse-off-without-it test to JUDGMENT. Benchmarked in
+    // docs/phase-1-dod.md §8.
+    "analyze-v2": "c48990b63ea523498ace7c0d7da4fc7d3bccb1734093f61b4cac95a192803c4c",
+    // v3 (2026-09-21): v2's boundedness rule was too broad. It promoted a
+    // never-expiring confidentiality obligation to high, because "no end
+    // date" read as unbounded — so fixture 02 stayed HIGH against a MEDIUM
+    // key, just via a different clause. v3 scopes boundedness to what the
+    // freelancer can LOSE (money, unpaid work, a right given up), keeps a
+    // say-or-show restriction at medium however permanent, keeps a
+    // non-compete high, and stops the agreed fee itself being a finding.
+    "analyze-v3": "d436b61a38727250ca1e9ba5df321a2e2b7a0061a2ffe45288a35fd0b06fb90c",
   };
 
   it("is an explicit, numbered tag", () => {

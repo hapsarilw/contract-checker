@@ -4,7 +4,7 @@ PRD §9, "Definition of done" for Phase 1, checked item by item (BUILD-PLAN step
 
 **Gate verdict: NOT PASSED.** Six of eight items are verified. The other two are outstanding, and neither can be closed by the builder alone: each needs an account or a person that only the owner can provide.
 
-**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright; precision and per-document risk correctness do not. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate, but they do mean `claude-haiku-4-5` is not yet a defensible production default. Read §8 before choosing a model.
+**Item 8 now carries numbers, and the numbers are not all good.** Recall passes its PRD §11.1 threshold outright and has never moved off 100%. Precision failed at first and was fixed by a prompt revision (`analyze-v1` → `v3`); per-document risk correctness is still 3/4 and did not respond to the prompt. Those are step 72's release gates, not step 43's — item 8 asks only that the measurement exist — so they do not block this gate. Read §8 before choosing a model, and note in particular that **two runs of the same prompt over the same documents at `temperature: 0` did not agree**, which means the benchmark cannot gate a release until it runs repeats.
 
 | # | Item | Verdict |
 |---|---|---|
@@ -135,6 +135,48 @@ At `claude-haiku-4-5` list pricing (USD 1.00 per Mtok input, USD 5.00 per Mtok o
 ### What this means for the model choice
 
 BUILD-PLAN D-F says to start at the cheapest candidate and let the benchmark, not intuition, promote up the price ladder. The benchmark has now spoken, and its answer is *not yet*: Haiku 4.5 finds everything but over-flags, which is the failure that PRD §11.1's precision gate and `fair_clauses_do_not_flag` were written to block. Before promoting to `claude-sonnet-5` or `claude-opus-5`, step 72 should first try a prompt revision aimed at severity calibration and at leaving favourable clauses alone — a prompt fix is free at inference time and a model upgrade is not, and a model that over-flags on a weak prompt may over-flag on a strong one too. Whatever is tried, re-run this measurement; PRD §11.1 makes it a gate on every prompt, schema, matcher, or model change.
+
+### Prompt revision: analyze-v2 and analyze-v3 (2026-09-21)
+
+The v1 numbers above prompted a prompt fix rather than a model upgrade, on the reasoning recorded below. PRD §11.1 makes the benchmark a gate on every prompt change, so each revision was re-run over the same four fixtures.
+
+**What changed.** v1 never told the model that the protections in its own MISSING CLAUSES checklist are good news when present, so the model returned a liability cap, a 50%-deposit/net-30 payment term and a point-of-contact clause as risks. v2 added a `NOT A FINDING` section stating that protection is not risk, made SEVERITY turn on whether the exposure is bounded, and added a worse-off-without-it test to JUDGMENT. v3 narrowed v2's boundedness rule after v2 read "no end date" on a confidentiality obligation as unbounded and promoted it to high: boundedness is now scoped to what the freelancer can *lose*, a say-or-show restriction stays medium however permanent, a non-compete stays high, and the agreed fee itself stopped being a finding.
+
+**Results, one run per column except v3 which was run twice:**
+
+| Metric | v1 | v2 | v3 run 1 | v3 run 2 |
+|---|---|---|---|---|
+| High-severity recall | 7/7 | 7/7 | 7/7 | 7/7 |
+| Precision, `fair_clauses_do_not_flag` | 2/3 | **3/3** | 2/3 | **3/3** |
+| Precision, all returned findings | 57.7% | 75.0% | 75.0% | 71.4% |
+| Fixture 03 findings | 0 | 0 | 0 | 0 |
+| `overallRisk` matches the key | 3/4 | 3/4 | 3/4 | 3/4 |
+| Findings returned on fixture 01 | 11 | 11 | 8 | 9 |
+| Discarded findings | 0 | 0 | 0 | 0 |
+
+**The prompt fix worked, on the thing it was aimed at.** Broad precision moved from 57.7% to a 71–75% band and stayed there across three runs of two revisions, while recall never moved off 100%. The specific false positives that motivated the change are gone: no run after v1 flagged a liability cap, and fixture 04's finding count fell from 7 to 3–5.
+
+**The risk mismatch did not get fixed, and the reason is worth more than the number.** Every revision still scores 3/4 on `overallRisk` — but not on the same document. Under v2 fixture 02 derived HIGH from the confidentiality clause. Under v3 run 1 it derived HIGH from the bug-fix clause instead, the very clause v3's text names as bounded and medium-at-most. Under v3 run 2 fixture 02 came out MEDIUM, correctly — and fixture 04 came out MEDIUM, wrongly. The failure moves around.
+
+### The benchmark is not yet reproducible, and that is a finding about the method
+
+**v3 run 1 and v3 run 2 are the same prompt, the same four documents, the same model, and `temperature: 0` — and they disagree.** Risk correctness landed on a different document, one flagged a fair clause and the other did not, and broad precision differed by 3.6 points. Nothing in the repository changed between them.
+
+This matters more than any single figure above:
+
+- **A one-run benchmark cannot gate a release.** SRS §10.4 has `scripts/benchmark.js` failing the build below 85%. Run-to-run spread on four documents is wide enough that a gate built on one run would flap, blocking good changes and passing bad ones. Step 72 should run each fixture several times and gate on an aggregate, and record the spread, not just the mean.
+- **The v2-versus-v3 comparison above cannot be read finely.** v2 and v3 are indistinguishable at this sample size. v3 is kept because its rule is *more correct in principle* — v2 would classify every perpetual NDA as high severity — not because it measured better. That is a judgement, and it is recorded as one.
+- **Four synthetic documents is a small corpus.** Step 72 adds fixtures 09–12, which will help.
+
+### Where this leaves the model choice
+
+BUILD-PLAN D-F says to let the benchmark, not intuition, promote up the price ladder. The benchmark now says something more specific than "not yet": prompt wording fixed the false-positive problem and did not fix the severity-calibration problem, and the residual failure is instability rather than a consistent wrong answer. A third prompt revision aimed at the same target has a poor prospect — v3 already states the rule the model then ignored in run 1.
+
+That makes a model comparison the next reasonable experiment rather than a premature one: run the same four fixtures, several times each, on `claude-haiku-4-5` and on `claude-sonnet-5`, and compare self-consistency as well as accuracy. Both `MODEL_PARAM_PROFILES` entries already exist in `server/src/config.js`. This is step 72's work; it is recorded here so the reasoning is not re-derived.
+
+### Cost after the change
+
+The prompt grew, so input tokens per analysis grew with it. Measured over the eight v3 analyses: 28,391 input and 12,047 output tokens, **USD 0.0886 total, USD 0.0111 per analysis** at `claude-haiku-4-5` list pricing. v2 measured USD 0.0104 per analysis over four. Both are below the v1 figure of USD 0.0132, because v1's larger finding counts and one retry cost more output than the longer prompt costs input — the precision fix paid for itself.
 
 ### Reproducing this
 

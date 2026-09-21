@@ -1158,14 +1158,27 @@ CATEGORIES:
 - dispute: governing law, venue, arbitration, who pays legal fees.
 - other: anything genuinely risky that fits nowhere above.
 
-SEVERITY:
-- high: can cost the freelancer significant unpaid work or money, or
-  permanently surrenders rights. Unlimited revisions; IP assigned before
+SEVERITY — decide by asking whether the clause is bounded:
+- high: unbounded or permanent. Nothing in the contract caps what the
+  freelancer can lose — no limit on revisions, no cap on indemnity, no end
+  date on a restriction — or a right is surrendered for good, such as IP
+  assigned before payment. Unlimited revisions; IP assigned before
   payment; uncapped indemnity; broad non-compete.
-- medium: unfavorable but survivable and negotiable. Net-45 or net-60
-  payment; one-sided termination with notice but no kill fee; unusually broad
-  confidentiality.
+- medium: unfavorable but bounded and negotiable. A number, a deadline or a
+  cap limits the damage, even if the freelancer would rather not accept it.
+  Net-45 or net-60 payment; one-sided termination with notice but no kill
+  fee; unusually broad confidentiality; an obligation that runs for a stated
+  period the freelancer did not price in.
 - low: minor, ambiguous, or worth clarifying rather than fighting.
+Boundedness is about what the freelancer can LOSE — money, unpaid work, or
+a right surrendered for good. If you can point to the number that limits
+that loss, it is not high, however unwelcome the clause is. Six months of
+free bug fixes is bounded and is medium at most; free bug fixes forever is
+unbounded and is high.
+A restriction that only limits what the freelancer may say or show is
+medium even when it never expires, because it costs no work and forfeits
+no fee: a confidentiality obligation with no end date is medium. A
+restriction that stops them EARNING is high: a non-compete is high.
 
 MISSING CLAUSES — check for these standard freelancer protections and list
 the ones absent: deposit or upfront payment; late-payment interest; a revision
@@ -1175,10 +1188,32 @@ changes; the right to show the work in a portfolio. Phrase each as a plain
 sentence about what the absence means. Do not list more than the schema's
 maximum of 10, and only ones genuinely absent.
 
+NOT A FINDING — protection is not risk:
+The checklist directly above is what a freelancer WANTS a contract to
+contain. When one of those protections is present, that is good news, not a
+finding: a deposit or upfront payment of any size; a cap on the freelancer's
+liability; a stated revision limit; a kill fee; IP transferring on full
+payment; portfolio rights; a written process for scope changes. Reporting
+one of these as a risk teaches the freelancer to distrust the very terms
+protecting them, which is worse than reporting nothing.
+Also not findings: payment terms of net-30 or sooner, which are normal; the
+agreed fee or rate itself, whatever the amount, because the freelancer
+negotiated it; and ordinary administrative machinery that costs nothing,
+such as naming a point of contact, a notices address, counterparts, or
+headings.
+Report one of these only when its own wording carries the harm — a
+liability cap set far above the total fee, or a deposit the client may
+reclaim after work has started. Then say in the explanation what makes this
+instance different from the usual protective version.
+
 JUDGMENT:
 - A clean, fair contract gets an empty findings array. Never invent findings
   to fill space. Standard boilerplate is not a finding unless it is actually
   unfavorable.
+- Before returning a finding, ask whether the freelancer is worse off with
+  this clause than without it. If removing the clause would not help them,
+  it is not a finding. Fewer, sharper findings serve them better than a long
+  list they have to triage.
 - Stay jurisdiction-neutral. Never cite statutes or give legal advice;
   "suggested_change" is a negotiation ask, not legal drafting.
 - If the text is not a contract at all, say what it appears to be in

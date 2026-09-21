@@ -106,11 +106,11 @@ cd client && npm run e2e # Playwright + axe; starts its own dev server if one is
      run against the real provider and there are logged rows to read it
      from. -->
 
-**USD 0.0132 per analysis**, averaged over the first four real analyses (2026-09-21), on `claude-haiku-4-5` at list pricing of USD 1.00 / Mtok input and USD 5.00 / Mtok output.
+**USD 0.0111 per analysis** on `claude-haiku-4-5` with prompt `analyze-v3`, at list pricing of USD 1.00 / Mtok input and USD 5.00 / Mtok output.
 
-Read from four real `Analysis` rows, not estimated: fixtures 01–04 of the corpus (contracts of 849–980 words, against the 4,000-word cap), 14,207 input and 7,720 output tokens in total. One of the four retried once, and a retry resends the conversation, so a clean single-call analysis of a ~900-word contract is closer to **USD 0.009**.
+Read from real `Analysis` rows, not estimated: eight analyses of fixtures 01–04 (contracts of 849–980 words, against the 4,000-word cap), 28,391 input and 12,047 output tokens in total, measured 2026-09-21. The first prompt revision, `analyze-v1`, cost more — USD 0.0132 — because it returned more findings and retried more often; a longer, stricter prompt turned out to be cheaper than a shorter one that over-flags.
 
-Two caveats. The sample is four documents, all synthetic fixtures. And this is the cost of the *cheapest* candidate model — `docs/phase-1-dod.md` §8 records the accuracy it buys, which does not yet meet PRD §11.1's precision gate, so the figure should be expected to rise before launch rather than hold.
+Two caveats. The sample is four synthetic fixtures. And this is the cost of the *cheapest* candidate model — `docs/phase-1-dod.md` §8 records the accuracy it buys, including a per-document risk error that the prompt fix did not resolve, so expect this figure to rise before launch rather than hold.
 
 ## What I learned
 
