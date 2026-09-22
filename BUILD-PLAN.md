@@ -1639,7 +1639,7 @@ Write tests: each event type writes a row with hashed subject; the raw userId an
 ```
 
 **Done when**
-- [ ] All ten event types write rows
+- [ ] All ten event types write rows — **8 of 10 have a caller, 2026-09-22.** ACCOUNT_DELETED is step 57's, which does not exist yet. OPERATOR_SUSPENDED has no caller anywhere in this plan through step 75 — there is no admin surface that sets `state: SUSPENDED`. Both are defined in `AUDIT_ACTIONS` so the string is fixed once; `recordAuditEvent` itself is exercised for all ten in the unit tests
 - [ ] No raw identifiers stored
 - [ ] Audit rows survive user deletion, proven by a test
 

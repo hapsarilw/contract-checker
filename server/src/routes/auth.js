@@ -20,6 +20,7 @@ import {
   resetPasswordSchema,
   verifyEmailSchema,
 } from "../schemas/auth.js";
+import { recordAuditEvent, AUDIT_ACTIONS } from "../lib/audit.js";
 import { resendVerification, sendVerificationEmail, verifyEmail } from "../services/emailVerification.js";
 import {
   changePassword,
@@ -68,6 +69,10 @@ router.post(
   async (req, res, next) => {
     try {
       const user = await registerUser(req.body);
+      // Fire-and-forget, like the audit writer itself: NFR-2.12 records
+      // that registration happened, and a slow or failed write must not
+      // hold up the response any more than a failed email does.
+      await recordAuditEvent(AUDIT_ACTIONS.REGISTERED, { userId: user.id, ip: req.ip });
       // FR-1.7. Awaited only for the token insert; the send itself is
       // queued. Never throws — registration has already succeeded, and a
       // mail problem must not be reported as a registration error
@@ -84,7 +89,8 @@ router.post(
 // POST /api/v1/auth/login
 router.post("/login", authLimiter, validateBody(loginSchema), async (req, res, next) => {
   try {
-    const user = await authenticate(req.body);
+    const user = await authenticate(req.body, { ip: req.ip });
+    await recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, { userId: user.id, ip: req.ip });
     issueSession(res, user);
     res.status(200).json({ user: toPublicUser(user) });
   } catch (err) {
@@ -205,10 +211,11 @@ router.post(
 // other one. They sign in with the new password.
 router.post("/reset-password", validateBody(resetPasswordSchema), async (req, res, next) => {
   try {
-    const { email } = await resetPassword(req.body.token, req.body.password);
-    // After the transaction committed, never before: a notice about a
-    // reset that then rolled back would invite the reader to panic about a
-    // change that never happened.
+    const { userId, email } = await resetPassword(req.body.token, req.body.password);
+    // After the transaction committed, never before: a notice or an audit
+    // row for a reset that then rolled back would invite the reader to
+    // believe a change that never happened.
+    await recordAuditEvent(AUDIT_ACTIONS.PASSWORD_RESET, { userId, ip: req.ip });
     sendPasswordChangedNotice(email);
     res.status(200).json({ reset: true });
   } catch (err) {
@@ -230,6 +237,7 @@ router.post(
   async (req, res, next) => {
     try {
       const user = await changePassword(req.auth.userId, req.body);
+      await recordAuditEvent(AUDIT_ACTIONS.PASSWORD_CHANGED, { userId: user.id, ip: req.ip });
       issueSession(res, user);
       res.status(200).json({ changed: true });
     } catch (err) {
@@ -246,6 +254,7 @@ router.post(
 router.post("/logout-all", requireAuth, async (req, res, next) => {
   try {
     await logoutEverywhere(req.auth.userId);
+    await recordAuditEvent(AUDIT_ACTIONS.SIGNED_OUT_EVERYWHERE, { userId: req.auth.userId, ip: req.ip });
     res.clearCookie(SESSION_COOKIE_NAME, clearSessionCookieOptions());
     res.status(200).json({ signedOutEverywhere: true });
   } catch (err) {
@@ -282,7 +291,11 @@ router.post(
   validateBody(confirmEmailChangeSchema),
   async (req, res, next) => {
     try {
-      const { email } = await confirmEmailChange(req.body.token);
+      const { userId, email } = await confirmEmailChange(req.body.token);
+      // Fired here, not at the /change-email request: the account's email
+      // has not actually changed until this succeeds, and an audit row is
+      // a record of what happened, not of what was asked for.
+      await recordAuditEvent(AUDIT_ACTIONS.EMAIL_CHANGED, { userId, ip: req.ip });
       res.status(200).json({ changed: true, email });
     } catch (err) {
       next(err);

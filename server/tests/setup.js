@@ -20,6 +20,9 @@ process.env.LLM_PROVIDER ??= "mock";
 process.env.REDIS_URL ??= "redis://localhost:6379";
 // Required since step 46 (FR-5.3). Round numbers, not the real ones: a
 // test asserting on spend should read its own arithmetic, not a price list.
+// Required since step 56 (audit hmac salt). Distinct from JWT_SECRET so
+// a test that mutates one cannot accidentally affect the other.
+process.env.AUDIT_SALT ??= "test-audit-salt-at-least-32-bytes-long-ok";
 process.env.LLM_PRICE_INPUT_PER_MTOK ??= "1";
 process.env.LLM_PRICE_OUTPUT_PER_MTOK ??= "10";
 process.env.MONTHLY_SPEND_CEILING_USD ??= "100";

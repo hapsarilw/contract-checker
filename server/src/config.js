@@ -66,14 +66,14 @@ const positiveInt = (fallback) =>
 const nonNegativeNumber = () => z.coerce.number().nonnegative();
 
 /**
- * Appendix B marks AUDIT_SALT, EMAIL_PROVIDER_KEY, EMAIL_FROM, GIT_SHA
+ * Appendix B marks EMAIL_PROVIDER_KEY, EMAIL_FROM, GIT_SHA
  * and BUILD_TIMESTAMP "✓ [P1.5]" — required,
  * but only once the P1.5 features that consume them exist (email in step
  * 51, the P1.5 gate in step 75). Phase 1 (steps 1-43) had to boot without
  * them, so they are optional here and become required once their
- * consuming step lands — which is what happened to REDIS_URL at step 44
- * and to the three spend variables at step 46, and why none of them are
- * in this list any more.
+ * consuming step lands — which is what happened to REDIS_URL at step 44,
+ * the three spend variables at step 46, and AUDIT_SALT at step 56, and
+ * why none of them are in this list any more.
  */
 const envSchema = z
   .object({
@@ -129,12 +129,14 @@ const envSchema = z
       .refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
         message: "must be at least 32 bytes",
       }),
+    // Required since step 56: audit rows are hmac'd with this, and rotating
+    // it silently breaks correlation across every historical row — see
+    // lib/audit.js.
     AUDIT_SALT: z
       .string()
       .refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
         message: "must be at least 32 bytes",
-      })
-      .optional(),
+      }),
 
     FRONTEND_ORIGIN: z
       .string()

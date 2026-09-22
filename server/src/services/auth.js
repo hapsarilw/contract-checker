@@ -5,6 +5,7 @@ import prisma from "../lib/prisma.js";
 import { AppError } from "../lib/AppError.js";
 import { assertPasswordNotBreached } from "./breachedPasswords.js";
 import { assertNotLockedOut, clearFailedLogins, recordFailedLogin } from "./lockout.js";
+import { recordAuditEvent, AUDIT_ACTIONS } from "../lib/audit.js";
 
 /** FR-1.1 — bcrypt cost factor 12. */
 const BCRYPT_COST = 12;
@@ -156,7 +157,7 @@ export async function registerUser({ email, password }) {
  * unknown-email path burns the same bcrypt work as a wrong password
  * (see DUMMY_PASSWORD_HASH).
  */
-export async function authenticate({ email, password }) {
+export async function authenticate({ email, password }, { ip } = /** @type {{ ip?: string }} */ ({})) {
   const user = await prisma.user.findUnique({ where: { email } });
 
   // FR-1.10, before the bcrypt work — there is nothing to check a password
@@ -167,6 +168,13 @@ export async function authenticate({ email, password }) {
   assertNotLockedOut(user);
 
   if (!user) {
+    // No LOGIN_FAILED here, deliberately. NFR-2.12's audit trail records
+    // account history, and recordAuditEvent requires a real userId to
+    // hash — there is no account for this event to be about. Auditing an
+    // unknown email (even hashed) would also reopen the disclosure FR-1.6
+    // closes: a reader who could tell "audited, no account" apart from
+    // "audited, real account" would have the oracle the identical 401 is
+    // built to deny them.
     await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
     throw new AppError("INVALID_CREDENTIALS");
   }
@@ -176,7 +184,9 @@ export async function authenticate({ email, password }) {
     // One UPDATE against a bcrypt comparison that already cost hundreds of
     // milliseconds, so FR-1.6's "comparable timing" survives it. The
     // response is identical to the unknown-email path either way.
-    await recordFailedLogin(user.id);
+    const { locked } = await recordFailedLogin(user.id);
+    await recordAuditEvent(AUDIT_ACTIONS.LOGIN_FAILED, { userId: user.id, ip });
+    if (locked) await recordAuditEvent(AUDIT_ACTIONS.ACCOUNT_LOCKED, { userId: user.id, ip });
     throw new AppError("INVALID_CREDENTIALS");
   }
 

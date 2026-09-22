@@ -70,10 +70,11 @@ export async function requestPasswordReset(email, { detach } = {}) {
 /**
  * Consumes a reset token and applies the new password.
  *
- * Returns the user's email so the caller can send the notice, which is
- * sent AFTER the transaction commits: a notice for a reset that then
- * rolled back would be worse than no notice, since it invites the reader
- * to panic about a change that never happened.
+ * Returns the user's id and email so the caller can send the notice and
+ * write the audit event, which are both sent AFTER the transaction
+ * commits: a notice or audit row for a reset that then rolled back would
+ * be worse than none, since it invites the reader to believe a change
+ * that never happened.
  *
  * Deliberately does NOT sign the user in. Holding a mailbox link proves
  * the mailbox, not that this browser belongs to that person, and issuing
@@ -90,7 +91,7 @@ export async function requestPasswordReset(email, { detach } = {}) {
  * @param {string} token
  * @param {string} newPassword
  * @param {Date} [now]
- * @returns {Promise<{ email: string }>}
+ * @returns {Promise<{ userId: string, email: string }>}
  */
 export async function resetPassword(token, newPassword, now = new Date()) {
   // Hashed BEFORE the transaction opens: bcrypt at cost 12 takes hundreds
@@ -98,7 +99,7 @@ export async function resetPassword(token, newPassword, now = new Date()) {
   // would pin a connection from a small pool for the duration.
   const passwordHash = await hashPassword(newPassword);
 
-  const { email } = await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const { userId } = await consumeAuthToken(tx, token, "PASSWORD_RESET", now);
 
     const user = await tx.user.update({
@@ -115,7 +116,7 @@ export async function resetPassword(token, newPassword, now = new Date()) {
         failedLoginCount: 0,
         lockedUntil: null,
       },
-      select: { email: true },
+      select: { id: true, email: true },
     });
 
     // The fourth thing. Every other unused reset token for this user is
@@ -128,7 +129,7 @@ export async function resetPassword(token, newPassword, now = new Date()) {
     return user;
   });
 
-  return { email };
+  return { userId: updated.id, email: updated.email };
 }
 
 /**

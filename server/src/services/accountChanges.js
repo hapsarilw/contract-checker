@@ -151,7 +151,7 @@ export async function requestEmailChange(userId, { newEmail, currentPassword }) 
  *
  * @param {string} token
  * @param {Date} [now]
- * @returns {Promise<{ email: string }>}
+ * @returns {Promise<{ userId: string, email: string }>}
  */
 export async function confirmEmailChange(token, now = new Date()) {
   return prisma.$transaction(async (tx) => {
@@ -179,7 +179,7 @@ export async function confirmEmailChange(token, now = new Date()) {
           emailVerifiedAt: now,
         },
       });
-      return { email: updated.email };
+      return { userId: updated.id, email: updated.email };
     } catch (err) {
       // Someone else claimed the address between the request and the
       // confirmation. The unique index is the authority; a check here
