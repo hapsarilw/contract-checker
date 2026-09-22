@@ -97,7 +97,10 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
   });
 
   it.each([
-    ["10 characters", "1234567890"],
+    // Not "1234567890": that is on FR-1.2's breached list (step 54), so it
+    // would be refused for a reason that has nothing to do with the length
+    // bound this case exists to check.
+    ["10 characters", "qz7-plum-w"],
     ["200 characters", "a".repeat(200)],
   ])("accepts a password of exactly %s — the bounds are inclusive", async (_label, password) => {
     const res = await request(testServer())

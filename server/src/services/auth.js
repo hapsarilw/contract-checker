@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import config from "../config.js";
 import prisma from "../lib/prisma.js";
 import { AppError } from "../lib/AppError.js";
+import { assertPasswordNotBreached } from "./breachedPasswords.js";
+import { assertNotLockedOut, clearFailedLogins, recordFailedLogin } from "./lockout.js";
 
 /** FR-1.1 — bcrypt cost factor 12. */
 const BCRYPT_COST = 12;
@@ -127,6 +129,10 @@ export function toPublicUser(user) {
  * deliberately: the friction belongs where the cost is, not at the door.
  */
 export async function registerUser({ email, password }) {
+  // FR-1.2, before the bcrypt work: a password on the breached list is
+  // refused whatever else is true of it.
+  assertPasswordNotBreached(password);
+
   const passwordHash = await hashPassword(password);
 
   try {
@@ -153,6 +159,13 @@ export async function registerUser({ email, password }) {
 export async function authenticate({ email, password }) {
   const user = await prisma.user.findUnique({ where: { email } });
 
+  // FR-1.10, before the bcrypt work — there is nothing to check a password
+  // against while the account is locked. The 429 does disclose that the
+  // account exists, which FR-1.6 otherwise forbids; that is the spec's own
+  // trade and a narrow one, since reaching it costs ten failed attempts
+  // against an address the attacker already suspected.
+  assertNotLockedOut(user);
+
   if (!user) {
     await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
     throw new AppError("INVALID_CREDENTIALS");
@@ -160,8 +173,14 @@ export async function authenticate({ email, password }) {
 
   const matches = await bcrypt.compare(password, user.passwordHash);
   if (!matches) {
+    // One UPDATE against a bcrypt comparison that already cost hundreds of
+    // milliseconds, so FR-1.6's "comparable timing" survives it. The
+    // response is identical to the unknown-email path either way.
+    await recordFailedLogin(user.id);
     throw new AppError("INVALID_CREDENTIALS");
   }
 
+  // FR-1.10: "the counter resets on success."
+  await clearFailedLogins(user);
   return user;
 }

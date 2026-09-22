@@ -30,6 +30,12 @@ model User {
   emailVerifiedAt  DateTime?
   tokenVersion     Int         @default(0) // FR-1.9
   failedLoginCount Int         @default(0) // FR-1.10
+  // When the current run of consecutive failures started. FR-1.10 counts
+  // 10 failures WITHIN 15 MINUTES, and without a timestamp the window
+  // cannot be enforced: ten typos spread over a year would lock the
+  // account, which hands an attacker a slow denial of service against a
+  // legitimate user. Nullable, so the expand migration needs no backfill.
+  firstFailedLoginAt DateTime?
   lockedUntil      DateTime?
   monthlyAnalyses  Int         @default(0) // FR-5.1 fallback of record
   quotaPeriodStart DateTime    @default(now())

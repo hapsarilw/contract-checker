@@ -444,6 +444,7 @@ model User {
   emailVerifiedAt   DateTime?
   tokenVersion      Int        @default(0)   // FR-1.9
   failedLoginCount  Int        @default(0)   // FR-1.10
+  firstFailedLoginAt DateTime?               // FR-1.10's 15-minute window
   lockedUntil       DateTime?
   monthlyAnalyses   Int        @default(0)   // FR-5.1 fallback of record
   quotaPeriodStart  DateTime   @default(now())
