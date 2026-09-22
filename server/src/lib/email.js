@@ -240,6 +240,9 @@ function withLinks(type, params, origin) {
   if (type === "password_reset") {
     return { resetUrl: `${origin}/reset-password?token=${encodeURIComponent(params.token ?? "")}` };
   }
+  if (type === "email_change_verification") {
+    return { confirmUrl: `${origin}/confirm-email-change?token=${encodeURIComponent(params.token ?? "")}` };
+  }
   return params;
 }
 

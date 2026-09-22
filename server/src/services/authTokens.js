@@ -25,10 +25,20 @@ import { AppError } from "../lib/AppError.js";
  * race has to live where the race is decided.
  */
 
-/** FR-1.7 and FR-1.8. */
+/**
+ * FR-1.7, FR-1.8 and FR-1.13. A type with no entry here is a programming
+ * error, and the guard in issueAuthToken exists because of how quietly it
+ * fails without one: `now + undefined` is NaN, which becomes an Invalid
+ * Date, which Prisma rejects — surfacing as a 500 from whatever route
+ * happened to call it, with nothing in the message pointing at the
+ * missing line. Exactly that happened when EMAIL_CHANGE was added.
+ */
 export const TOKEN_TTL_MS = Object.freeze({
   EMAIL_VERIFICATION: 24 * 60 * 60 * 1000,
+  // Much shorter, deliberately: a live reset link is an account takeover
+  // waiting to happen, where a live verification link is not.
   PASSWORD_RESET: 30 * 60 * 1000,
+  EMAIL_CHANGE: 24 * 60 * 60 * 1000,
 });
 
 /** 32 bytes, per FR-1.7. */
@@ -48,13 +58,18 @@ export const hashToken = (token) => createHash("sha256").update(token, "utf8").d
  * @param {{ now?: Date, db?: Pick<typeof prisma, "authToken"> }} [options]
  */
 export async function issueAuthToken(userId, type, { now = new Date(), db = prisma } = {}) {
+  const ttl = TOKEN_TTL_MS[type];
+  if (typeof ttl !== "number") {
+    throw new Error(`issueAuthToken: no TTL configured for token type "${type}" — add one to TOKEN_TTL_MS`);
+  }
+
   const token = randomBytes(TOKEN_BYTES).toString("base64url");
   await db.authToken.create({
     data: {
       userId,
       type,
       tokenHash: hashToken(token),
-      expiresAt: new Date(now.getTime() + TOKEN_TTL_MS[type]),
+      expiresAt: new Date(now.getTime() + ttl),
     },
   });
   return token;

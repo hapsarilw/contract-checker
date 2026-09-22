@@ -123,6 +123,27 @@ export function passwordChangedEmail() {
 }
 
 /**
+ * FR-1.13, sent to the NEW address. Deliberately not the signup
+ * verification template: that one welcomes someone to the product, which
+ * would read as nonsense to a person who has had an account for months.
+ *
+ * @param {{ confirmUrl: string }} params
+ */
+export function emailChangeVerificationEmail({ confirmUrl }) {
+  return {
+    subject: `Confirm your new ${PRODUCT} email address`,
+    ...render(
+      [
+        "You asked to move your ClauseCheck account to this address.",
+        "The link below works once and expires in 24 hours. Until you open it, your account keeps its old address and nothing changes.",
+        IGNORE,
+      ],
+      { label: "Confirm this address", url: confirmUrl },
+    ),
+  };
+}
+
+/**
  * Sent to the OLD address. The new address may be an attacker's, and the
  * person who owns the old one is the only one who can object.
  *
@@ -162,6 +183,7 @@ export function accountDeletedEmail() {
  */
 export const TEMPLATES = Object.freeze({
   verification: verificationEmail,
+  email_change_verification: emailChangeVerificationEmail,
   password_reset: passwordResetEmail,
   password_changed: passwordChangedEmail,
   email_changed: emailChangedEmail,

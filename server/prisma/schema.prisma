@@ -28,6 +28,11 @@ model User {
   passwordHash     String
   state            UserState   @default(UNVERIFIED)
   emailVerifiedAt  DateTime?
+  // FR-1.13: the address a change is waiting on. Held HERE rather than
+  // overwritten onto `email`, because the change takes effect only when
+  // the new address is verified — overwriting first would lock the user
+  // out of an address they have not yet proven they can read.
+  pendingEmail     String?
   tokenVersion     Int         @default(0) // FR-1.9
   failedLoginCount Int         @default(0) // FR-1.10
   // When the current run of consecutive failures started. FR-1.10 counts
@@ -168,6 +173,9 @@ enum UserState {
 enum AuthTokenType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
+  // FR-1.13. Its own type so a signup-verification link cannot confirm an
+  // address change, and vice versa.
+  EMAIL_CHANGE
 }
 
 enum SourceType {

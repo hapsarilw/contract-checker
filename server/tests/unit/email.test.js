@@ -245,6 +245,7 @@ describe("what is NEVER logged (SRS §6.5)", () => {
     TEMPLATES[/** @type {keyof typeof TEMPLATES} */ (type)]({
       verifyUrl: `${ORIGIN}/x?token=${SECRET_TOKEN}`,
       resetUrl: `${ORIGIN}/y?token=${SECRET_TOKEN}`,
+      confirmUrl: `${ORIGIN}/z?token=${SECRET_TOKEN}`,
       newEmail: ADDRESS,
     });
     expect(logs.calls).toHaveLength(0);

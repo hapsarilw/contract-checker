@@ -49,7 +49,14 @@ describe("Prisma schema conformance with SRS §5.1", () => {
     });
 
     it("AuthTokenType", () => {
-      expect(Object.values(AuthTokenType)).toEqual(["EMAIL_VERIFICATION", "PASSWORD_RESET"]);
+      // EMAIL_CHANGE is its own type (FR-1.13, step 55) rather than a
+      // reused EMAIL_VERIFICATION: sharing one would let a signup link
+      // confirm an address change, and a change link finish a signup.
+      expect(Object.values(AuthTokenType)).toEqual([
+        "EMAIL_VERIFICATION",
+        "PASSWORD_RESET",
+        "EMAIL_CHANGE",
+      ]);
     });
 
     it("SourceType", () => {

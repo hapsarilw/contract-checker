@@ -283,6 +283,8 @@ Errors follow one shape:
 | POST | `/api/v1/auth/forgot-password` | — | Always 202 **[P1.5]** |
 | POST | `/api/v1/auth/reset-password` | — | Consume reset token, bump `tokenVersion` **[P1.5]** |
 | POST | `/api/v1/auth/change-password` | ✓ | Requires current password **[P1.5]** |
+| POST | `/api/v1/auth/change-email` | ✓ | Requires current password; verifies the NEW address **[P1.5]** |
+| POST | `/api/v1/auth/confirm-email-change` | — | Consume the change token; the change takes effect here **[P1.5]** |
 | POST | `/api/v1/documents` | ✓ | Upload (multipart, field `file`) or paste (JSON `{ "text": "..." }`) |
 | POST | `/api/v1/documents/:id/analyze` | ✓ | Run analysis; returns full report |
 | GET | `/api/v1/documents` | ✓ | List user's documents, paginated |
@@ -442,6 +444,7 @@ model User {
   passwordHash      String
   state             UserState  @default(UNVERIFIED)
   emailVerifiedAt   DateTime?
+  pendingEmail      String?                 // FR-1.13, until the new address is verified
   tokenVersion      Int        @default(0)   // FR-1.9
   failedLoginCount  Int        @default(0)   // FR-1.10
   firstFailedLoginAt DateTime?               // FR-1.10's 15-minute window
@@ -542,7 +545,7 @@ model AuditEvent {
 }
 
 enum UserState     { UNVERIFIED ACTIVE LOCKED SUSPENDED }
-enum AuthTokenType { EMAIL_VERIFICATION PASSWORD_RESET }
+enum AuthTokenType { EMAIL_VERIFICATION PASSWORD_RESET EMAIL_CHANGE }
 enum SourceType    { UPLOAD_PDF UPLOAD_DOCX PASTE }
 enum Status        { PENDING COMPLETED FAILED }
 enum Risk          { LOW MEDIUM HIGH }

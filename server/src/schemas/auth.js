@@ -89,3 +89,29 @@ export const resetPasswordSchema = z
       .max(PASSWORD_MAX_LENGTH, `must be at most ${PASSWORD_MAX_LENGTH} characters`),
   })
   .strict();
+
+/** FR-1.11. The new password is held to registration's rules. */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string(),
+    newPassword: z
+      .string()
+      .min(PASSWORD_MIN_LENGTH, `must be at least ${PASSWORD_MIN_LENGTH} characters`)
+      .max(PASSWORD_MAX_LENGTH, `must be at most ${PASSWORD_MAX_LENGTH} characters`),
+  })
+  .strict();
+
+/** FR-1.13. The current password re-authenticates the change. */
+export const changeEmailSchema = z
+  .object({
+    email: emailField,
+    currentPassword: z.string(),
+  })
+  .strict();
+
+/** The token from the confirmation link sent to the new address. */
+export const confirmEmailChangeSchema = z
+  .object({
+    token: z.string().min(20, "is not a valid token").max(128, "is not a valid token"),
+  })
+  .strict();

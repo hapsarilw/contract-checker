@@ -11,6 +11,9 @@ import {
   resendVerificationUserLimiter,
 } from "../middleware/rateLimits.js";
 import {
+  changeEmailSchema,
+  changePasswordSchema,
+  confirmEmailChangeSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -18,6 +21,12 @@ import {
   verifyEmailSchema,
 } from "../schemas/auth.js";
 import { resendVerification, sendVerificationEmail, verifyEmail } from "../services/emailVerification.js";
+import {
+  changePassword,
+  confirmEmailChange,
+  logoutEverywhere,
+  requestEmailChange,
+} from "../services/accountChanges.js";
 import {
   requestPasswordReset,
   resetPassword,
@@ -206,5 +215,79 @@ router.post("/reset-password", validateBody(resetPasswordSchema), async (req, re
     next(err);
   }
 });
+
+// POST /api/v1/auth/change-password — FR-1.11.
+//
+// Increments tokenVersion AND issues a fresh cookie. The second half is
+// the one that is easy to leave out, and its absence is a miserable bug:
+// the user changes their password and is instantly 401 SESSION_REVOKED
+// out of the very session that did it, which reads as "the change
+// failed" when it in fact succeeded.
+router.post(
+  "/change-password",
+  requireAuth,
+  validateBody(changePasswordSchema),
+  async (req, res, next) => {
+    try {
+      const user = await changePassword(req.auth.userId, req.body);
+      issueSession(res, user);
+      res.status(200).json({ changed: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/v1/auth/logout-all — FR-1.9's answer to a lost laptop.
+//
+// Bumps tokenVersion and mints nothing, so every session dies including
+// this one. The cookie is cleared as well, so the browser that asked is
+// not left holding one that now fails on the next request.
+router.post("/logout-all", requireAuth, async (req, res, next) => {
+  try {
+    await logoutEverywhere(req.auth.userId);
+    res.clearCookie(SESSION_COOKIE_NAME, clearSessionCookieOptions());
+    res.status(200).json({ signedOutEverywhere: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/v1/auth/change-email — FR-1.13, the request half.
+//
+// Records the address as PENDING and emails it a link; the account keeps
+// its current address until that link is opened. The old address is
+// notified in the same breath, because the new one may be an attacker's
+// and the person holding the old one is the only one who can object.
+router.post("/change-email", requireAuth, validateBody(changeEmailSchema), async (req, res, next) => {
+  try {
+    await requestEmailChange(req.auth.userId, {
+      newEmail: req.body.email,
+      currentPassword: req.body.currentPassword,
+    });
+    res.status(202).json({
+      pending: true,
+      message: "Check the new address for a confirmation link. Until you open it, nothing changes.",
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/v1/auth/confirm-email-change — FR-1.13, where the change
+// actually happens. Unauthenticated for the same reason verify-email is:
+// the link may well be opened on a different device.
+router.post(
+  "/confirm-email-change",
+  validateBody(confirmEmailChangeSchema),
+  async (req, res, next) => {
+    try {
+      const { email } = await confirmEmailChange(req.body.token);
+      res.status(200).json({ changed: true, email });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;
