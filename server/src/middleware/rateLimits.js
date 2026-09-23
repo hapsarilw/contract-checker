@@ -277,6 +277,39 @@ export const forgotPasswordIpLimiter = createLimiter({
     `Too many password reset requests from this address. Try again in about ${retryTime}.`,
 });
 
+/**
+ * FR-4.5: the data export is limited to 3 per day per USER.
+ *
+ * The limit is not rationing someone's access to their own data — three a
+ * day is far more than anyone needs, and the right itself is not
+ * negotiable. It is there because of what one call costs the database:
+ * FR-2.13 caps a user at 100 documents or 50 MB of stored text, and the
+ * export reads all of it, raw text included, in one query. Unmetered,
+ * that is a cheap way for one authenticated account to make the database
+ * do expensive work in a loop.
+ *
+ * FAILS OPEN, following FR-5.6's rule for read paths. Nothing here spends
+ * provider tokens, the caller is authenticated, and the only data at risk
+ * of being read repeatedly is the caller's own — so the failure the
+ * closed policy exists to prevent (an unmetered path that costs money, or
+ * that reaches a third party) does not apply. The honest cost of open is
+ * that during a Redis outage the 50 MB read has no ceiling but the
+ * general bucket, which is open too.
+ *
+ * A 24-hour FIXED window, like every other limiter in this file, not a
+ * rolling one: the fourth call is refused until 24 hours after the first,
+ * which is the same reading of "3 per day" the rest of the system uses.
+ */
+export const accountExportLimiter = createLimiter({
+  windowMs: 24 * HOUR_MS,
+  limit: 3,
+  prefix: "rl:export:",
+  failurePolicy: "open",
+  keyGenerator: (req) => `user:${req.auth.userId}`,
+  buildMessage: (retryTime) =>
+    `You've requested 3 data exports today, which is the daily limit. Try again in about ${retryTime}.`,
+});
+
 export const generalLimiter = createLimiter({
   windowMs: 15 * MINUTE_MS,
   limit: 100,

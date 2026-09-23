@@ -180,6 +180,7 @@ const AUDITED_SIDE_EFFECT_FREE_GET_ROUTES = [
   "GET /api/v1/auth/me", // findUnique on the session's own user
   "GET /api/v1/documents/:id", // findFirst on the document and its latest analysis; reads only
   "GET /api/v1/documents/", // findMany, cursor-paginated; reads only (registeredRoutes concatenates the mount prefix with the route's own "/" path)
+  "GET /api/v1/account/export", // FR-4.5: findUniqueOrThrow + findMany over the caller's own rows; writes nothing, not even an audit event
 ];
 
 function registeredRoutes(expressApp) {

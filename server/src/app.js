@@ -11,6 +11,7 @@ import { AppError } from "./lib/AppError.js";
 import opsRouter from "./routes/ops.js";
 import authRouter from "./routes/auth.js";
 import documentsRouter from "./routes/documents.js";
+import accountRouter from "./routes/account.js";
 
 const app = express();
 
@@ -207,9 +208,10 @@ app.use("/api/v1", generalLimiter);
 // Ops routes — outside the /api/v1 prefix (§4): health, ready, version.
 app.use("/api", opsRouter);
 
-// Product routes — under /api/v1 (§4). Account follows at step 57.
+// Product routes — under /api/v1 (§4).
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/documents", documentsRouter);
+app.use("/api/v1/account", accountRouter);
 
 // Catch-all for any path that reaches here unmatched by a real route.
 app.use((req, res, next) => {

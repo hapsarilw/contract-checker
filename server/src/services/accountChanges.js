@@ -21,16 +21,30 @@ import { hashPassword } from "./auth.js";
  *   change-email     no bump at all. See requestEmailChange.
  */
 
-/** Re-authentication for a change that could hand over the account. */
-async function assertCurrentPassword(user, currentPassword) {
-  const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+/**
+ * Re-authentication for a change that could hand over — or destroy — the
+ * account. Exported because FR-4.6's deletion (services/account.js) needs
+ * the same check: one place decides what a failed confirmation means, so
+ * a second caller cannot quietly answer 401 where this one answers 400.
+ *
+ * `field` names the body property that was wrong, since the routes do not
+ * agree on one name: change-password and change-email carry a NEW value
+ * alongside, so theirs is `currentPassword`, while deletion has only one
+ * password in the body and calls it `password`.
+ *
+ * @param {{ passwordHash: string }} user
+ * @param {string} password
+ * @param {string} [field]
+ */
+export async function assertCurrentPassword(user, password, field = "currentPassword") {
+  const matches = await bcrypt.compare(password, user.passwordHash);
   if (!matches) {
     // Not INVALID_CREDENTIALS: the session is valid and the caller is who
     // they say they are. What failed is the confirmation for this one
     // action, and a 401 would invite a client to log the user out over it.
     throw new AppError("VALIDATION_ERROR", {
       message: "That is not your current password.",
-      details: { field: "currentPassword" },
+      details: { field },
     });
   }
 }
