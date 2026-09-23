@@ -68,7 +68,16 @@ async function ownedDocument() {
   return { user, document, cookie: `${SESSION_COOKIE_NAME}=${token}` };
 }
 
-/** Bodyless, but FR-1.12(c) still requires a JSON Content-Type on a POST. */
+/**
+ * Bodyless, but FR-1.12(c) still requires a JSON Content-Type on a POST.
+ *
+ * `target` is always a LISTENING SERVER, never the Express app. Handing
+ * supertest the app makes it bind and close a fresh http.Server per
+ * request, which is the flake testServer.js documents. Nearly every call
+ * passes the shared one; the FR-3.8 concurrency test below passes a server
+ * of its own, on purpose, because it needs two simultaneous requests to be
+ * visibly arriving at one process.
+ */
 function analyze(target, documentId, cookie) {
   return request(target)
     .post(`/api/v1/documents/${documentId}/analyze`)
@@ -107,7 +116,7 @@ describe("a successful analysis (§2.2 steps 4-12)", () => {
       missing_clauses: ["No late payment interest is specified."],
     });
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(200);
     const { analysis } = res.body;
@@ -145,7 +154,7 @@ describe("a successful analysis (§2.2 steps 4-12)", () => {
       findings: [finding("high", EXCERPTS.ownership, "ip")],
     });
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.analysis).not.toHaveProperty("modelRisk");
@@ -171,7 +180,7 @@ describe("a successful analysis (§2.2 steps 4-12)", () => {
   it("sends the stored document text to the provider, with the request's correlation id", async () => {
     const { document, cookie } = await ownedDocument();
 
-    const res = await analyze(app, document.id, cookie).set(
+    const res = await analyze(testServer(), document.id, cookie).set(
       "X-Request-Id",
       "01J9TESTCORRELATION",
     );
@@ -188,7 +197,7 @@ describe("a successful analysis (§2.2 steps 4-12)", () => {
     const { document, cookie } = await ownedDocument();
     mockProvider().scriptValidResponse({}, { delayMs: 400 });
 
-    const inFlight = analyze(app, document.id, cookie).then((res) => res);
+    const inFlight = analyze(testServer(), document.id, cookie).then((res) => res);
     const row = await waitFor(() =>
       prisma.analysis.findFirst({ where: { documentId: document.id } }),
     );
@@ -205,7 +214,7 @@ describe("a successful analysis (§2.2 steps 4-12)", () => {
     const { document, cookie } = await ownedDocument();
     mockProvider().scriptValidResponse({ overall_risk: "medium", findings: [] });
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.analysis).toMatchObject({
@@ -225,7 +234,7 @@ describe("a successful analysis (§2.2 steps 4-12)", () => {
       ],
     });
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.analysis.overallRisk).toBe("LOW");
@@ -242,7 +251,7 @@ describe("a successful analysis (§2.2 steps 4-12)", () => {
     const { document, cookie } = await ownedDocument();
     await createAnalysis({ documentId: document.id });
 
-    expect((await analyze(app, document.id, cookie)).status).toBe(200);
+    expect((await analyze(testServer(), document.id, cookie)).status).toBe(200);
     expect(await analysesOf(document.id)).toHaveLength(2);
   });
 });
@@ -252,7 +261,7 @@ describe("TR-4 — ownership (FR-1.5)", () => {
     const { document } = await ownedDocument();
     const intruder = await ownedDocument();
 
-    const res = await analyze(app, document.id, intruder.cookie);
+    const res = await analyze(testServer(), document.id, intruder.cookie);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
@@ -263,7 +272,7 @@ describe("TR-4 — ownership (FR-1.5)", () => {
   it("returns the same 404 for a document that does not exist", async () => {
     const { cookie } = await ownedDocument();
 
-    const res = await analyze(app, "cm0doesnotexist0000000000", cookie);
+    const res = await analyze(testServer(), "cm0doesnotexist0000000000", cookie);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
@@ -287,7 +296,7 @@ describe("TR-5 — invalid model output (FR-3.2)", () => {
     // The third, valid script proves there is no second retry: it is never consumed.
     mockProvider().scriptMalformedJson().scriptMalformedJson().scriptValidResponse();
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(502);
     expect(res.body.error.code).toBe("LLM_INVALID_OUTPUT");
@@ -315,7 +324,7 @@ describe("TR-5 — invalid model output (FR-3.2)", () => {
     const { document, cookie } = await ownedDocument();
     mockProvider().scriptSchemaInvalid({ reason: "extra_key" }).scriptValidResponse();
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(200);
     const [row] = await analysesOf(document.id);
@@ -333,7 +342,7 @@ describe("TR-7 — every excerpt fails verification (FR-3.4)", () => {
     const { document, cookie } = await ownedDocument();
     mockProvider().scriptFabricatedExcerpts(FABRICATED);
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(502);
     expect(res.body.error.code).toBe("ALL_FINDINGS_DISCARDED");
@@ -360,7 +369,7 @@ describe("provider timeout (FR-3.6)", () => {
     const { document, cookie } = await ownedDocument();
     mockProvider().scriptTimeout();
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(504);
     expect(res.body.error.code).toBe("LLM_TIMEOUT");
@@ -385,7 +394,7 @@ describe("TR-8 — one PENDING analysis per document (FR-3.8)", () => {
       completedAt: null,
     });
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("ANALYSIS_IN_PROGRESS");
@@ -485,7 +494,7 @@ describe("TR-20 — COMPLETED and its findings commit together (FR-3.13)", () =>
           : realUpdate(args),
     );
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(500);
     const rows = await analysesOf(document.id);
@@ -502,7 +511,7 @@ describe("TR-20 — COMPLETED and its findings commit together (FR-3.13)", () =>
     scriptTwoFindings();
     crashFindingInsert(new Error("simulated database failure during finding insertion"));
 
-    const res = await analyze(app, document.id, cookie);
+    const res = await analyze(testServer(), document.id, cookie);
 
     expect(res.status).toBe(500);
     const rows = await analysesOf(document.id);
