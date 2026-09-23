@@ -16,8 +16,43 @@ import { analyzeDocument } from "../services/analysis.js";
 import { intakeUpload, intakePastedText } from "../services/intake.js";
 import { pasteDocumentSchema } from "../schemas/document.js";
 import { decodeCursor, encodeCursor, resolvePageLimit } from "../lib/pagination.js";
+import { findIdempotentResponse, readIdempotencyKey, storeIdempotentResponse } from "../lib/idempotency.js";
 
 const router = Router();
+
+/**
+ * FR-3.15 middleware: on a cache hit, answers with the ORIGINAL response
+ * and never calls next() — the handler below, and everything mounted
+ * ahead of it (content-length check, upload concurrency slot, multer),
+ * never runs for a replay.
+ *
+ * On a miss (no header, an unusable header, or nothing cached yet) it
+ * stashes the key on `req.idempotencyKey` so the handler can store the
+ * response once it has one, and calls next() unconditionally — a client
+ * that never sent the header sees no change in behaviour at all, which
+ * is FR-3.15's own "a request with no key behaves as before".
+ */
+async function replayIdempotentRequest(req, res, next) {
+  try {
+    const key = readIdempotencyKey(req);
+    if (!key) {
+      next();
+      return;
+    }
+
+    req.idempotencyKey = key;
+
+    const cached = await findIdempotentResponse(req.auth.userId, key);
+    if (cached) {
+      res.status(cached.status).json(cached.body);
+      return;
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
 
 /**
  * POST /api/v1/documents — FR-2.1: multipart upload (field "file") or
@@ -36,10 +71,17 @@ const router = Router();
  * FR-1.7 does not gate this route. An UNVERIFIED account may create
  * documents; only POST /documents/:id/analyze checks verification
  * (step 52) — this file has no state check and must not grow one.
+ *
+ * FR-3.15's Idempotency-Key check runs FIRST, immediately after auth and
+ * before any of it — the content-length check, the upload-concurrency
+ * slot, multer — because a replayed request should cost nothing beyond
+ * one Redis read. A cache hit answers directly from
+ * replayIdempotentRequest and never reaches this handler at all.
  */
 router.post(
   "/",
   requireAuth,
+  replayIdempotentRequest,
   rejectOversizeByContentLength,
   // FR-2.12, between the cheap header check and the expensive buffering:
   // a slot claimed after multer has read the bytes has already failed to
@@ -80,7 +122,18 @@ router.post(
         ...intakeResult,
       });
 
-      res.status(201).json({ document: serializeDocument(document) });
+      const body = { document: serializeDocument(document) };
+
+      // FR-3.15: only when a key was actually offered. AWAITED, so the
+      // key exists in Redis before the client can possibly see this 201
+      // and retry — not doing so would reopen the exact "response before
+      // the row exists" race step 56 already found once with the audit
+      // trail.
+      if (req.idempotencyKey) {
+        await storeIdempotentResponse(req.auth.userId, req.idempotencyKey, 201, body);
+      }
+
+      res.status(201).json(body);
     } catch (err) {
       next(err);
     }
