@@ -33,6 +33,7 @@ import prisma from "./lib/prisma.js";
 import { attachGracefulShutdown } from "./lib/gracefulShutdown.js";
 import { flushEmails } from "./lib/email.js";
 import { closeRedis } from "./lib/redis.js";
+import { startReaper, stopReaper } from "./jobs/reaper.js";
 
 const server = app.listen(config.PORT, () => {
   logger.info(
@@ -53,6 +54,11 @@ server.requestTimeout = config.timeouts.serverRequest;
 server.keepAliveTimeout = config.timeouts.keepAlive;
 server.headersTimeout = config.timeouts.headers;
 
+// FR-3.8 / §12.3 — started once the server is accepting requests, not
+// before: the reaper's first tick is a real database write, and there is
+// no reason for it to race the server's own boot.
+const reaperHandle = startReaper();
+
 attachGracefulShutdown({
   server,
   drainMs: config.timeouts.shutdownDrain,
@@ -68,7 +74,11 @@ attachGracefulShutdown({
   // keeps the event loop alive, so SIGTERM would drain cleanly and then
   // hang until the orchestrator's kill timer fired.
   onDrained: async () => {
-    // Email first, because a message one retry from delivered is worth
+    // Stopped first: no new reaper tick should start once the process is
+    // on its way out, and definitely not one that opens a transaction
+    // after the pool below has closed.
+    stopReaper(reaperHandle);
+    // Email next, because a message one retry from delivered is worth
     // waiting for (bounded — flushEmails gives up after five seconds).
     await flushEmails();
     await Promise.allSettled([prisma.$disconnect(), closeRedis()]);
