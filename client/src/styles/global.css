@@ -1,34 +1,91 @@
 /**
- * BUILD-PLAN step 29, bullet 3 — the prototype's global stylesheet
- * (docs/design/ClauseCheck.html, the small <style> block right after its
- * @font-face declarations), ported rule-for-rule and re-expressed through
- * the tokens in tokens.css. The prototype already gets the accessibility
- * behaviour right (:focus-visible, prefers-reduced-motion) — this file
- * keeps it, not rewrites it.
+ * Global base. Every value here comes from tokens.css; this file's job is
+ * the document-level behaviour tokens cannot express — the paper surface,
+ * the focus treatment, the reduced-motion contract, and the handful of
+ * utility classes the accessibility work depends on.
  */
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  /* Anchored navigation (the report's finding list) should not slam the
+     target under the sticky header. */
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--cc-space-9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
   margin: 0;
-  background: var(--cc-surface-page);
+  min-height: 100dvh;
+  background-color: var(--cc-surface-page);
   color: var(--cc-ink);
   font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/**
+ * THE PAPER GRAIN, and why it is drawn rather than downloaded.
+ *
+ * A flat fill is the single clearest "this was generated" signal in a
+ * light interface: real printed and photographed surfaces are never one
+ * uniform value. This adds a fractal-noise field at 3% opacity over the
+ * page, which is enough to break the flatness and not enough to read as
+ * a texture.
+ *
+ * It is an inline SVG data URI because FR-7.9's CSP is
+ * `img-src 'self' data:` — a hosted texture from any other origin would
+ * be blocked, and shipping a PNG would cost a request and a cache entry
+ * for something that is 400 bytes of markup. `data:` is explicitly
+ * allowed, so this is within the policy as written, not an exception to
+ * it.
+ *
+ * Fixed and pointer-events:none, per the skill's DOM-cost rule: a grain
+ * layer attached to a SCROLLING container repaints the filter on every
+ * frame and destroys mobile frame rate. Attached to the viewport it is
+ * composited once.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Every real surface sits above the grain. */
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 a {
   color: var(--cc-brand);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 0.18em;
   text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--cc-brand) 35%, transparent);
+  transition: text-decoration-color var(--cc-duration-fast) var(--cc-ease-out);
 }
 
 a:hover {
   color: var(--cc-brand-hover);
+  text-decoration-color: currentColor;
 }
 
 button {
@@ -36,13 +93,20 @@ button {
   letter-spacing: inherit;
 }
 
+/**
+ * One focus treatment for the whole app: a 2px brand ring, offset so it
+ * never sits on top of the control's own border. Kept as `:focus-visible`
+ * rather than `:focus` so a pointer user does not see a ring they did not
+ * ask for, which is the behaviour the prototype already had right.
+ */
 :focus-visible {
   outline: var(--cc-border-width-focus) solid var(--cc-brand);
   outline-offset: 2px;
+  border-radius: var(--cc-radius-sm);
 }
 
 ::selection {
-  background: #dce5e0;
+  background: color-mix(in srgb, var(--cc-brand) 18%, transparent);
 }
 
 blockquote {
@@ -52,6 +116,39 @@ blockquote {
 input::placeholder,
 textarea::placeholder {
   color: var(--cc-placeholder);
+}
+
+/* ---- Motion primitives ---------------------------------------------
+   One entrance shape, `cc-rise`, used by every screen. It animates
+   transform only, so it stays on the compositor and can never affect a
+   contrast reading (see the note on the keyframes below).
+
+   `cc-pulse` is kept from the previous system because the analysing
+   screen's indicator depends on it. It is the one place opacity is
+   animated, and it is applied to a decorative mark with no text in it. */
+
+/**
+ * TRANSFORM ONLY. NO OPACITY. This started as a fade-and-rise and the
+ * fade had to go, for a reason worth recording because it is not
+ * obvious: while an element is mid-fade its text is composited against
+ * whatever is behind it, so its REAL contrast ratio during those few
+ * hundred milliseconds is lower than the ratio the palette was designed
+ * for. axe caught exactly that, reporting a 2.19:1 body paragraph on the
+ * sign-in panel because it sampled the page while the panel sat at about
+ * two thirds opacity.
+ *
+ * A reader with slow vision tracking, or anyone whose machine is busy
+ * enough to stretch those milliseconds, sees the same thing axe did.
+ * Sliding into place carries the same "this just arrived" meaning and
+ * cannot make text unreadable at any frame.
+ */
+@keyframes cc-rise {
+  from {
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    transform: none;
+  }
 }
 
 @keyframes cc-pulse {
@@ -64,24 +161,23 @@ textarea::placeholder {
   }
 }
 
-@keyframes cc-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/**
+ * Entrance helper. `--cc-rise-delay` lets a caller stagger a group
+ * without a per-item class, and `backwards` holds the offset position
+ * during that delay so a staggered item does not sit at its final place
+ * and then jump.
+ */
+.cc-rise {
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
+  animation-delay: var(--cc-rise-delay, 0ms);
 }
 
 /**
- * BUILD-PLAN step 30 — not from the prototype (a static comp has no
- * screen-reader-only content to hide), added for CopyButton's
- * aria-live="polite" confirmation region: visible to assistive
- * technology, invisible on screen, and — unlike `display:none` or
- * `visibility:hidden` — still perceivable by a screen reader, which is
- * the entire point of a live region. The standard clip-based pattern,
- * not `width/height:0`, because some screen readers skip zero-size
- * elements entirely.
+ * Screen-reader-only content: visible to assistive technology, invisible
+ * on screen, and still perceivable by a screen reader (unlike
+ * `display:none` or `visibility:hidden`), which is the entire point of a
+ * live region. The standard clip-based pattern rather than
+ * `width/height:0`, because some screen readers skip zero-size elements.
  */
 .cc-sr-only {
   position: absolute;
@@ -96,37 +192,46 @@ textarea::placeholder {
 }
 
 /**
- * BUILD-PLAN step 32, SRS §7.15's Keyboard row: "a skip link to main."
- * Also not from the prototype (a static comp has no keyboard user to
- * skip ahead for). `.cc-sr-only`'s clip-based hiding, but WITHOUT
- * `position: absolute` baked in as fixed off-screen — this needs to
- * become visible in normal flow on focus, so it's redefined here rather
- * than composed with `.cc-sr-only`.
+ * SRS §7.15's Keyboard row: "a skip link to main." `.cc-sr-only`'s
+ * clip-based hiding, but WITHOUT `position: absolute` baked in as fixed
+ * off-screen — this needs to become visible in normal flow on focus, so
+ * it is redefined here rather than composed with `.cc-sr-only`.
  */
 .cc-skip-link {
   position: absolute;
   top: -999px;
   left: 0;
   z-index: 100;
-  padding: var(--cc-space-4) var(--cc-space-6);
+  padding: var(--cc-space-3) var(--cc-space-5);
   background: var(--cc-brand);
-  color: var(--cc-surface-card);
+  color: #ffffff;
   font-size: var(--cc-text-base);
   font-weight: 500;
   text-decoration: none;
+  border-bottom-right-radius: var(--cc-radius-control);
 }
 
 .cc-skip-link:focus-visible {
   top: 0;
 }
 
-/* The prototype disables every animation and transition outright rather
-   than substituting a reduced one — cc-pulse is a loading indicator and
-   cc-fade is a tooltip/panel entrance, neither carries information that a
-   reduced variant would need to preserve. */
+/**
+ * The reduced-motion contract, and it is absolute: every animation and
+ * transition in this app is decoration over a layout that already works
+ * standing still. Nothing here carries information a reduced variant
+ * would have to preserve — `cc-rise` only slides content that is present
+ * and readable either way, `cc-pulse` indicates work that the copy also
+ * states in words — so the honest response to the preference is to turn
+ * it all off rather than to substitute a smaller version of the thing
+ * the reader asked not to see.
+ */
 @media (prefers-reduced-motion: reduce) {
-  * {
-    animation: none !important;
-    transition: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -9,7 +9,7 @@
   background: transparent;
   border: 0;
   /* A non-text boundary, so WCAG 1.4.11's 3:1 applies: --cc-ink-muted
-     clears 3.62:1 against the card. */
+     clears 5.14:1 against the card under this palette. */
   border-bottom: var(--cc-border-width) dotted var(--cc-ink-muted);
   /* The prototype's 24px-plus target (WCAG 2.5.8) without changing the
      line's height: padding grows the hit area, the negative margin
@@ -17,10 +17,12 @@
   padding: 11px 1px;
   margin: -11px 0;
   cursor: help;
+  transition: background-color var(--cc-duration-fast) var(--cc-ease-out);
 }
 
 .cc-glossary__term--open {
-  background: var(--cc-success-tint);
+  background: var(--cc-brand-wash);
+  border-bottom-color: var(--cc-brand);
 }
 
 .cc-glossary__popover {
@@ -28,12 +30,13 @@
   top: 100%;
   left: 0;
   z-index: 30;
-  margin-top: 9px;
-  width: min(276px, calc(100vw - 32px));
+  margin-top: var(--cc-space-2);
+  width: min(300px, calc(100vw - 32px));
   display: block;
   text-align: left;
   background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule-strong);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius-control);
   box-shadow: var(--cc-shadow-popover);
   padding: 13px 15px;
 }
@@ -49,7 +52,7 @@
 
 .cc-glossary__popover-term {
   display: block;
-  font-size: 13px;
+  font-size: var(--cc-text-base);
   font-weight: 600;
   color: var(--cc-ink);
 }
@@ -57,7 +60,7 @@
 .cc-glossary__popover-meaning {
   display: block;
   font-size: var(--cc-text-base);
-  line-height: 1.58;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
   margin-top: var(--cc-space-2);
 }
@@ -73,14 +76,17 @@
     margin: var(--cc-space-3) 0 var(--cc-space-3);
     box-shadow: none;
     border: 0;
-    border-left: var(--cc-border-width-focus) solid var(--cc-rule-strong);
-    padding: 0 0 0 var(--cc-space-6);
+    border-radius: 0;
+    border-left: var(--cc-border-width-focus) solid var(--cc-rule);
+    padding: 0 0 0 var(--cc-space-4);
     background: transparent;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .cc-glossary__popover:not([hidden]) {
-    animation: cc-fade 120ms ease-out;
+    /* Slide, not fade: a fading popover is unreadable for the length of
+       the fade, and this one exists to be read. */
+    animation: cc-rise 140ms var(--cc-ease-out);
   }
 }

@@ -187,7 +187,7 @@ test.describe("/register", () => {
     // Present immediately, with an untouched, never-submitted form.
     await expect(
       page.getByText(
-        "At least 10 characters. No symbol requirements — length does the work.",
+        "At least 10 characters. No symbol requirements; length does the work.",
       ),
     ).toBeVisible();
   });

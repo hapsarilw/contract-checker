@@ -160,7 +160,7 @@ export default function AnalyzingPanel({ documentId, meta, onComplete, onBackToU
           </div>
           <h1 className="cc-analyzing__title">Reading your contract</h1>
           <p className="cc-analyzing__subhead">
-            This usually takes about 30 seconds. Keep this tab open — closing it stops the
+            This usually takes about 30 seconds. Keep this tab open. Closing it stops the
             check.
           </p>
 
@@ -204,8 +204,8 @@ export default function AnalyzingPanel({ documentId, meta, onComplete, onBackToU
             })}
           </div>
           <p className="cc-analyzing__honesty-note">
-            These steps describe the work being done, not a live count — we won't show you
-            a percentage we'd have to invent.
+            These steps describe the work being done, not a live count. We will not show
+            you a percentage we'd have to invent.
           </p>
         </main>
       </div>

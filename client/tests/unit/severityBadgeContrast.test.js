@@ -99,12 +99,26 @@ describe("SeverityBadge text/background contrast (SRS §7.15, WCAG 1.4.1)", () =
     },
   );
 
-  it("medium is the tightest margin, and it still clears the minimum", () => {
-    // A specific regression target, not just "all three pass": if a
-    // future palette change shaves even a little off medium's contrast,
-    // this fails before the aggregate check above needs to.
+  it("medium is still the tightest of the three", () => {
+    // Asserted as a RELATION rather than only as a number: which pairing
+    // has the least headroom is the fact worth protecting, and it
+    // survives a palette change where a hardcoded ratio does not.
+    const ratios = Object.fromEntries(
+      Object.entries(SEVERITY_COMBOS).map(([severity, { text, tint }]) => [
+        severity,
+        contrastRatio(text, tint),
+      ]),
+    );
+    expect(Math.min(...Object.values(ratios))).toBe(ratios.medium);
+  });
+
+  it("medium's headroom has not drifted", () => {
+    // The tight numeric pin the relation above cannot give: if a future
+    // palette edit shaves even a little off medium, this fails before the
+    // 4.5:1 aggregate check needs to. Updated deliberately when the
+    // palette moved from the warm-paper system to ink-and-cobalt.
     const ratio = contrastRatio(SEVERITY_COMBOS.medium.text, SEVERITY_COMBOS.medium.tint);
-    expect(ratio).toBeGreaterThanOrEqual(4.9);
-    expect(ratio).toBeLessThan(5.0);
+    expect(ratio).toBeGreaterThanOrEqual(5.4);
+    expect(ratio).toBeLessThan(5.6);
   });
 });

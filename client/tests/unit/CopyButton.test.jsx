@@ -7,7 +7,7 @@ const PROPS = {
   text: "Please cap total liability at the contract value.",
   label: "Copy this ask",
   copiedLabel: "Copied",
-  announcement: "Copied — paste it into your reply to the client.",
+  announcement: "Copied. Paste it into your reply to the client.",
 };
 
 describe("CopyButton (BUILD-PLAN step 30, SRS §7.15 Copy control row)", () => {

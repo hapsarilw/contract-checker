@@ -1,128 +1,178 @@
 /**
- * BUILD-PLAN step 33 — the prototype's "1. UPLOAD" screen
- * (docs/design/ClauseCheck.html), matched layout-for-layout. The
- * jurisdiction selector between the tab content and the footer cards is
- * deliberately NOT ported — BUILD-PLAN decision D-A, option A1.
+ * The upload screen.
+ *
+ * Three things changed beyond the palette. The hero's supporting
+ * paragraph was 45 words over four lines, which pushed the control the
+ * screen exists for below the comfortable fold; it is one sentence now,
+ * and the detail it used to carry lives in the facts list at the bottom,
+ * which is where someone looks when they want it. The three equal
+ * columns under the card are gone: three interchangeable boxes in a row
+ * is the most recognisable generated-layout shape there is, and the same
+ * content reads better as a term/description list. And the dropzone is
+ * an actual surface that responds to a dragged file rather than a dashed
+ * rectangle.
+ *
+ * The jurisdiction selector between the tab content and the footer is
+ * still deliberately NOT present — BUILD-PLAN decision D-A, option A1.
  */
 
 .cc-upload-page {
-  max-width: 1060px;
+  max-width: var(--cc-container);
   margin: 0 auto;
-  padding: 52px 28px 64px;
+  padding: var(--cc-space-9) var(--cc-space-6) var(--cc-space-10);
 }
 
+/* Two columns, baseline-aligned at the bottom: the headline takes the
+   left, its supporting sentence sits at the foot of the right. A single
+   centred or single-column hero left roughly half this viewport carrying
+   nothing, which is the same dead-space problem the sign-in screen had. */
 .cc-upload-page__hero {
-  max-width: 620px;
-  margin-bottom: 34px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: var(--cc-space-7);
+  align-items: end;
+  margin-bottom: var(--cc-space-8);
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
 }
 
+/* TWO SIZES INSIDE ONE HEADING, on purpose. The sentence is 13 words; at
+   one display size it wrapped to six lines, and a hero headline past two
+   lines is a font-size mistake rather than a copy-length one. The first
+   clause is the statement and gets the display size; the second is the
+   promise and drops two steps, which also stops the two halves competing
+   for the same emphasis. */
 .cc-upload-page__title {
-  margin: 0 0 var(--cc-space-7);
-  font-family: var(--cc-font-serif);
-  font-size: 42px;
-  line-height: 1.12;
+  margin: 0;
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-display);
+  line-height: var(--cc-leading-tight);
   font-weight: 600;
-  letter-spacing: -0.028em;
+  letter-spacing: var(--cc-tracking-tighter);
   color: var(--cc-ink);
 }
 
-/* #6B736D: the prototype's one-off accent for the hero's second line —
-   not one of tokens.css's named palette entries, used nowhere else. */
 .cc-upload-page__title-accent {
-  color: #6b736d;
+  display: block;
+  margin-top: var(--cc-space-3);
+  font-size: var(--cc-text-2xl);
+  line-height: var(--cc-leading-snug);
+  letter-spacing: var(--cc-tracking-tight);
+  font-weight: 500;
+  color: var(--cc-ink-muted);
+  max-width: 26ch;
 }
 
 .cc-upload-page__intro {
-  margin: 0;
+  margin: 0 0 var(--cc-space-1);
   font-size: var(--cc-text-lg);
-  line-height: var(--cc-leading-relaxed);
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
+  max-width: 34ch;
+  padding-left: var(--cc-space-5);
+  border-left: var(--cc-border-width-accent) solid var(--cc-brand);
 }
 
 .cc-upload-card {
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-top: var(--cc-border-width-accent) solid var(--cc-brand);
-  box-shadow: var(--cc-shadow-card);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  overflow: hidden;
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
+  animation-delay: 60ms;
 }
 
 .cc-upload-card__panel {
-  padding: 26px 26px 24px;
+  padding: var(--cc-space-6);
 }
 
 .cc-upload-card__error {
-  margin-bottom: var(--cc-space-9);
+  margin-bottom: var(--cc-space-5);
 }
 
 .cc-upload-card__error-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-3);
-  margin-top: var(--cc-space-6);
+  gap: var(--cc-space-2);
+  margin-top: var(--cc-space-4);
 }
 
 .cc-upload-card__error-code {
   font-family: var(--cc-font-mono);
-  font-size: 10.5px;
-  /* The prototype's own #9A857A here clears only 3.02:1 against the
-     danger banner's tint background (--cc-severity-high-tint) — axe
-     caught it (color-contrast, WCAG 1.4.3, SRS §7.15's Contrast row
-     needs 4.5:1 for body text). --cc-ink-secondary clears 6.21:1
-     against the same background and is already the ink used for body
-     text everywhere else in this app. */
+  font-size: var(--cc-text-xs);
+  /* --cc-ink-secondary clears 6.62:1 against the danger banner's tint,
+     which is the pairing axe caught the prototype failing at 3.02:1. */
   color: var(--cc-ink-secondary);
-  margin-top: var(--cc-space-6);
+  margin-top: var(--cc-space-3);
 }
 
-/* ---- Dropzone ------------------------------------------------------ */
+/* ---- Dropzone -------------------------------------------------------
+   A target, so it reads as one: its own surface, a dashed edge that
+   meets WCAG 1.4.11's 3:1 for a control boundary, and a lift on hover so
+   a pointer user can tell it is live before they drop a file on it. */
 
 .cc-dropzone {
-  border: 1px dashed #bebbab;
-  background: var(--cc-surface-muted);
-  padding: 56px 26px;
+  border: 2px dashed var(--cc-rule-input);
+  border-radius: var(--cc-radius);
+  background: var(--cc-surface-page);
+  padding: var(--cc-space-9) var(--cc-space-6);
   text-align: center;
+  transition:
+    border-color var(--cc-duration) var(--cc-ease-out),
+    background-color var(--cc-duration) var(--cc-ease-out),
+    transform var(--cc-duration) var(--cc-ease-out);
 }
 
+.cc-dropzone:hover {
+  border-color: var(--cc-ink-muted);
+}
+
+/* The armed state. Scale rather than a colour flash: the zone grows
+   very slightly toward the file being dragged onto it, which reads as
+   "this will catch it" without a new colour entering the palette. */
 .cc-dropzone--dragging {
   border-color: var(--cc-brand);
-  background: var(--cc-severity-low-tint);
+  border-style: solid;
+  background: var(--cc-brand-wash);
+  transform: scale(1.008);
 }
 
 .cc-dropzone__eyebrow {
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
-  color: #5f6863;
-  margin-bottom: var(--cc-space-7);
+  color: var(--cc-ink-muted);
+  margin-bottom: var(--cc-space-4);
   letter-spacing: var(--cc-tracking-wider);
   text-transform: uppercase;
 }
 
 .cc-dropzone__title {
-  font-family: var(--cc-font-serif);
-  font-size: 23px;
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-2xl);
   font-weight: 600;
   color: var(--cc-ink);
-  margin-bottom: var(--cc-space-4);
-  letter-spacing: -0.016em;
+  margin-bottom: var(--cc-space-2);
+  letter-spacing: var(--cc-tracking-tight);
 }
 
 .cc-dropzone__hint {
-  font-size: var(--cc-text-base);
-  line-height: 1.55;
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  margin-bottom: var(--cc-space-9);
+  margin-bottom: var(--cc-space-6);
 }
 
 .cc-dropzone__selected {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--cc-space-3);
+  gap: var(--cc-space-2);
 }
 
 .cc-dropzone__filename {
+  font-family: var(--cc-font-mono);
   font-size: var(--cc-text-lg);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--cc-ink);
   word-break: break-all;
 }
@@ -131,13 +181,13 @@
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
   color: var(--cc-ink-secondary);
-  margin-bottom: var(--cc-space-6);
+  margin-bottom: var(--cc-space-4);
 }
 
 .cc-dropzone__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-5);
+  gap: var(--cc-space-3);
   justify-content: center;
   align-items: center;
 }
@@ -147,9 +197,9 @@
 .cc-paste-panel__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-7);
+  gap: var(--cc-space-4);
   align-items: center;
-  margin-top: var(--cc-space-6);
+  margin-top: var(--cc-space-4);
 }
 
 .cc-paste-panel__count {
@@ -159,57 +209,106 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- Analyzing placeholder (BUILD-PLAN step 34 replaces this) ------ */
+/* ---- Analyzing placeholder ------------------------------------------ */
 
 .cc-upload-analyzing {
-  padding: 56px 26px;
+  padding: var(--cc-space-9) var(--cc-space-6);
   text-align: center;
 }
 
 .cc-upload-analyzing__title {
-  font-family: var(--cc-font-serif);
-  font-size: 23px;
-  font-weight: 600;
-  color: var(--cc-ink);
-  margin-bottom: var(--cc-space-4);
-}
-
-.cc-upload-analyzing__note {
-  font-size: var(--cc-text-base);
-  color: var(--cc-ink-secondary);
-  max-width: 46ch;
-  margin: 0 auto;
-}
-
-/* ---- Footer info cards ----------------------------------------------- */
-
-.cc-upload-card__footer {
-  display: flex;
-  flex-wrap: wrap;
-  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
-  background: var(--cc-surface-muted);
-}
-
-.cc-upload-card__footer-col {
-  flex: 1 1 220px;
-  min-width: 0;
-  padding: 20px 26px;
-  border-left: var(--cc-border-width) solid var(--cc-rule-soft);
-}
-
-.cc-upload-card__footer-col:first-child {
-  border-left: none;
-}
-
-.cc-upload-card__footer-title {
-  font-size: var(--cc-text-sm);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-2xl);
   font-weight: 600;
   color: var(--cc-ink);
   margin-bottom: var(--cc-space-2);
 }
 
-.cc-upload-card__footer-body {
-  font-size: var(--cc-text-base);
-  line-height: 1.58;
+.cc-upload-analyzing__note {
+  font-size: var(--cc-text-md);
   color: var(--cc-ink-secondary);
+  max-width: 46ch;
+  margin: 0 auto;
+}
+
+/* ---- The facts list --------------------------------------------------
+   Was three equal columns; now a term/description list, two columns on
+   desktop, with one hairline above the group rather than a rule drawn
+   under every row. A reader scanning for one of these three answers
+   finds it by its term, not by counting boxes. */
+
+.cc-upload-card__facts {
+  margin: 0;
+  padding: var(--cc-space-6);
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+  background: var(--cc-surface-page);
+  display: grid;
+  gap: var(--cc-space-5);
+}
+
+.cc-upload-card__fact {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  gap: var(--cc-space-5);
+  align-items: baseline;
+}
+
+.cc-upload-card__fact-term {
+  font-size: var(--cc-text-md);
+  font-weight: 600;
+  color: var(--cc-ink);
+  letter-spacing: var(--cc-tracking-wide);
+}
+
+.cc-upload-card__fact-body {
+  margin: 0;
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-ink-secondary);
+  max-width: var(--cc-measure);
+}
+
+/* ---- Mobile ----------------------------------------------------------
+   Explicit, per section: the hero drops two type steps, and the facts
+   list stacks its term over its body rather than trying to hold a
+   two-column grid at 390px. */
+@media (max-width: 767px) {
+  .cc-upload-page {
+    padding: var(--cc-space-7) var(--cc-space-4) var(--cc-space-9);
+  }
+
+  .cc-upload-page__hero {
+    grid-template-columns: 1fr;
+    gap: var(--cc-space-5);
+    align-items: start;
+  }
+
+  .cc-upload-page__title {
+    font-size: var(--cc-text-3xl);
+  }
+
+  .cc-upload-page__title-accent {
+    font-size: var(--cc-text-xl);
+    max-width: none;
+  }
+
+  .cc-upload-page__intro {
+    font-size: var(--cc-text-md);
+    max-width: none;
+    padding-left: var(--cc-space-4);
+  }
+
+  .cc-upload-card__panel,
+  .cc-upload-card__facts {
+    padding: var(--cc-space-5) var(--cc-space-4);
+  }
+
+  .cc-dropzone {
+    padding: var(--cc-space-7) var(--cc-space-4);
+  }
+
+  .cc-upload-card__fact {
+    grid-template-columns: 1fr;
+    gap: var(--cc-space-1);
+  }
 }

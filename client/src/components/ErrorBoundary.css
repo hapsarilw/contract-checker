@@ -1,12 +1,13 @@
 .cc-error-boundary {
-  max-width: 544px;
-  margin: var(--cc-space-11) auto;
-  padding: 0 var(--cc-space-8);
+  max-width: var(--cc-container-narrow);
+  margin: var(--cc-space-10) auto;
+  padding: 0 var(--cc-space-5);
 }
 
 .cc-error-boundary__title {
-  font-family: var(--cc-font-serif);
-  font-size: var(--cc-text-2xl);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-3xl);
+  font-weight: 600;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
   margin: 0 0 var(--cc-space-3);
@@ -16,9 +17,9 @@
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
   color: var(--cc-ink-secondary);
-  margin: var(--cc-space-5) 0 0;
+  margin: var(--cc-space-4) 0 0;
 }
 
 .cc-error-boundary__action {
-  margin-top: var(--cc-space-8);
+  margin-top: var(--cc-space-6);
 }

@@ -1,6 +1,8 @@
 .cc-banner {
-  border-left: 2px solid;
-  padding: var(--cc-space-7) var(--cc-space-8);
+  border: var(--cc-border-width) solid transparent;
+  border-left-width: 3px;
+  border-radius: var(--cc-radius-control);
+  padding: var(--cc-space-4) var(--cc-space-5);
 }
 
 .cc-banner__title {
@@ -8,7 +10,7 @@
   font-weight: 600;
   color: var(--cc-ink);
   margin: 0 0 var(--cc-space-1);
-  letter-spacing: -0.008em;
+  letter-spacing: var(--cc-tracking-tight);
 }
 
 .cc-banner__body {
@@ -16,20 +18,23 @@
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
   margin: 0;
-  max-width: 62ch;
+  max-width: var(--cc-measure);
 }
 
 .cc-banner--danger {
+  border-color: color-mix(in srgb, var(--cc-danger) 22%, transparent);
   border-left-color: var(--cc-danger);
   background: var(--cc-severity-high-tint);
 }
 
 .cc-banner--warning {
+  border-color: color-mix(in srgb, var(--cc-severity-medium) 22%, transparent);
   border-left-color: var(--cc-severity-medium);
   background: var(--cc-severity-medium-tint);
 }
 
 .cc-banner--info {
+  border-color: color-mix(in srgb, var(--cc-brand) 18%, transparent);
   border-left-color: var(--cc-brand);
-  background: var(--cc-surface-muted);
+  background: var(--cc-brand-wash);
 }

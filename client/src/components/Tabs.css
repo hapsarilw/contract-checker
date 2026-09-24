@@ -1,36 +1,52 @@
 .cc-tablist {
   display: flex;
-  gap: var(--cc-space-9);
-  padding: 0 var(--cc-space-9);
+  gap: var(--cc-space-2);
+  padding: var(--cc-space-2) var(--cc-space-2) 0;
   border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
-  background: var(--cc-surface-muted);
 }
 
 .cc-tab {
-  font-size: var(--cc-text-base);
-  padding: 14px 1px;
-  margin-bottom: -1px;
+  position: relative;
+  font-size: var(--cc-text-md);
+  padding: var(--cc-space-3) var(--cc-space-4);
   white-space: nowrap;
   flex: none;
   border: none;
-  border-bottom: var(--cc-border-width-focus) solid transparent;
+  border-radius: var(--cc-radius-control) var(--cc-radius-control) 0 0;
   background: none;
   cursor: pointer;
   color: var(--cc-ink-secondary);
-  font-weight: 400;
-  /* WCAG 2.5.8: 24x24 CSS px minimum target, even though this looks like
-     plain text — the horizontal padding is nearly zero (the prototype's
-     underline sits flush with the label), so height carries the target
-     size instead. */
+  font-weight: 500;
+  /* WCAG 2.5.8: 24x24 CSS px minimum target. */
   min-height: 24px;
+  transition:
+    color var(--cc-duration-fast) var(--cc-ease-out),
+    background-color var(--cc-duration-fast) var(--cc-ease-out);
+}
+
+.cc-tab:hover:not([aria-selected="true"]) {
+  color: var(--cc-ink);
+  background: var(--cc-surface-page);
 }
 
 .cc-tab[aria-selected="true"] {
-  border-bottom-color: var(--cc-brand);
-  color: var(--cc-ink);
+  color: var(--cc-brand);
+  background: var(--cc-brand-wash);
   font-weight: 600;
 }
 
+/* The selected marker sits on the shared bottom rule rather than on the
+   button, so it reads as one continuous edge with the panel below. */
+.cc-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: var(--cc-space-3);
+  right: var(--cc-space-3);
+  bottom: -1px;
+  height: var(--cc-border-width-focus);
+  background: var(--cc-brand);
+}
+
 .cc-tabpanel {
-  padding: var(--cc-space-9) var(--cc-space-9) 24px;
+  padding: var(--cc-space-6);
 }

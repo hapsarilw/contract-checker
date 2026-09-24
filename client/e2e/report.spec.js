@@ -160,18 +160,21 @@ test.describe("the report screen's masthead and severity filter (BUILD-PLAN step
     expect(bodyText).not.toMatch(/modelRisk/i);
   });
 
-  test("the category breakdown and severity filter match the prototype's copy and counts", async ({
+  test("the category breakdown and severity filter carry the right copy and counts", async ({
     page,
   }) => {
     await mockReport(page);
     await page.goto("/documents/doc1");
 
-    await expect(page.getByText("The shape of it")).toBeVisible();
-    await expect(page.getByText("3 high")).toBeVisible();
-    await expect(page.getByText("3 medium")).toBeVisible();
-    await expect(page.getByText("1 low")).toBeVisible();
+    await expect(page.getByText("Findings by severity")).toBeVisible();
+    // The count and the word are separate elements so the number can
+    // carry its own size; both are aria-hidden and the row's single
+    // readable string is the one asserted here.
+    await expect(page.getByText("3 high")).toBeAttached();
+    await expect(page.getByText("3 medium")).toBeAttached();
+    await expect(page.getByText("1 low")).toBeAttached();
 
-    await expect(page.getByText("Where the problems are")).toBeVisible();
+    await expect(page.getByText("Findings by category")).toBeVisible();
     await expect(page.getByText("Payment · 1")).toBeVisible();
     await expect(page.getByText("Dispute resolution · 1")).toBeVisible();
 
@@ -393,10 +396,10 @@ test.describe("the findings list (BUILD-PLAN step 36)", () => {
       }),
     );
     expect(rules).toEqual([
-      ["rgb(122, 63, 46)", "3px"], // #7A3F2E high
-      ["rgb(122, 63, 46)", "3px"],
-      ["rgb(122, 101, 32)", "2px"], // #7A6520 medium
-      ["rgb(61, 90, 78)", "1px"], // #3D5A4E low
+      ["rgb(163, 46, 34)", "3px"], // #A32E22 high
+      ["rgb(163, 46, 34)", "3px"],
+      ["rgb(122, 90, 16)", "2px"], // #7A5A10 medium
+      ["rgb(66, 87, 99)", "1px"], // #425763 low
     ]);
   });
 
@@ -413,7 +416,7 @@ test.describe("the findings list (BUILD-PLAN step 36)", () => {
     await copy.focus();
     await page.keyboard.press("Enter");
 
-    const note = firstCard.getByText("Copied — paste it into your reply to the client.");
+    const note = firstCard.getByText("Copied. Paste it into your reply to the client.");
     await expect(note).toBeVisible();
     await expect(note).toHaveAttribute("role", "status");
     await expect(note).toHaveAttribute("aria-live", "polite");
@@ -515,7 +518,7 @@ test.describe("the findings list (BUILD-PLAN step 36)", () => {
     await page.getByRole("button", { name: "indemnity" }).click();
     await page.getByRole("button", { name: "Copy this ask" }).first().click();
     await expect(
-      page.getByText("Copied — paste it into your reply to the client."),
+      page.getByText("Copied. Paste it into your reply to the client."),
     ).toBeVisible();
 
     const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();

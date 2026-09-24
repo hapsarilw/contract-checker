@@ -1,56 +1,64 @@
 /**
- * BUILD-PLAN step 39 — the prototype's app chrome
- * (docs/design/ClauseCheck.html), matched layout-for-layout.
+ * The app chrome. Sticky, because on the report screen the nav is the
+ * only way back out of a long document and making the reader scroll to
+ * the top to find it is a tax on the screen they spend the most time on.
  */
 
 .cc-app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   background: var(--cc-header-bg);
-  box-shadow: var(--cc-shadow-hairline);
 }
 
 .cc-app-header__inner {
-  max-width: 1060px;
+  max-width: var(--cc-container);
   margin: 0 auto;
-  padding: 0 28px;
+  padding: 0 var(--cc-space-6);
   display: flex;
   flex-wrap: wrap;
-  gap: 0 var(--cc-space-10);
+  gap: 0 var(--cc-space-7);
   align-items: stretch;
-  min-height: 56px;
+  /* Nav height cap: comfortably under the 80px ceiling, and on one line
+     at every desktop width. */
+  min-height: 60px;
 }
 
 .cc-app-header__brand {
   display: flex;
   align-items: center;
-  gap: var(--cc-space-5);
-  padding: var(--cc-space-6) 0;
+  gap: var(--cc-space-3);
+  padding: var(--cc-space-3) 0;
 }
 
 .cc-app-header__brand-mark {
   display: inline-block;
-  width: 8px;
-  height: 20px;
+  width: 6px;
+  height: 18px;
+  border-radius: var(--cc-radius-sm);
   background: var(--cc-header-brand-accent);
 }
 
+/* SANS, not the serif it used to be. Under the type system the serif is
+   the DOCUMENT's voice; the product's own name is the product speaking. */
 .cc-app-header__brand-name {
-  font-family: var(--cc-font-serif);
-  font-size: var(--cc-text-xl);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-lg);
   font-weight: 600;
-  letter-spacing: -0.012em;
+  letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-header-text);
 }
 
 .cc-app-header__nav {
   display: flex;
-  gap: var(--cc-space-9);
+  gap: var(--cc-space-6);
   margin-left: auto;
   align-items: center;
   flex: 0 0 auto;
 }
 
 .cc-app-header__link {
-  font-size: var(--cc-text-base);
+  font-size: var(--cc-text-md);
   font-weight: 400;
   padding: var(--cc-space-1) 1px;
   border: 0;
@@ -61,10 +69,15 @@
   flex: none;
   color: var(--cc-header-text-muted);
   text-decoration: none;
+  transition: color var(--cc-duration-fast) var(--cc-ease-out);
+}
+
+.cc-app-header__link:hover {
+  color: var(--cc-header-text);
 }
 
 .cc-app-header__link--active {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--cc-header-text);
   border-bottom-color: var(--cc-header-brand-accent);
 }

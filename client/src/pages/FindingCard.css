@@ -1,14 +1,30 @@
 /**
- * BUILD-PLAN step 36 — the prototype's finding card
- * (docs/design/ClauseCheck.html), one `<article>` in the findings sheet.
+ * One finding: the contract's words on the left, ours on the right.
+ *
+ * That split is the reason this card exists, and the type system now says
+ * it without a label having to. The quote is Literata, the explanation is
+ * Geist; a reader can tell which text came out of their own file at a
+ * glance, from across the room, before reading a word of either.
+ *
+ * The two uppercase mono eyebrows per card are gone. At four findings
+ * they were eight of the twelve on the screen, and they were labelling
+ * two columns that the typeface, the tinted quote block and the severity
+ * rule already distinguish. They are sentence-case now, and small.
  */
 
 .cc-finding {
-  border-top: var(--cc-border-width) solid var(--cc-rule);
-  padding: 26px 26px 32px;
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+  padding: var(--cc-space-6);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-9) 44px;
+  gap: var(--cc-space-6) var(--cc-space-7);
+  transition: background-color var(--cc-duration) var(--cc-ease-out);
+}
+
+/* A whole-card hover, so a long list of findings reads as a list of
+   separable things rather than as one undifferentiated wall. */
+.cc-finding:hover {
+  background: color-mix(in srgb, var(--cc-surface-page) 55%, transparent);
 }
 
 .cc-finding__head {
@@ -17,18 +33,19 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--cc-space-3) 16px;
-  padding-bottom: 14px;
-  margin-bottom: var(--cc-space-2);
+  gap: var(--cc-space-2) var(--cc-space-4);
+  padding-bottom: var(--cc-space-3);
   border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
 }
 
+/* Sans: the category is the app's classification of the clause, not a
+   phrase out of the contract. */
 .cc-finding__category {
   margin: 0;
-  font-family: var(--cc-font-serif);
-  font-size: var(--cc-text-2xl);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-xl);
   font-weight: 600;
-  letter-spacing: -0.018em;
+  letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
@@ -45,31 +62,33 @@
   flex: 1 1 288px;
   min-width: 0;
   border-left: var(--cc-border-width) solid var(--cc-rule-soft);
-  padding-left: var(--cc-space-9);
+  padding-left: var(--cc-space-6);
 }
 
+/* Sentence case, sans, small. A column label, not a design element. */
 .cc-finding__eyebrow {
-  margin: 0 0 var(--cc-space-3);
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  color: var(--cc-ink-on-muted);
-  letter-spacing: var(--cc-tracking-wider);
-  text-transform: uppercase;
+  margin: 0 0 var(--cc-space-2);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-base);
+  font-weight: 500;
+  color: var(--cc-ink-muted);
+  letter-spacing: var(--cc-tracking-wide);
 }
 
 .cc-finding__eyebrow--quote {
-  margin-bottom: var(--cc-space-4);
+  margin-bottom: var(--cc-space-3);
 }
 
-/* The rule's colour AND thickness encode severity (3px / 2px / 1px) —
-   a second, non-colour channel alongside the card's text label. */
+/* The rule's colour AND thickness encode severity (3px / 2px / 1px), a
+   second non-colour channel alongside the card's text label. */
 .cc-finding__quote {
   margin: 0;
   font-family: var(--cc-font-serif);
-  font-size: 17.5px;
-  line-height: 1.66;
+  font-size: var(--cc-text-xl);
+  line-height: var(--cc-leading-relaxed);
   color: var(--cc-ink);
-  padding: var(--cc-space-7) var(--cc-space-8);
+  padding: var(--cc-space-5) var(--cc-space-6);
+  border-radius: 0 var(--cc-radius-control) var(--cc-radius-control) 0;
   border-left-style: solid;
   /* Model output can be one long unbroken token; without this it forces
      horizontal scrolling at 320px (SRS §7.15). */
@@ -95,15 +114,34 @@
 .cc-finding__why,
 .cc-finding__ask {
   font-size: var(--cc-text-md);
-  line-height: 1.62;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
   overflow-wrap: anywhere;
 }
 
 .cc-finding__why {
-  margin: 0 0 22px;
+  margin: 0 0 var(--cc-space-5);
 }
 
 .cc-finding__ask {
-  margin: 0 0 var(--cc-space-6);
+  margin: 0 0 var(--cc-space-4);
+}
+
+/* Mobile: the two columns stack, and the left rule that separated them
+   would read as a stray vertical line once they do. */
+@media (max-width: 767px) {
+  .cc-finding {
+    padding: var(--cc-space-5) var(--cc-space-4);
+    gap: var(--cc-space-5);
+  }
+
+  .cc-finding__detail-col {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .cc-finding__quote {
+    padding: var(--cc-space-4);
+    font-size: var(--cc-text-lg);
+  }
 }

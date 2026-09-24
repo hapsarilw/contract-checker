@@ -16,7 +16,7 @@ export default function NotFoundPage() {
       <SkipLink />
       <main id="main" tabIndex={-1}>
         <div className="cc-not-found__card">
-          <p className="cc-not-found__eyebrow">404</p>
+          <p className="cc-not-found__code">404</p>
           <h1 className="cc-not-found__title">There’s nothing at this address.</h1>
           <p className="cc-not-found__body">
             The page you’re looking for doesn’t exist, or you may have followed a broken

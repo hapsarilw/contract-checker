@@ -22,7 +22,6 @@ export default function ComingSoonPage({ title, body, backTo, backLabel }) {
       <SkipLink />
       <main id="main" tabIndex={-1}>
         <div className="cc-coming-soon__card">
-          <p className="cc-coming-soon__eyebrow">Coming soon</p>
           <h1 className="cc-coming-soon__title">{title}</h1>
           <p className="cc-coming-soon__body">{body}</p>
           <Link to={backTo} className="cc-coming-soon__back">

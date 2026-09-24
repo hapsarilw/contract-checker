@@ -20,8 +20,8 @@ export const en = {
   navSignOut: "Sign out",
   back: "Back to history",
   overallRisk: "Overall risk",
-  shape: "The shape of it",
-  where: "Where the problems are",
+  shape: "Findings by severity",
+  where: "Findings by category",
   filterAll: "All",
   // BUILD-PLAN step 35 — the prototype's SEV.label/labelId, keyed by the
   // server's actual Severity enum values (HIGH/MEDIUM/LOW,
@@ -61,7 +61,7 @@ export const en = {
     killfee: "A payment owed if the client cancels after the work has started.",
     net90: "Payment falls due 90 days after the trigger date, not on delivery.",
     net60: "Payment falls due 60 days after the invoice date.",
-    acceptance: "The client’s formal sign-off — it can start or delay the payment clock.",
+    acceptance: "The client’s formal sign-off. It can start or delay the payment clock.",
     liabilitycap: "A ceiling on the total amount you could owe if something goes wrong.",
   },
   findingsHead: "Clauses worth a second look",
@@ -71,10 +71,10 @@ export const en = {
   ask: "What to ask for",
   copyLabel: "Copy this ask",
   copiedLabel: "Copied",
-  copiedNote: "Copied — paste it into your reply to the client.",
+  copiedNote: "Copied. Paste it into your reply to the client.",
   missingHead: "Protections the contract doesn’t include",
   missingSub:
-    "These are standard terms in freelance agreements. Nothing here is quoted, because there’s nothing to quote — that’s the point. They don’t change the risk level above, and they’re the easiest thing to ask for while the contract is still open.",
+    "These are standard terms in freelance agreements. Nothing here is quoted, because there’s nothing to quote. That is the point. They don’t change the risk level above, and they’re the easiest thing to ask for while the contract is still open.",
   jurisHead: "Notes on your jurisdiction",
   disclaimer: DISCLAIMER_LOCKED.en,
   doneHead: "Done with this contract?",
@@ -100,7 +100,7 @@ export const en = {
   historyBlurbEmpty: "Every contract you check is listed here.",
   historyEmptyTitle: "No contracts checked yet.",
   historyEmptyBody:
-    "When you check a contract it’ll be listed here with its risk level, so you can open the report again later — or delete it.",
+    "When you check a contract it’ll be listed here with its risk level, so you can open the report again later, or delete it.",
   historyEmptyCta: "Check your first contract",
   // Not in the prototype: its demo rows always have a completed
   // analysis. A real row can lack one (uploaded, never analyzed, or an
@@ -109,6 +109,9 @@ export const en = {
   // a clean result that was never actually checked for.
   historyNotAnalyzed: "Not yet analyzed",
   historyNoFindings: "No findings",
+  /* A document that has no completed analysis yet. Said in words rather
+     than as a dash glyph: a lone dash in a data column is a shrug. */
+  historyNotChecked: "Not checked yet",
   deleteRow: "Delete",
   loadMore: "Load more",
   loadingMore: "Loading…",

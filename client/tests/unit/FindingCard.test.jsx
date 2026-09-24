@@ -68,7 +68,7 @@ describe("FindingCard (BUILD-PLAN step 36, PRD §7 / FR-7.5 / FR-7.8)", () => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(FINDING.suggestedChange),
     );
     const note = await screen.findByText(
-      "Copied — paste it into your reply to the client.",
+      "Copied. Paste it into your reply to the client.",
     );
     expect(note).toHaveAttribute("role", "status");
     expect(note).toHaveAttribute("aria-live", "polite");

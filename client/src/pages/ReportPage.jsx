@@ -237,7 +237,6 @@ function ReportPageForDocument({ id }) {
 
   const counts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
   for (const finding of findings) counts[finding.severity] += 1;
-  const maxCount = Math.max(1, counts.HIGH, counts.MEDIUM, counts.LOW);
 
   /** @type {Record<string, number>} */
   const catCounts = {};
@@ -336,16 +335,19 @@ function ReportPageForDocument({ id }) {
                       >
                         {SEVERITY_MARKS[key.toLowerCase()]}
                       </span>
-                      <span className="cc-report__sev-row-label">
-                        {counts[key] + " " + t.severity[key].toLowerCase()}
+                      {/* The count and the word are two elements so the
+                          number can carry its own size, which splits the
+                          phrase for a screen reader. Both halves are
+                          hidden from assistive technology and the whole
+                          reading is given once, below, as one string. */}
+                      <span className="cc-report__sev-count" aria-hidden="true">
+                        {counts[key]}
                       </span>
-                      <span className="cc-report__sev-bar-track" aria-hidden="true">
-                        <span
-                          className={`cc-report__sev-bar-fill cc-report__sev-bar-fill--${key.toLowerCase()}`}
-                          style={{
-                            width: Math.round((counts[key] / maxCount) * 100) + "%",
-                          }}
-                        />
+                      <span className="cc-report__sev-row-label" aria-hidden="true">
+                        {t.severity[key].toLowerCase()}
+                      </span>
+                      <span className="cc-sr-only">
+                        {counts[key] + " " + t.severity[key].toLowerCase()}
                       </span>
                     </div>
                   ))}
@@ -458,7 +460,7 @@ function ReportPageForDocument({ id }) {
               {analysis.missingClauses.map((clause, index) => (
                 <li className="cc-report__missing-item" key={index}>
                   <span className="cc-report__missing-mark" aria-hidden="true">
-                    —
+                    +
                   </span>
                   {/* Unlike the prototype's PROTECTIONS map (a bold title
                       plus a separate explanatory sentence), the real

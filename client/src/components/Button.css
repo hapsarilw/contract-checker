@@ -1,9 +1,7 @@
 /**
- * Button.jsx's visual styles. A plain CSS file, not inline styles or
- * CSS-in-JS: :hover needs a real stylesheet (inline styles can't express
- * a pseudo-class), and :focus-visible is already handled once, globally,
- * by global.css — every focusable element gets it for free, this file
- * doesn't repeat it.
+ * Button.jsx's visual styles. A plain CSS file rather than inline styles:
+ * :hover and :active need a real stylesheet, and :focus-visible is
+ * handled once globally in global.css, so this file never repeats it.
  */
 
 .cc-button {
@@ -19,8 +17,22 @@
   padding: 11px 20px;
   font-size: var(--cc-text-md);
   font-weight: 500;
+  letter-spacing: var(--cc-tracking-wide);
   cursor: pointer;
   border: var(--cc-border-width) solid transparent;
+  border-radius: var(--cc-radius-control);
+  /* Transform and colour only: both composite, so a press stays smooth
+     on a mid-range phone. */
+  transition:
+    transform var(--cc-duration-fast) var(--cc-ease-out),
+    background-color var(--cc-duration-fast) var(--cc-ease-out),
+    box-shadow var(--cc-duration-fast) var(--cc-ease-out);
+}
+
+/* Tactile feedback: the control gives under the finger and returns. 1px
+   is enough to feel and too little to reflow anything around it. */
+.cc-button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .cc-button:disabled {
@@ -31,27 +43,34 @@
 .cc-button--primary {
   border: none;
   background: var(--cc-brand);
-  color: var(--cc-surface-card);
+  /* Pure white, not the card surface: 8.08:1 on the brand fill. */
+  color: #ffffff;
+  box-shadow: var(--cc-shadow-card);
 }
 .cc-button--primary:hover:not(:disabled) {
   background: var(--cc-brand-hover);
+  box-shadow: var(--cc-shadow-card-lg);
 }
 
 .cc-button--secondary {
-  border: var(--cc-border-width) solid var(--cc-rule-strong);
-  border-bottom-width: var(--cc-border-width-focus);
-  border-bottom-color: var(--cc-brand);
+  border: var(--cc-border-width) solid var(--cc-rule-input);
   background: var(--cc-surface-card);
   color: var(--cc-ink);
+}
+.cc-button--secondary:hover:not(:disabled) {
+  border-color: var(--cc-ink-muted);
+  background: var(--cc-surface-page);
 }
 
 .cc-button--destructive {
   border: none;
   background: var(--cc-danger);
-  color: var(--cc-surface-card);
+  color: #ffffff;
+  box-shadow: var(--cc-shadow-card);
 }
 .cc-button--destructive:hover:not(:disabled) {
   background: var(--cc-danger-hover);
+  box-shadow: var(--cc-shadow-card-lg);
 }
 
 .cc-button--full-width {

@@ -99,7 +99,7 @@ test.describe("upload screen (/, BUILD-PLAN step 33)", () => {
     await page.goto("/");
     await expect(page.getByText(/kept for up to 90 days/)).toBeVisible();
     await expect(
-      page.getByText(/delete it any time and it's gone for good/),
+      page.getByText(/Delete it any time and it is gone for good/),
     ).toBeVisible();
   });
 

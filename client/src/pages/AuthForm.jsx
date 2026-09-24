@@ -33,8 +33,7 @@ const COPY = {
       "Email and a password, nothing else. Your account exists so your contract history stays yours.",
     // PRD §6 / step 32 — the password rule stated BEFORE submission, not
     // after rejection. Ported from the prototype's pwHint verbatim.
-    passwordHint:
-      "At least 10 characters. No symbol requirements — length does the work.",
+    passwordHint: "At least 10 characters. No symbol requirements; length does the work.",
     cta: "Create account",
     switchText: "Already have an account?",
     switchCta: "Sign in",
@@ -123,17 +122,35 @@ export default function AuthForm({ mode }) {
     <div className="cc-auth-page">
       <SkipLink />
       <div className="cc-auth-page__frame">
-        <div className="cc-auth-page__brand">
-          <span className="cc-auth-page__brand-mark" aria-hidden="true" />
-          <span className="cc-auth-page__brand-name">ClauseCheck</span>
-        </div>
+        {/* The ink half. It carries the brand and the one thing a
+            signed-out visitor needs to know, which is also what stops
+            this screen from being a lone card floating in dead space.
+            aria-hidden is deliberately NOT set: this is real content, and
+            the heading order (the form's h1 comes after) still reads
+            correctly because nothing here is a heading. */}
+        <aside className="cc-auth-panel">
+          <div className="cc-auth-panel__brand">
+            <span className="cc-auth-page__brand-mark" aria-hidden="true" />
+            <span className="cc-auth-page__brand-name">ClauseCheck</span>
+          </div>
+          <p className="cc-auth-panel__statement">Know what you are signing.</p>
+          <p className="cc-auth-panel__body">
+            ClauseCheck reads a contract and points at the clauses that could cost you.
+            Every clause it flags is quoted from your own file, so you can check it
+            against the page.
+          </p>
+          <p className="cc-auth-panel__note">
+            Your contracts are private to your account, and you can delete any of them
+            permanently once you&apos;re done.
+          </p>
+        </aside>
 
         {/* tabIndex={-1}: a <main> is not focusable by default, so
             activating the skip link above would scroll here without ever
             moving actual keyboard focus — programmatically focusable
             (never in the Tab order otherwise) is what makes the skip
             link's target real. */}
-        <main id="main" tabIndex={-1}>
+        <main id="main" tabIndex={-1} className="cc-auth-page__main">
           <Card accent className="cc-auth-card">
             <h1 className="cc-auth-card__title">{copy.title}</h1>
             <p className="cc-auth-card__blurb">{copy.blurb}</p>
@@ -198,10 +215,6 @@ export default function AuthForm({ mode }) {
             </div>
           </Card>
         </main>
-        <p className="cc-auth-page__footnote">
-          Your contracts are private to your account, and you can delete any of them
-          permanently once you're done.
-        </p>
       </div>
     </div>
   );

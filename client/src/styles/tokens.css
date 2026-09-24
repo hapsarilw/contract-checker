@@ -1,162 +1,243 @@
 /**
- * SRS §2.1 / BUILD-PLAN step 29 — design tokens read out of the design
- * prototype (docs/design/ClauseCheck.html, decoded from its
- * `<script type="__bundler/template">` payload), not approximated.
+ * Design tokens.
  *
- * Two different levels of fidelity below, and they are labelled apart on
- * purpose:
+ * WHAT CHANGED AND WHY. Through step 39 these tokens were read out of
+ * docs/design/ClauseCheck.html (warm paper, deep green, Literata doing
+ * every display job). That system was coherent, but it was also the
+ * product's whole voice: a warm editorial comp that read closer to a
+ * stationery brand than to a tool you hand a contract to. This revision
+ * replaces the visual language. The information architecture, the copy's
+ * meaning, and every accessibility guarantee are unchanged; what changed
+ * is palette, type roles, depth and motion.
  *
- *   - PALETTE is the exact set BUILD-PLAN.md's Frontend section names, plus
- *     the handful of neutrals the prototype visibly reuses often enough to
- *     be load-bearing (input/card borders, a muted alt surface). Every hex
- *     value here is copied, not eyeballed.
- *   - TYPE SCALE / SPACING is a curated rhythm, not an exhaustive list. The
- *     prototype is a hand-tuned comp — 24 distinct font-sizes from 10.5px
- *     to 54px, paddings from 4px to 64px, no consistent multiplier — the
- *     product of per-component tuning, not a systematic scale. The steps
- *     below snap to the prototype's most-repeated values (frequency-
- *     counted, not the first-seen ones) so a real screen can be built on
- *     them; a screen that genuinely needs a value between steps still
- *     should, the same way the prototype does, rather than force a token
- *     that doesn't fit. No screens exist yet (this step is tokens only),
- *     so this is a starting rhythm, not a claim that every future
- *     one-off has already been anticipated.
+ * THE DIRECTION: "ink and annotation". Cool paper, near-black ink, one
+ * saturated cobalt accent, and nothing else competing. The metaphor is a
+ * legal document that has been read closely and marked up once, not a
+ * brand brochure.
+ *
+ * TWO CONSTRAINTS PICKED THIS PALETTE, not taste:
+ *
+ *   1. The severity scale already owns red, amber and a muted cool-dark
+ *      (FR-3.9's three levels). A brand colour anywhere near those reads
+ *      as a fourth severity. That rules out green (the old brand, which
+ *      sat right next to severity-low), amber, and red. Cobalt is the
+ *      nearest strong hue that carries no severity meaning here.
+ *   2. The report is a READING surface — long verbatim contract
+ *      excerpts. That rules out a dark page, whatever it would do for
+ *      the screenshot. The page stays light and the contrast budget goes
+ *      to the text.
+ *
+ * EVERY PAIRING BELOW IS COMPUTED, NOT EYEBALLED. 27 foreground/
+ * background combinations were checked against the WCAG formula before
+ * this file was written; the three severity pairings are additionally
+ * pinned by tests/unit/severityBadgeContrast.test.js, which reads THIS
+ * file rather than a copy. Ratios quoted in comments are from that
+ * check. Two pairings that the previous palette quietly failed are fixed
+ * here rather than carried over: the input placeholder (was ~2.8:1) and
+ * the input border (WCAG 1.4.11's 3:1 for a control boundary).
  */
 
 :root {
-  /* ---- Palette — brand -------------------------------------------- */
-  --cc-brand: #1f4740;
-  --cc-brand-hover: #16302b;
+  /* ---- Palette — brand ---------------------------------------------
+     Cobalt. 7.80:1 on the card surface and 6.95:1 on the page, so it
+     works as link text without a second "link colour", and white on it
+     clears 8.08:1 for a filled control. brand-hover is the same hue
+     darkened, 11.24:1 against white. */
+  --cc-brand: #1e45b8;
+  --cc-brand-hover: #163389;
+  /* A 10%-alpha wash of the brand, for the one-per-screen accent field
+     (the active tab's backing, the dropzone's armed state). Alpha rather
+     than a mixed hex so it sits correctly over either surface. */
+  --cc-brand-wash: rgba(30, 69, 184, 0.07);
 
-  /* ---- Palette — surfaces ------------------------------------------ */
-  --cc-surface-card: #fbfaf6;
-  --cc-surface-page: #e2e2da;
-  /* Alt/inactive chip background (e.g. an unselected filter pill). */
-  --cc-surface-muted: #f2f1e9;
+  /* ---- Palette — surfaces ------------------------------------------
+     Cool, not cream. The page is a shade darker than the card so cards
+     read as lifted without needing a heavy shadow to say so. */
+  --cc-surface-page: #eceef1;
+  --cc-surface-card: #fafbfc;
+  /* Alt/inactive chip background (an unselected filter pill). */
+  --cc-surface-muted: #e3e7eb;
 
-  /* ---- Palette — app header (step 39) --------------------------------
-     The one dark surface in the app — every other token above is tuned
-     for text on the light card/page surfaces and does not apply here.
-     Contrast checked directly against --cc-header-bg (step 39):
-     brand-name/nav-active 14.57:1, nav-inactive 6.86:1, sign-out 5.44:1
-     — all clear 4.5:1 with room, so no token here repeats the
-     ink-muted/#7F857D contrast bug this codebase has hit three times
-     on the light surfaces. */
-  --cc-header-bg: #17221f;
-  --cc-header-brand-accent: #8fb3a8;
-  --cc-header-text: #f3f2ec;
-  --cc-header-text-muted: #a2aaa3;
-  --cc-header-text-quiet: #8f978f;
+  /* ---- Palette — app header ----------------------------------------
+     The one near-black surface in the app. Contrast against
+     --cc-header-bg: brand name / active nav 17.04:1, inactive nav
+     8.47:1, sign-out 6.06:1, accent mark 7.90:1. */
+  --cc-header-bg: #101317;
+  --cc-header-brand-accent: #8fa6f2;
+  --cc-header-text: #f3f5f7;
+  --cc-header-text-muted: #a7b0b9;
+  --cc-header-text-quiet: #8b949e;
 
-  /* ---- Palette — ink -------------------------------------------- */
-  --cc-ink: #1d2422;
-  --cc-ink-secondary: #525955;
-  --cc-ink-muted: #7f857d;
-  /* Text on --cc-surface-muted (an inactive pill's label). */
-  --cc-ink-on-muted: #575e5a;
+  /* ---- Palette — ink ----------------------------------------------
+     17.37:1, 8.26:1 and 5.14:1 on the card surface respectively. */
+  --cc-ink: #14171a;
+  --cc-ink-secondary: #464d55;
+  --cc-ink-muted: #646c75;
+  /* Text on --cc-surface-muted (an inactive pill's label). 6.48:1. */
+  --cc-ink-on-muted: #4a5158;
 
   /* ---- Palette — rules / borders ------------------------------------ */
-  --cc-rule: #d5d2c6;
-  /* Stronger border: form inputs and some card edges. */
-  --cc-rule-strong: #c7c4b6;
-  /* Softer border: dividers inside a card (e.g. between list rows). */
-  --cc-rule-soft: #e9e6dc;
-  --cc-placeholder: #9da39b;
+  --cc-rule: #d5dae0;
+  /* Structural edges: card outlines, section divides. Decorative, so it
+     is allowed to be light — nothing depends on seeing it to operate a
+     control. */
+  --cc-rule-strong: #c0c7cf;
+  /* Softer border: dividers inside a card (between list rows). */
+  --cc-rule-soft: #e6e9ed;
+  /* THE BORDER OF AN INTERACTIVE CONTROL, and a separate token for a
+     reason: WCAG 1.4.11 asks 3:1 for the boundary of a form control,
+     which the structural rule above does not meet and does not need to.
+     3.01:1 on the page, 3.37:1 on the card. The old palette used one
+     token for both jobs and so met neither properly. */
+  --cc-rule-input: #828a93;
+  /* 4.51:1 on the card. The old value was around 2.8:1, which is the
+     kind of thing that passes review because placeholders "aren't really
+     text" and then fails a real user in daylight. */
+  --cc-placeholder: #6d757e;
 
-  /* ---- Palette — severity marks (FR-3.9's three levels) ------------- */
-  --cc-severity-high: #7a3f2e;
-  --cc-severity-medium: #7a6520;
-  --cc-severity-low: #3d5a4e;
-  /* Pastel backgrounds SeverityBadge pairs with the marks above.
-     Text-on-tint clears 4.5:1 for all three (checked, step 30):
-     high 7.03:1, medium 4.92:1 (the tight one), low 6.49:1. */
-  --cc-severity-high-tint: #f4ede8;
-  --cc-severity-medium-tint: #f3efe0;
-  --cc-severity-low-tint: #e9efe9;
+  /* ---- Palette — severity marks (FR-3.9's three levels) -------------
+     A temperature ramp, warm to cool: brick, ochre, slate. Deliberately
+     NOT a hue the brand uses, and deliberately not three saturations of
+     one hue — FR-7.5 requires severity to be legible without colour, so
+     the dot count and the label do that work, and colour only has to
+     reinforce it.
+     Text on tint: high 5.98:1, medium 5.50:1, low 6.36:1. */
+  --cc-severity-high: #a32e22;
+  --cc-severity-medium: #7a5a10;
+  --cc-severity-low: #425763;
+  --cc-severity-high-tint: #f7e9e7;
+  --cc-severity-medium-tint: #f5eedc;
+  --cc-severity-low-tint: #e7ecef;
 
-  /* ---- Palette — danger (destructive actions, error banners) -------- */
-  /* An alias, not a new colour: the prototype reuses severity-high for
-     every destructive control (step 30 — delete buttons, error banners).
-     Named separately so a destructive Button doesn't read as "this is a
-     severity indicator" in the code that uses it. */
+  /* ---- Palette — danger (destructive actions, error banners) --------
+     An alias of severity-high, as before: a destructive control and a
+     high-severity finding are the same red in this system. Named apart
+     so a destructive Button doesn't read as a severity indicator in the
+     code that uses it. */
   --cc-danger: var(--cc-severity-high);
-  /* Not in the prototype (no destructive button has a hover state to
-     read off) — derived by applying brand-to-brand-hover's exact HSL
-     lightness drop (6.3 points) to --cc-danger, so it darkens by the same
-     amount the brand colour does on hover. Contrast vs white text: 9.90:1. */
-  --cc-danger-hover: #633325;
+  /* Same hue, darkened by the same amount brand darkens on hover.
+     9.81:1 against white; the base danger is 7.07:1. */
+  --cc-danger-hover: #7e2319;
 
-  /* CopyButton's confirmed state. Close to but distinct from
-     --cc-severity-low-tint (#E9EFE9) in the prototype — a different
-     concept (confirmation, not a low-severity finding), kept as its own
-     token rather than reused so the two can diverge on purpose later. */
-  --cc-success-tint: #e7ede9;
-  /* The confirmation ink the prototype pairs with it: CopyButton's
-     "Copied — paste it into your reply…" note, and the zero-findings
-     result's accent rule and check marks. 7.37:1 on --cc-surface-card. */
-  --cc-success: #40584f;
+  /* CopyButton's confirmed state, and the zero-findings result. Kept as
+     its own pair rather than reusing severity-low: confirmation and "a
+     minor finding" are different ideas that should be free to diverge. */
+  --cc-success: #2f5d45;
+  --cc-success-tint: #e6eeea;
 
-  /* ---- Type — families ------------------------------------------ */
-  /* Report body and quoted excerpts. */
+  /* ---- Type — families --------------------------------------------
+     THE ROLES CHANGED, not just the faces. Previously Literata carried
+     every heading, which made the interface itself sound like a
+     document. Now:
+       sans  — the product's voice. Headings, labels, controls, body.
+       serif — the DOCUMENT's voice, and only that: verbatim contract
+               excerpts and the single risk word they add up to. When
+               you see the serif, you are reading the contract, not the
+               app. That is the whole justification for keeping a serif
+               here; it is not decoration.
+       mono  — machine facts. Filenames, word counts, dates. */
+  --cc-font-sans: "Geist Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --cc-font-serif: "Literata", Georgia, "Times New Roman", serif;
-  /* Everything else. */
-  --cc-font-sans: "Source Sans 3", system-ui, -apple-system, sans-serif;
-  /* Eyebrow labels, evidence badges, the back-link. */
-  --cc-font-mono: "Source Code Pro", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --cc-font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  /* ---- Type — scale (rem, 1rem = 16px in every supported browser) --- */
-  --cc-text-xs: 0.6875rem; /* 11px   — eyebrow labels, mono badges (most-repeated size) */
-  --cc-text-sm: 0.78125rem; /* 12.5px — secondary meta text */
-  --cc-text-base: 0.84375rem; /* 13.5px — body captions, the second most-repeated size */
-  --cc-text-md: 0.90625rem; /* 14.5px — default paragraph text */
-  --cc-text-lg: 1rem; /* 16px   — emphasised body / small subhead */
-  --cc-text-xl: 1.125rem; /* 18px   — subheads */
-  --cc-text-2xl: 1.3125rem; /* 21px   — section headers */
-  --cc-text-3xl: 1.625rem; /* 26px   — card headers, the largest repeated size */
-  --cc-text-display: 2.625rem; /* 42px   — a hero number (used sparingly) */
-  --cc-text-display-lg: 3.375rem; /* 54px   — the single largest hero moment */
+  /* ---- Type — scale (rem, 1rem = 16px) -----------------------------
+     Rebuilt on a 1.2 ratio from a 14px base, rather than the previous
+     scale's frequency-counted sample of a hand-tuned comp. The old scale
+     topped out at a display size that sat only 2 steps above a section
+     header, which is why the old screens read flat: nothing was ever
+     decisively bigger than anything else. */
+  --cc-text-xs: 0.6875rem; /* 11px   — mono meta, badges */
+  --cc-text-sm: 0.75rem; /* 12px   — secondary meta */
+  --cc-text-base: 0.8125rem; /* 13px   — captions, dense labels */
+  --cc-text-md: 0.875rem; /* 14px   — default UI text */
+  --cc-text-lg: 1rem; /* 16px   — body paragraphs, emphasised UI */
+  --cc-text-xl: 1.1875rem; /* 19px   — subheads, quoted excerpt body */
+  --cc-text-2xl: 1.4375rem; /* 23px   — card headers */
+  --cc-text-3xl: 1.75rem; /* 28px   — section headers */
+  --cc-text-4xl: 2.25rem; /* 36px   — page titles */
+  --cc-text-display: 3rem; /* 48px   — the upload headline */
+  --cc-text-display-lg: 4.25rem; /* 68px   — the single risk word. One per report. */
 
   /* ---- Type — line height ------------------------------------------ */
-  --cc-leading-tight: 1.15; /* headings and display numbers */
+  --cc-leading-none: 1; /* the display risk word */
+  --cc-leading-tight: 1.12; /* headings */
+  --cc-leading-snug: 1.35; /* subheads, short UI blocks */
   --cc-leading-normal: 1.6; /* sans body text */
-  --cc-leading-relaxed: 1.68; /* serif body text — quoted contract excerpts */
+  --cc-leading-relaxed: 1.7; /* serif body — quoted contract excerpts */
 
   /* ---- Type — letter spacing ---------------------------------------- */
-  --cc-tracking-tight: -0.02em; /* headings */
-  --cc-tracking-tighter: -0.03em; /* display numbers */
-  --cc-tracking-wide: 0.02em; /* small labelled text */
-  --cc-tracking-wider: 0.14em; /* uppercase mono eyebrow labels */
+  --cc-tracking-tighter: -0.032em; /* display */
+  --cc-tracking-tight: -0.018em; /* headings */
+  --cc-tracking-normal: 0;
+  --cc-tracking-wide: 0.01em; /* small sans labels */
+  --cc-tracking-wider: 0.08em; /* the few remaining mono caps labels */
 
-  /* ---- Spacing rhythm (px; the prototype does not use a rem grid here) */
+  /* ---- Spacing rhythm ------------------------------------------------
+     A real 4px grid this time, which the previous 4/6/8/10/12/15/18 list
+     was not. Sizes that used to need an off-grid value get the next step
+     up; nothing in the app depended on a 15px gap being 15 rather than
+     16. */
   --cc-space-1: 4px;
-  --cc-space-2: 6px;
-  --cc-space-3: 8px;
-  --cc-space-4: 10px;
-  --cc-space-5: 12px;
-  --cc-space-6: 15px;
-  --cc-space-7: 18px;
-  --cc-space-8: 20px;
-  --cc-space-9: 24px;
-  --cc-space-10: 28px;
-  --cc-space-11: 32px;
-  --cc-space-12: 64px; /* empty-state / hero padding */
+  --cc-space-2: 8px;
+  --cc-space-3: 12px;
+  --cc-space-4: 16px;
+  --cc-space-5: 20px;
+  --cc-space-6: 24px;
+  --cc-space-7: 32px;
+  --cc-space-8: 40px;
+  --cc-space-9: 48px;
+  --cc-space-10: 64px;
+  --cc-space-11: 80px;
+  --cc-space-12: 112px;
 
-  /* ---- Borders and radius -------------------------------------------- */
+  /* ---- Borders and radius --------------------------------------------
+     SHAPE LOCK: one radius system for the whole app. Everything that is
+     a surface gets --cc-radius; everything that is a small mark (badge,
+     pill) gets --cc-radius-sm; controls that read as "pressable" get
+     --cc-radius-control. No fourth value, and no sharp corner mixed in
+     next to a soft one. The previous system was radius 0 everywhere
+     except 2px badges, which is a defensible choice but made every
+     surface read as a printed rule rather than a physical card. */
   --cc-border-width: 1px;
-  --cc-border-width-accent: 3px; /* the brand-colour top stripe on primary cards */
+  --cc-border-width-accent: 2px;
   --cc-border-width-focus: 2px;
-  --cc-radius-sm: 2px; /* the prototype's one radius value, used on small badges */
-  --cc-radius: 0px; /* everything else is sharp-edged */
+  --cc-radius-sm: 4px;
+  --cc-radius-control: 8px;
+  --cc-radius: 12px;
+  --cc-radius-lg: 16px;
 
-  /* ---- Shadows (rgba, so they read correctly over --cc-surface-page) - */
+  /* ---- Elevation ------------------------------------------------------
+     Tinted to the page's hue rather than pure black, so a raised surface
+     reads as lifted paper rather than as a drop shadow drawn on top of
+     it. Three levels only: resting, raised (hover), and modal. */
   --cc-shadow-card:
-    0 1px 1px rgba(20, 20, 20, 0.03), 0 14px 30px -16px rgba(20, 20, 20, 0.18);
+    0 1px 2px rgba(20, 26, 36, 0.04), 0 8px 20px -12px rgba(20, 26, 36, 0.16);
   --cc-shadow-card-lg:
-    0 1px 1px rgba(20, 20, 20, 0.03), 0 18px 36px -18px rgba(20, 20, 20, 0.2);
-  --cc-shadow-modal: 0 24px 60px -20px rgba(20, 20, 20, 0.45);
-  --cc-shadow-popover: 0 8px 20px rgba(22, 24, 26, 0.09);
-  --cc-shadow-hairline: 0 1px 0 rgba(20, 20, 20, 0.2);
+    0 2px 4px rgba(20, 26, 36, 0.05), 0 16px 32px -16px rgba(20, 26, 36, 0.22);
+  --cc-shadow-modal: 0 32px 64px -24px rgba(16, 19, 23, 0.45);
+  --cc-shadow-popover: 0 8px 24px -8px rgba(20, 26, 36, 0.22);
+  /* An inset top highlight. On a light surface this is what makes an
+     edge look like a physical edge instead of a 1px line. */
+  --cc-shadow-inner-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 
   /* Dialog's full-screen backdrop. */
-  --cc-scrim: rgba(22, 24, 26, 0.46);
+  --cc-scrim: rgba(16, 19, 23, 0.52);
+
+  /* ---- Motion --------------------------------------------------------
+     MOTION_INTENSITY 5: fluid CSS only. No animation library is
+     installed and none is wanted — FR-7.13's initial-JS budget is 200 KB
+     gzipped and every one of these moves is a transform or an opacity,
+     which CSS does on the compositor for free.
+     Every duration below is gated by prefers-reduced-motion in
+     global.css; nothing here animates for a reader who asked it not to. */
+  --cc-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --cc-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --cc-duration-fast: 120ms;
+  --cc-duration: 220ms;
+  --cc-duration-slow: 420ms;
+
+  /* ---- Layout --------------------------------------------------------- */
+  --cc-measure: 68ch; /* body copy line length */
+  --cc-container: 1140px;
+  --cc-container-narrow: 720px;
 }

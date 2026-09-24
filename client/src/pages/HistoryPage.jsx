@@ -149,9 +149,40 @@ export default function HistoryPage() {
         </p>
 
         {state.status === "loading" ? (
-          <p role="status" aria-live="polite" className="cc-history__status">
-            Loading your contracts…
-          </p>
+          /* A skeleton in the shape of the list that is coming, not a
+             line of text where the list will be. The announcement still
+             happens for assistive technology (the visually-hidden status
+             below); the placeholder rows are aria-hidden because a screen
+             reader has nothing to gain from four empty rows. */
+          <>
+            <p role="status" aria-live="polite" className="cc-sr-only">
+              Loading your contracts
+            </p>
+            <ul
+              className="cc-history__list cc-history__list--skeleton"
+              aria-hidden="true"
+            >
+              {[0, 1, 2, 3].map((row) => (
+                <li className="cc-history__row" key={row}>
+                  <div
+                    className="cc-history__skeleton-row"
+                    /* A custom property, which React passes through fine
+                       but React's CSSProperties type does not describe. */
+                    style={
+                      /** @type {import("react").CSSProperties} */ ({
+                        "--cc-rise-delay": row * 70 + "ms",
+                      })
+                    }
+                  >
+                    <span className="cc-history__skeleton-bar cc-history__skeleton-bar--name" />
+                    <span className="cc-history__skeleton-bar cc-history__skeleton-bar--meta" />
+                    <span className="cc-history__skeleton-bar cc-history__skeleton-bar--meta" />
+                    <span className="cc-history__skeleton-bar cc-history__skeleton-bar--risk" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         ) : null}
 
         {state.status === "error" ? (
@@ -209,7 +240,7 @@ export default function HistoryPage() {
                     )}
                     <span className="cc-history__row-findings">
                       {document.overallRisk === null
-                        ? "—"
+                        ? t.historyNotChecked
                         : document.findingCount === 0
                           ? t.historyNoFindings
                           : document.findingCount +

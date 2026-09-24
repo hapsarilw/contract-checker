@@ -1,21 +1,47 @@
 .cc-copy-button {
   display: inline-flex;
   align-items: center;
-  gap: var(--cc-space-3);
+  gap: var(--cc-space-2);
   min-width: 24px;
   min-height: 24px;
-  font-size: var(--cc-text-sm);
+  font-size: var(--cc-text-base);
   font-weight: 500;
   padding: 9px 14px;
   cursor: pointer;
   border: var(--cc-border-width) solid var(--cc-brand);
+  border-radius: var(--cc-radius-control);
   background: var(--cc-brand);
-  color: var(--cc-surface-card);
+  color: #ffffff;
+  transition:
+    transform var(--cc-duration-fast) var(--cc-ease-out),
+    background-color var(--cc-duration-fast) var(--cc-ease-out),
+    border-color var(--cc-duration-fast) var(--cc-ease-out),
+    color var(--cc-duration-fast) var(--cc-ease-out);
 }
 
-.cc-copy-button--copied {
+.cc-copy-button:hover:not(:disabled) {
+  background: var(--cc-brand-hover);
+  border-color: var(--cc-brand-hover);
+}
+
+.cc-copy-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* The confirmed state is a colour change, not a layout change: the
+   button must not resize under the cursor that just clicked it.
+ *
+ * The hover rule above has to be re-stated here rather than left to
+ * cascade, and the reason is a bug axe caught: the pointer is still over
+ * the button at the moment it flips to confirmed, so the hover rule kept
+ * repainting the background brand-blue while the label stayed
+ * confirmation-green. That is 1.48:1, on the one control whose entire job
+ * is to tell you it worked. */
+.cc-copy-button--copied,
+.cc-copy-button--copied:hover:not(:disabled) {
   background: var(--cc-success-tint);
-  color: var(--cc-brand-hover);
+  border-color: color-mix(in srgb, var(--cc-success) 35%, transparent);
+  color: var(--cc-success);
 }
 
 .cc-copy-button__icon {
@@ -28,11 +54,11 @@
    has no height; only the spacing is conditional. */
 .cc-copy-button__note {
   display: block;
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: var(--cc-text-base);
+  line-height: var(--cc-leading-snug);
   color: var(--cc-success);
 }
 
 .cc-copy-button__note:not(:empty) {
-  margin-top: 9px;
+  margin-top: var(--cc-space-2);
 }

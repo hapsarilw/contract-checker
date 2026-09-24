@@ -1,12 +1,14 @@
 /**
- * BUILD-PLAN step 34 — the prototype's "2. ANALYZING" screen
- * (docs/design/ClauseCheck.html), matched layout-for-layout.
+ * The analysing screen. The STAGES, their labels and their honesty note
+ * are still the prototype's and FR-7.4's (see AnalyzingPanel.jsx); what
+ * is no longer the prototype's is the surface it all sits on, which was
+ * restyled with the rest of the app when the visual language changed.
  */
 
 .cc-analyzing {
-  max-width: 1060px;
+  max-width: var(--cc-container-narrow);
   margin: 0 auto;
-  padding: 64px 28px 64px;
+  padding: var(--cc-space-10) var(--cc-space-6);
 }
 
 .cc-analyzing__frame {
@@ -23,8 +25,8 @@
 
 .cc-analyzing__title {
   margin: 0 0 var(--cc-space-5);
-  font-family: var(--cc-font-serif);
-  font-size: 33px;
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-4xl);
   line-height: 1.14;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -33,7 +35,7 @@
 
 .cc-analyzing__subhead {
   margin: 0 0 var(--cc-space-11);
-  font-size: 15.5px;
+  font-size: var(--cc-text-lg);
   line-height: 1.62;
   color: var(--cc-ink-secondary);
   max-width: 52ch;
@@ -42,7 +44,8 @@
 .cc-analyzing__stages {
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  box-shadow: var(--cc-shadow-card);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
 }
 
 .cc-analyzing__stage {
@@ -59,7 +62,7 @@
 
 .cc-analyzing__stage-mark {
   font-family: var(--cc-font-mono);
-  font-size: 12px;
+  font-size: var(--cc-text-sm);
   line-height: 1.6;
   width: 13px;
   flex: none;
@@ -124,12 +127,12 @@
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
   border-top: var(--cc-border-width-focus) solid var(--cc-danger);
-  padding: 28px 26px;
+  padding: var(--cc-space-6);
 }
 
 .cc-analyzing-error__title {
   margin: 0 0 var(--cc-space-4);
-  font-size: 21px;
+  font-size: var(--cc-text-2xl);
   line-height: 1.26;
   font-weight: 600;
   letter-spacing: -0.018em;
@@ -138,7 +141,7 @@
 
 .cc-analyzing-error__body {
   margin: 0 0 var(--cc-space-9);
-  font-size: 15.5px;
+  font-size: var(--cc-text-lg);
   line-height: 1.62;
   color: var(--cc-ink-secondary);
 }
@@ -151,7 +154,7 @@
 
 .cc-analyzing-error__code {
   font-family: var(--cc-font-mono);
-  font-size: 10.5px;
+  font-size: var(--cc-text-xs);
   /* --cc-ink-secondary, not the prototype's #9A857A — that literal
      value clears only 3.02:1 against a light card background too (see
      UploadPage.css/AuthForm.css's own notes on this same prototype

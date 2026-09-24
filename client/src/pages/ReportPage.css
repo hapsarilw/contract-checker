@@ -5,25 +5,44 @@
  * and why.
  */
 
+/**
+ * The report. This is the screen the product exists for, and the one the
+ * redesign had the most to take OUT of rather than add to.
+ *
+ * It carried twelve uppercase mono eyebrow labels at four findings (one
+ * per risk block, two section titles, one order note, and two inside
+ * every finding card). That rhythm is the single most recognisable
+ * generated-page signature there is, and here it also buried the actual
+ * headings under a layer of decoration. One eyebrow survives: OVERALL
+ * RISK, which labels a word that would otherwise read as a bare adjective
+ * floating on a page. Everything else became what it already was
+ * semantically, a sentence-case heading.
+ *
+ * The severity breakdown lost its progress bars. A filled background
+ * track with a partial fill is a dashboard comparison widget, and this is
+ * a reading surface; the count and the severity mark say the same thing
+ * in less space and without inventing a scale the data does not have.
+ */
+
 .cc-report {
-  max-width: 1060px;
+  max-width: var(--cc-container);
   margin: 0 auto;
-  padding: 34px 28px 64px;
+  padding: var(--cc-space-6) var(--cc-space-6) var(--cc-space-10);
 }
 
 .cc-report__back-link {
   display: inline-block;
-  margin-bottom: 20px;
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
+  margin-bottom: var(--cc-space-4);
+  font-size: var(--cc-text-md);
+  font-weight: 500;
   color: var(--cc-brand);
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: 0.18em;
 }
 
 .cc-report__loading,
 .cc-report__error-title {
-  font-family: var(--cc-font-serif);
+  font-family: var(--cc-font-sans);
   color: var(--cc-ink);
 }
 
@@ -36,10 +55,22 @@
 /* ---- Masthead ------------------------------------------------------ */
 
 .cc-report__masthead {
+  position: relative;
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-top: var(--cc-border-width-accent) solid var(--cc-brand);
-  box-shadow: var(--cc-shadow-card-lg);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  overflow: hidden;
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
+}
+
+/* The accent hairline, inside the radius rather than fighting it. */
+.cc-report__masthead::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--cc-border-width-accent);
+  background: var(--cc-brand);
 }
 
 .cc-report__meta {
@@ -93,7 +124,7 @@
   font-size: var(--cc-text-display-lg);
   font-weight: 600;
   letter-spacing: var(--cc-tracking-tighter);
-  line-height: 0.94;
+  line-height: var(--cc-leading-none);
   color: var(--cc-severity-low);
 }
 .cc-report__risk--high .cc-report__risk-value {
@@ -140,26 +171,29 @@
    smaller/quieter treatment that would read as a footnote. */
 .cc-report__disclaimer {
   margin: 0;
-  padding: 22px var(--cc-space-9) 28px;
+  padding: var(--cc-space-5) var(--cc-space-6);
   font-size: var(--cc-text-md);
-  line-height: 1.6;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
   border-top: var(--cc-border-width) solid var(--cc-rule-soft);
   max-width: 76ch;
 }
 
+/* Sans, not serif. The summary is the app's own reading of the contract;
+   the serif on this screen is reserved for the contract's words and for
+   the single risk verdict they add up to. */
 .cc-report__summary {
   flex: 1 1 330px;
   min-width: 0;
   margin: 0;
-  font-family: var(--cc-font-serif);
+  font-family: var(--cc-font-sans);
   font-size: var(--cc-text-xl);
-  line-height: var(--cc-leading-relaxed);
+  line-height: var(--cc-leading-snug);
   color: var(--cc-ink);
-  max-width: 58ch;
+  max-width: 46ch;
 }
 
-/* ---- "The shape of it" / "Where the problems are" ------------------ */
+/* ---- Severity and category breakdown -------------------------------- */
 
 .cc-report__breakdown {
   display: flex;
@@ -170,20 +204,21 @@
 .cc-report__breakdown-col {
   flex: 1 1 260px;
   min-width: 0;
-  padding: var(--cc-space-9) var(--cc-space-9);
+  padding: var(--cc-space-6);
 }
 .cc-report__breakdown-col--where {
   border-left: var(--cc-border-width) solid var(--cc-rule-soft);
 }
 
+/* A real heading, not an eyebrow: sentence case, sans, at a size that
+   sits under the h1 rather than beside the body text. */
 .cc-report__breakdown-title {
-  margin: 0 0 var(--cc-space-6);
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  font-weight: 500;
-  color: var(--cc-ink-on-muted);
-  letter-spacing: var(--cc-tracking-wider);
-  text-transform: uppercase;
+  margin: 0 0 var(--cc-space-4);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-md);
+  font-weight: 600;
+  color: var(--cc-ink);
+  letter-spacing: var(--cc-tracking-wide);
 }
 
 .cc-report__sev-rows {
@@ -202,7 +237,7 @@
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-base);
   letter-spacing: 0.16em;
-  width: 46px;
+  width: 3.4ch;
   flex: none;
 }
 .cc-report__sev-mark--high {
@@ -215,36 +250,20 @@
   color: var(--cc-severity-low);
 }
 
-.cc-report__sev-row-label {
-  font-size: var(--cc-text-base);
+.cc-report__sev-count {
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-2xl);
   font-weight: 500;
-  color: var(--cc-ink);
-  width: 96px;
-  flex: none;
   font-variant-numeric: tabular-nums;
+  color: var(--cc-ink);
+  line-height: 1;
+  min-width: 1.5ch;
+  text-align: right;
 }
 
-.cc-report__sev-bar-track {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 140px;
-  height: 6px;
-  background: var(--cc-rule-soft);
-  display: block;
-}
-
-.cc-report__sev-bar-fill {
-  display: block;
-  height: 6px;
-}
-.cc-report__sev-bar-fill--high {
-  background: var(--cc-severity-high);
-}
-.cc-report__sev-bar-fill--medium {
-  background: var(--cc-severity-medium);
-}
-.cc-report__sev-bar-fill--low {
-  background: var(--cc-severity-low);
+.cc-report__sev-row-label {
+  font-size: var(--cc-text-md);
+  color: var(--cc-ink-secondary);
 }
 
 .cc-report__cat-chips {
@@ -254,9 +273,11 @@
 }
 
 .cc-report__cat-chip {
-  font-size: var(--cc-text-sm);
-  padding: var(--cc-space-1) var(--cc-space-4);
+  font-size: var(--cc-text-base);
+  padding: var(--cc-space-1) var(--cc-space-3);
   border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius-sm);
+  background: var(--cc-surface-card);
   color: var(--cc-ink-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -264,7 +285,7 @@
 /* ---- Findings header + severity filter ------------------------------ */
 
 .cc-report__findings-head {
-  margin-top: 46px;
+  margin-top: var(--cc-space-9);
   display: flex;
   flex-wrap: wrap;
   gap: var(--cc-space-5) var(--cc-space-9);
@@ -272,22 +293,19 @@
 }
 
 .cc-report__findings-title {
-  margin: 0 0 var(--cc-space-2);
-  font-family: var(--cc-font-serif);
+  margin: 0 0 var(--cc-space-1);
+  font-family: var(--cc-font-sans);
   font-size: var(--cc-text-3xl);
-  line-height: 1.18;
+  line-height: var(--cc-leading-tight);
   font-weight: 600;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
 .cc-report__order-note {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  color: var(--cc-ink-on-muted);
+  font-size: var(--cc-text-base);
+  color: var(--cc-ink-muted);
   font-variant-numeric: tabular-nums;
-  letter-spacing: var(--cc-tracking-wide);
-  text-transform: uppercase;
 }
 
 .cc-report__filters {
@@ -299,20 +317,30 @@
 
 .cc-report__filter {
   min-height: 24px;
-  font-size: var(--cc-text-sm);
+  font-size: var(--cc-text-base);
   font-weight: 500;
-  padding: var(--cc-space-3) var(--cc-space-5);
+  padding: var(--cc-space-2) var(--cc-space-4);
   cursor: pointer;
-  border: var(--cc-border-width) solid var(--cc-rule-strong);
+  border: var(--cc-border-width) solid var(--cc-rule-input);
+  border-radius: var(--cc-radius-control);
   background: var(--cc-surface-card);
   color: var(--cc-ink-secondary);
   font-variant-numeric: tabular-nums;
+  transition:
+    background-color var(--cc-duration-fast) var(--cc-ease-out),
+    border-color var(--cc-duration-fast) var(--cc-ease-out),
+    color var(--cc-duration-fast) var(--cc-ease-out);
+}
+
+.cc-report__filter:hover:not(.cc-report__filter--active) {
+  border-color: var(--cc-ink-muted);
+  color: var(--cc-ink);
 }
 
 .cc-report__filter--active {
   border-color: var(--cc-brand);
   background: var(--cc-brand);
-  color: var(--cc-surface-card);
+  color: #ffffff;
 }
 
 .cc-report__filter:focus-visible {
@@ -326,42 +354,49 @@
    the first one doubles as the sheet's top edge. */
 .cc-report__findings {
   list-style: none;
-  margin: 14px 0 0;
+  margin: var(--cc-space-4) 0 0;
   padding: 0;
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  overflow: hidden;
+}
+
+/* The first card's own top border would double the sheet's edge. */
+.cc-report__findings > li:first-child .cc-finding {
   border-top: 0;
-  box-shadow: var(--cc-shadow-card-lg);
 }
 
 /* ---- Zero findings (step 36) --------------------------------------- */
 
 .cc-report__clean {
-  margin-top: 46px;
+  margin-top: var(--cc-space-9);
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-left: 5px solid var(--cc-success);
-  box-shadow: var(--cc-shadow-card-lg);
-  padding: 32px 28px;
+  border-left: 3px solid var(--cc-success);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  padding: var(--cc-space-7);
 }
 
 .cc-report__clean-title {
-  margin: 0 0 var(--cc-space-5);
-  font-family: var(--cc-font-serif);
-  font-size: 30px;
-  line-height: 1.1;
+  margin: 0 0 var(--cc-space-3);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-3xl);
+  line-height: var(--cc-leading-tight);
   font-weight: 600;
-  letter-spacing: -0.026em;
+  letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
   max-width: 26ch;
 }
 
 .cc-report__clean-body {
-  margin: 0 0 var(--cc-space-9);
-  font-size: 15.5px;
-  line-height: 1.62;
+  margin: 0 0 var(--cc-space-6);
+  font-size: var(--cc-text-lg);
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  max-width: 64ch;
+  max-width: var(--cc-measure);
 }
 
 .cc-report__checked {
@@ -370,16 +405,16 @@
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-4) var(--cc-space-10);
+  gap: var(--cc-space-3) var(--cc-space-7);
   max-width: 660px;
 }
 
 .cc-report__checked-item {
   display: flex;
   align-items: baseline;
-  gap: var(--cc-space-4);
+  gap: var(--cc-space-3);
   flex: 1 1 176px;
-  font-size: 13px;
+  font-size: var(--cc-text-md);
   color: var(--cc-ink);
 }
 
@@ -392,93 +427,95 @@
 /* ---- Missing protections (step 37) ---------------------------------- */
 
 .cc-report__section-title {
-  margin: 0 0 var(--cc-space-2);
-  font-family: var(--cc-font-serif);
+  margin: 0 0 var(--cc-space-1);
+  font-family: var(--cc-font-sans);
   font-size: var(--cc-text-3xl);
-  line-height: 1.18;
+  line-height: var(--cc-leading-tight);
   font-weight: 600;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
 .cc-report__section-sub {
-  margin: 0 0 var(--cc-space-6);
+  margin: 0 0 var(--cc-space-4);
   font-size: var(--cc-text-md);
-  line-height: 1.6;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  max-width: 66ch;
+  max-width: var(--cc-measure);
 }
 
 .cc-report__missing {
-  margin-top: 46px;
+  margin-top: var(--cc-space-9);
 }
 
 .cc-report__missing-list {
   list-style: none;
-  margin: 0;
+  margin: var(--cc-space-4) 0 0;
   padding: 0;
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-top: 0;
-  box-shadow: var(--cc-shadow-card-lg);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  overflow: hidden;
 }
 
 .cc-report__missing-item {
   display: flex;
-  gap: var(--cc-space-7);
-  padding: var(--cc-space-8) var(--cc-space-9);
+  gap: var(--cc-space-4);
+  padding: var(--cc-space-5) var(--cc-space-6);
   border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+.cc-report__missing-item:first-child {
+  border-top: 0;
 }
 
 .cc-report__missing-mark {
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-sm);
-  color: var(--cc-ink-secondary);
+  color: var(--cc-brand);
   flex: none;
-  line-height: 1.6;
+  line-height: var(--cc-leading-normal);
 }
 
 .cc-report__missing-text {
   font-size: var(--cc-text-md);
-  line-height: 1.62;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  max-width: 72ch;
+  max-width: var(--cc-measure);
   overflow-wrap: anywhere;
 }
 
 /* ---- "Done with this contract?" + delete (step 37, FR-7.6) --------- */
 
 .cc-report__done {
-  margin-top: 46px;
-  padding-top: var(--cc-space-10);
-  border-top: var(--cc-border-width) solid var(--cc-rule-strong);
-  max-width: 400px;
+  margin-top: var(--cc-space-9);
+  padding-top: var(--cc-space-6);
+  border-top: var(--cc-border-width) solid var(--cc-rule);
+  max-width: 420px;
 }
 
 .cc-report__done-head {
-  margin: 0 0 var(--cc-space-2);
-  font-size: var(--cc-text-base);
+  margin: 0 0 var(--cc-space-1);
+  font-size: var(--cc-text-md);
   font-weight: 600;
   color: var(--cc-ink);
 }
 
 .cc-report__done-body {
-  margin: 0 0 var(--cc-space-7);
-  font-size: var(--cc-text-base);
-  line-height: 1.582;
+  margin: 0 0 var(--cc-space-4);
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
 }
 
-/* The prototype's danger-outline treatment (docs/design/ClauseCheck.html's
-   openDelete button) rather than Button's solid "destructive" variant,
-   which is reserved for the dialog's actual confirm action — the trigger
-   is one step removed from doing anything irreversible. #BFA294 is a
-   warm-neutral border between --cc-rule-strong and --cc-danger that the
-   prototype uses nowhere else, so it's a local override rather than a
-   new token. */
+/* An outlined danger trigger rather than Button's solid destructive
+   variant, which is reserved for the dialog's actual confirm action: this
+   button is one step removed from doing anything irreversible. The border
+   is the danger ink at low alpha rather than a one-off hex, so it tracks
+   the token if the danger colour ever moves. */
 .cc-report__delete-trigger.cc-button--secondary {
-  border-color: #bfa294;
-  border-bottom-color: #bfa294;
+  border-color: color-mix(in srgb, var(--cc-danger) 40%, transparent);
   color: var(--cc-danger);
 }
 .cc-report__delete-trigger.cc-button--secondary:hover:not(:disabled) {

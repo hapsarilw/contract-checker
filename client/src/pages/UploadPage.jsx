@@ -195,10 +195,7 @@ export default function UploadPage() {
           </span>
         </h1>
         <p className="cc-upload-page__intro">
-          One document in, one plain-language report out — usually about 30 seconds. Every
-          clause we flag is quoted word-for-word from your file and checked against it
-          before you see it, so you can confirm nothing was invented. Delete the document
-          permanently whenever you like.
+          One document in, one plain-language report out, usually in about 30 seconds.
         </p>
       </div>
 
@@ -305,7 +302,7 @@ export default function UploadPage() {
                     <div className="cc-dropzone__eyebrow">PDF or DOCX</div>
                     <div className="cc-dropzone__title">Drop the contract here</div>
                     <div className="cc-dropzone__hint">
-                      Up to about 8 pages — {MAX_DOCUMENT_WORDS.toLocaleString("en-US")}{" "}
+                      Up to about 8 pages, {MAX_DOCUMENT_WORDS.toLocaleString("en-US")}{" "}
                       words, 5 MB
                     </div>
                     <Button onClick={() => fileInputRef.current?.click()}>
@@ -339,31 +336,30 @@ export default function UploadPage() {
             )}
           </Tabs>
 
-          <div className="cc-upload-card__footer">
-            <div className="cc-upload-card__footer-col">
-              <div className="cc-upload-card__footer-title">
-                What happens to your file
-              </div>
-              <div className="cc-upload-card__footer-body">
-                It's read once to produce the report, then kept for up to 90 days so you
-                can open it again — delete it any time and it's gone for good.
-              </div>
+          <dl className="cc-upload-card__facts">
+            <div className="cc-upload-card__fact">
+              <dt className="cc-upload-card__fact-term">What happens to your file</dt>
+              <dd className="cc-upload-card__fact-body">
+                It is read once to produce the report, then kept for up to 90 days so you
+                can open it again. Delete it any time and it is gone for good.
+              </dd>
             </div>
-            <div className="cc-upload-card__footer-col">
-              <div className="cc-upload-card__footer-title">What you get back</div>
-              <div className="cc-upload-card__footer-body">
+            <div className="cc-upload-card__fact">
+              <dt className="cc-upload-card__fact-term">What you get back</dt>
+              <dd className="cc-upload-card__fact-body">
                 An overall risk level, the clauses worth a second look with each one
-                quoted, and the standard protections your contract is missing.
-              </div>
+                quoted word-for-word from your file, and the standard protections your
+                contract is missing.
+              </dd>
             </div>
-            <div className="cc-upload-card__footer-col">
-              <div className="cc-upload-card__footer-title">What this isn't</div>
-              <div className="cc-upload-card__footer-body">
-                Legal advice. It's a first pass so you know which two or three paragraphs
+            <div className="cc-upload-card__fact">
+              <dt className="cc-upload-card__fact-term">What this is not</dt>
+              <dd className="cc-upload-card__fact-body">
+                Legal advice. It is a first pass so you know which two or three paragraphs
                 to ask about.
-              </div>
+              </dd>
             </div>
-          </div>
+          </dl>
         </div>
       </main>
     </div>

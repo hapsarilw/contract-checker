@@ -146,7 +146,7 @@ describe("ReportPage (BUILD-PLAN step 35, PRD §7 / FR-7.5 / §7.15)", () => {
     expect(screen.queryByText("LOW", { exact: true })).not.toBeInTheDocument();
   });
 
-  it('summarises severity counts under "The shape of it" and categories under "Where the problems are"', async () => {
+  it("summarises severity counts and categories in the breakdown", async () => {
     vi.mocked(apiFetch).mockResolvedValue({
       document: DOCUMENT,
       analysis: analysisWith(THREE_FINDINGS),
@@ -158,12 +158,12 @@ describe("ReportPage (BUILD-PLAN step 35, PRD §7 / FR-7.5 / §7.15)", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText("The shape of it")).toBeInTheDocument();
+    expect(screen.getByText("Findings by severity")).toBeInTheDocument();
     expect(screen.getByText("1 high")).toBeInTheDocument();
     expect(screen.getByText("1 medium")).toBeInTheDocument();
     expect(screen.getByText("1 low")).toBeInTheDocument();
 
-    expect(screen.getByText("Where the problems are")).toBeInTheDocument();
+    expect(screen.getByText("Findings by category")).toBeInTheDocument();
     expect(screen.getByText("Payment · 1")).toBeInTheDocument();
     expect(screen.getByText("IP and ownership · 1")).toBeInTheDocument();
     expect(screen.getByText("Scope and revisions · 1")).toBeInTheDocument();
@@ -384,7 +384,7 @@ describe("ReportPage disclaimer and missing protections (BUILD-PLAN step 37, NFR
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "These are standard terms in freelance agreements. Nothing here is quoted, because there’s nothing to quote — that’s the point. They don’t change the risk level above, and they’re the easiest thing to ask for while the contract is still open.",
+        "These are standard terms in freelance agreements. Nothing here is quoted, because there’s nothing to quote. That is the point. They don’t change the risk level above, and they’re the easiest thing to ask for while the contract is still open.",
       ),
     ).toBeInTheDocument();
     expect(

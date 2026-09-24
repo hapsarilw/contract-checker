@@ -1,12 +1,18 @@
+/**
+ * FR-7.5: severity has to be legible without colour. The dot mark
+ * carries the shape, the label carries the word, and colour only
+ * reinforces what both already say.
+ */
 .cc-severity-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--cc-space-2);
-  padding: var(--cc-space-1) var(--cc-space-4);
+  padding: var(--cc-space-1) var(--cc-space-3);
   font-size: var(--cc-text-xs);
   font-weight: 600;
   letter-spacing: var(--cc-tracking-wider);
   text-transform: uppercase;
+  border-radius: var(--cc-radius-sm);
   border-left-style: solid;
   border-left-width: var(--cc-border-width-accent);
 }
@@ -15,10 +21,10 @@
   font-family: var(--cc-font-mono);
   letter-spacing: 0.16em;
   text-transform: none;
-  /* The mark is decorative here — the text label carries the accessible
-     name (WCAG 1.4.1: text plus shape, never colour alone; the shape is
-     for sighted users who scan by pattern, not for the accessible name
-     itself, which is why the glyph is aria-hidden in the component). */
+  /* Decorative here — the text label carries the accessible name
+     (WCAG 1.4.1: text plus shape, never colour alone; the shape is for
+     sighted users who scan by pattern, which is why the glyph is
+     aria-hidden in the component). */
 }
 
 .cc-severity-badge--high {
@@ -40,14 +46,15 @@
 }
 
 /* The finding card's header treatment: text then mark, on the card's own
-   background. Severity inks clear 4.5:1 on the tints above, and the card
+   background. The severity inks clear 4.5:1 on their tints, and the card
    surface is lighter than every tint, so they clear it here too. */
 .cc-severity-badge--inline {
   align-items: baseline;
-  gap: 9px;
+  gap: var(--cc-space-2);
   padding: 0;
   background: none;
   border-left: 0;
+  border-radius: 0;
 }
 
 .cc-severity-badge--inline .cc-severity-badge__mark {

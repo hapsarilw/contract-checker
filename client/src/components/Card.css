@@ -1,12 +1,28 @@
+/**
+ * A surface that is lifted off the page. The inner top highlight is what
+ * separates "a box with a shadow under it" from "a sheet with an edge":
+ * on a light page the eye reads the 1px lit top edge as thickness.
+ */
 .cc-card {
+  position: relative;
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  box-shadow: var(--cc-shadow-card-lg);
-  padding: var(--cc-space-9);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  padding: var(--cc-space-7);
 }
 
-/* The brand-colour top stripe on primary content cards (the report
-   header, the auth card) — a Card without it is a plain container. */
-.cc-card--accent {
-  border-top: var(--cc-border-width-accent) solid var(--cc-brand);
+/**
+ * The primary content card's accent. A top stripe would fight the
+ * rounded corner, so this is a hairline of brand laid along the top edge
+ * inside the radius, via a pseudo-element that is clipped by the card's
+ * own border-radius.
+ */
+.cc-card--accent::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--cc-border-width-accent);
+  background: var(--cc-brand);
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0;
 }

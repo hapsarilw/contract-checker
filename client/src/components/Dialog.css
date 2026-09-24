@@ -6,42 +6,49 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--cc-space-8);
+  padding: var(--cc-space-5);
 }
 
 .cc-dialog {
   width: 100%;
-  max-width: 436px;
+  max-width: 460px;
   background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule-strong);
-  border-left: 5px solid var(--cc-brand);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius-lg);
   box-shadow: var(--cc-shadow-modal);
-  padding: 30px 28px 28px;
+  padding: var(--cc-space-7);
+  /* The dialog arrives; it does not blink into place. Same rise the rest
+     of the app uses, so a modal feels like part of the same surface
+     system rather than a separate widget. */
+  animation: cc-rise var(--cc-duration) var(--cc-ease);
 }
 
-.cc-dialog--danger {
-  border-left-color: var(--cc-danger);
+/* The destructive variant is marked by its title colour and its primary
+   action, not by a coloured edge — a red stripe on a dialog that asks a
+   yes/no question reads as an error that already happened. */
+.cc-dialog--danger .cc-dialog__title {
+  color: var(--cc-danger);
 }
 
 .cc-dialog__title {
-  margin: 0 0 var(--cc-space-5);
-  font-family: var(--cc-font-serif);
-  font-size: 25px;
-  line-height: 1.14;
+  margin: 0 0 var(--cc-space-3);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-2xl);
+  line-height: var(--cc-leading-tight);
   font-weight: 600;
-  letter-spacing: -0.022em;
+  letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
 .cc-dialog__body {
-  margin: 0 0 var(--cc-space-9);
+  margin: 0 0 var(--cc-space-6);
   font-size: var(--cc-text-md);
-  line-height: 1.62;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
 }
 
 .cc-dialog__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-3);
+  gap: var(--cc-space-2);
 }

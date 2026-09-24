@@ -1,91 +1,169 @@
 /**
- * BUILD-PLAN step 32 — the prototype's "0. AUTH" screen
- * (docs/design/ClauseCheck.html), matched layout-for-layout.
+ * The sign-in / register screen.
+ *
+ * It used to be one card centred in an otherwise empty field, which read
+ * as an unfinished page rather than as a composed one: at 1440px roughly
+ * two thirds of the viewport carried nothing at all. It is now a split —
+ * an ink panel that says what the product does, and the form beside it.
+ * The ink half is the same surface as the app header, so a signed-out
+ * visitor is looking at the same material they will see once they are in,
+ * not at a separate marketing skin.
  */
 
 .cc-auth-page {
-  min-height: 88vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px 22px;
+  padding: var(--cc-space-7) var(--cc-space-5);
 }
 
 .cc-auth-page__frame {
   width: 100%;
-  max-width: 404px;
+  max-width: var(--cc-container);
+  display: grid;
+  /* Asymmetric on purpose: the statement gets the wider half, the form
+     gets only the width a form needs. Two equal columns would make the
+     form look like it was padded out to match. */
+  grid-template-columns: 1.15fr 0.85fr;
+  align-items: stretch;
+  gap: 0;
+  border-radius: var(--cc-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--cc-shadow-card-lg);
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
 }
 
-.cc-auth-page__brand {
+/* ---- The ink half ---------------------------------------------------- */
+
+.cc-auth-panel {
+  background: var(--cc-header-bg);
+  color: var(--cc-header-text);
+  padding: var(--cc-space-9) var(--cc-space-8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--cc-space-4);
+}
+
+.cc-auth-panel__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: var(--cc-space-9);
+  gap: var(--cc-space-3);
+  margin-bottom: var(--cc-space-5);
 }
 
+.cc-auth-panel__statement {
+  margin: 0;
+  font-size: var(--cc-text-4xl);
+  line-height: var(--cc-leading-tight);
+  letter-spacing: var(--cc-tracking-tighter);
+  font-weight: 600;
+  color: var(--cc-header-text);
+  max-width: 14ch;
+}
+
+.cc-auth-panel__body {
+  margin: 0;
+  font-size: var(--cc-text-lg);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-header-text-muted);
+  max-width: 44ch;
+}
+
+.cc-auth-panel__note {
+  margin: var(--cc-space-4) 0 0;
+  padding-top: var(--cc-space-4);
+  border-top: var(--cc-border-width) solid rgba(255, 255, 255, 0.12);
+  font-size: var(--cc-text-base);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-header-text-quiet);
+  max-width: 46ch;
+}
+
+/* The brand mark and name are shared with the app header's treatment but
+   scoped here because this screen has no header of its own. */
 .cc-auth-page__brand-mark {
   display: inline-block;
-  width: 9px;
-  height: 9px;
-  background: var(--cc-brand);
+  width: 6px;
+  height: 18px;
+  border-radius: var(--cc-radius-sm);
+  background: var(--cc-header-brand-accent);
 }
 
 .cc-auth-page__brand-name {
-  font-size: 16.5px;
+  font-size: var(--cc-text-lg);
   font-weight: 600;
-  letter-spacing: -0.016em;
-  color: var(--cc-ink);
+  letter-spacing: var(--cc-tracking-tight);
+  color: var(--cc-header-text);
+}
+
+/* ---- The form half --------------------------------------------------- */
+
+.cc-auth-page__main {
+  display: flex;
+  align-items: center;
+  background: var(--cc-surface-card);
 }
 
 .cc-auth-card {
-  /* Overrides Card's default uniform padding — this card's padding
-     isn't symmetric (less at the bottom, where the card's own edge
-     reads as enough of a boundary under the switch-mode link). */
-  padding: 32px 30px 28px;
+  /* Inside the split the card is no longer a card: the frame around it
+     already provides the edge, the radius and the elevation, so keeping
+     its own would be a box inside a box. */
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: var(--cc-space-8) var(--cc-space-8);
+}
+
+/* Card's accent hairline belongs to a free-standing card, not to a panel
+   inside a framed split. */
+.cc-auth-card.cc-card--accent::before {
+  display: none;
 }
 
 .cc-auth-card__title {
-  margin: 0 0 var(--cc-space-3);
-  font-family: var(--cc-font-serif);
-  font-size: 27px;
-  line-height: 1.16;
+  margin: 0 0 var(--cc-space-2);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-3xl);
+  line-height: var(--cc-leading-tight);
   font-weight: 600;
-  letter-spacing: -0.018em;
+  letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
 .cc-auth-card__blurb {
-  margin: 0 0 var(--cc-space-9);
-  font-size: var(--cc-text-base);
-  line-height: 1.6;
+  margin: 0 0 var(--cc-space-6);
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
 }
 
 .cc-auth-card__error {
-  margin-bottom: var(--cc-space-9);
-  padding: 13px 15px;
+  margin-bottom: var(--cc-space-5);
 }
 
 .cc-auth-card__error-code {
   font-family: var(--cc-font-mono);
-  font-size: 10.5px;
-  /* The prototype's own #9A857A here clears only 3.02:1 against the
-     danger banner's tint background (--cc-severity-high-tint) — found
-     in step 33, axe-checking the same pattern on the upload screen; this
-     screen's own axe coverage never actually rendered this state (see
-     e2e/auth.spec.js's added banner-state axe check). Fixed the same way:
-     --cc-ink-secondary clears 6.21:1 against the same background. */
+  font-size: var(--cc-text-xs);
+  /* The prototype's own #9A857A cleared only 3.02:1 against the danger
+     banner's tint. --cc-ink-secondary clears 6.62:1 against the same
+     background under this palette. */
   color: var(--cc-ink-secondary);
-  margin-top: var(--cc-space-3);
+  margin-top: var(--cc-space-2);
 }
 
 .cc-auth-card__field {
-  margin-bottom: var(--cc-space-7);
+  margin-bottom: var(--cc-space-5);
 }
 
 .cc-auth-card__switch {
-  margin-top: var(--cc-space-8);
-  font-size: var(--cc-text-base);
+  margin-top: var(--cc-space-6);
+  padding-top: var(--cc-space-5);
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+  font-size: var(--cc-text-md);
   color: var(--cc-ink-secondary);
 }
 
@@ -93,17 +171,54 @@
   border: 0;
   background: none;
   padding: 0;
-  font-size: var(--cc-text-base);
+  font-size: var(--cc-text-md);
   color: var(--cc-brand);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 0.18em;
   cursor: pointer;
   font-weight: 500;
 }
 
-.cc-auth-page__footnote {
-  margin: var(--cc-space-6) 1px 0;
-  font-size: var(--cc-text-base);
-  line-height: 1.58;
-  color: var(--cc-ink-secondary);
+/* ---- Mobile ----------------------------------------------------------
+   Explicit collapse, not an assumption: the split becomes one column,
+   the ink panel sits on top and loses its vertical centring, and the
+   statement drops a step so it cannot eat a small viewport. */
+@media (max-width: 860px) {
+  .cc-auth-page {
+    align-items: flex-start;
+    padding: 0;
+  }
+
+  .cc-auth-page__frame {
+    grid-template-columns: 1fr;
+    max-width: 560px;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 100dvh;
+  }
+
+  .cc-auth-panel {
+    padding: var(--cc-space-7) var(--cc-space-5) var(--cc-space-6);
+    gap: var(--cc-space-3);
+  }
+
+  .cc-auth-panel__statement {
+    font-size: var(--cc-text-3xl);
+    max-width: none;
+  }
+
+  /* The supporting paragraph is the first thing to go on a phone: the
+     statement and the form are what the screen is for. */
+  .cc-auth-panel__body {
+    display: none;
+  }
+
+  .cc-auth-panel__note {
+    margin-top: var(--cc-space-3);
+    padding-top: var(--cc-space-3);
+  }
+
+  .cc-auth-card {
+    padding: var(--cc-space-7) var(--cc-space-5);
+  }
 }

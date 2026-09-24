@@ -1,34 +1,90 @@
 /**
- * BUILD-PLAN step 38 — the prototype's "4. HISTORY" / "history-empty"
- * screens (docs/design/ClauseCheck.html), matched layout-for-layout.
+ * The history list.
+ *
+ * The loading state used to be the sentence "Loading your contracts…" on
+ * an otherwise empty page, which tells a reader that something is
+ * happening but nothing about what is arriving. It is a skeleton now, in
+ * the shape of the rows it is waiting for, so the page does not jump when
+ * they land.
  */
 
 .cc-history {
-  max-width: 1060px;
+  max-width: var(--cc-container);
   margin: 0 auto;
-  padding: 52px 28px 64px;
+  padding: var(--cc-space-9) var(--cc-space-6) var(--cc-space-10);
 }
 
 .cc-history__title {
-  margin: 0 0 var(--cc-space-4);
-  font-family: var(--cc-font-serif);
-  font-size: 34px;
-  line-height: 1.12;
+  margin: 0 0 var(--cc-space-2);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-4xl);
+  line-height: var(--cc-leading-tight);
   font-weight: 600;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
 .cc-history__blurb {
-  margin: 0 0 var(--cc-space-10);
-  font-size: var(--cc-text-md);
-  line-height: 1.62;
+  margin: 0 0 var(--cc-space-7);
+  font-size: var(--cc-text-lg);
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
+  max-width: var(--cc-measure);
 }
 
-.cc-history__status {
-  font-size: var(--cc-text-md);
-  color: var(--cc-ink-secondary);
+/* ---- Loading skeleton -------------------------------------------------
+   Shapes, not a spinner: four bars per row at the widths the real
+   columns use, so the placeholder and the result occupy the same space.
+   The shimmer is a moving gradient on a background, which composites,
+   and it is gated with everything else by prefers-reduced-motion. */
+
+.cc-history__list--skeleton {
+  pointer-events: none;
+}
+
+.cc-history__skeleton-row {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-3) var(--cc-space-7);
+  align-items: center;
+  padding: var(--cc-space-5) var(--cc-space-6);
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
+  animation-delay: var(--cc-rise-delay, 0ms);
+}
+
+.cc-history__skeleton-bar {
+  height: 0.85rem;
+  border-radius: var(--cc-radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--cc-surface-page) 0%,
+    var(--cc-surface-muted) 50%,
+    var(--cc-surface-page) 100%
+  );
+  background-size: 200% 100%;
+  animation: cc-shimmer 1.4s linear infinite;
+}
+
+.cc-history__skeleton-bar--name {
+  flex: 1 1 230px;
+}
+.cc-history__skeleton-bar--meta {
+  flex: none;
+  width: 84px;
+}
+.cc-history__skeleton-bar--risk {
+  flex: none;
+  width: 104px;
+}
+
+@keyframes cc-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 /* ---- Empty state ----------------------------------------------------- */
@@ -36,14 +92,15 @@
 .cc-history__empty {
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  box-shadow: var(--cc-shadow-card-lg);
-  padding: 62px 26px;
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  padding: var(--cc-space-10) var(--cc-space-6);
   text-align: center;
 }
 
 .cc-history__empty-title {
-  margin: 0 0 var(--cc-space-5);
-  font-family: var(--cc-font-serif);
+  margin: 0 0 var(--cc-space-3);
+  font-family: var(--cc-font-sans);
   font-size: var(--cc-text-3xl);
   font-weight: 600;
   letter-spacing: var(--cc-tracking-tight);
@@ -51,10 +108,10 @@
 }
 
 .cc-history__empty-body {
-  margin: 0 auto var(--cc-space-9);
+  margin: 0 auto var(--cc-space-6);
   max-width: 46ch;
-  font-size: var(--cc-text-base);
-  line-height: 1.64;
+  font-size: var(--cc-text-lg);
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
 }
 
@@ -66,8 +123,9 @@
   padding: 0;
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-top: 0;
-  box-shadow: var(--cc-shadow-card-lg);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  overflow: hidden;
 }
 
 .cc-history__row {
@@ -76,29 +134,33 @@
   border-top: var(--cc-border-width) solid var(--cc-rule-soft);
 }
 
+.cc-history__row:first-child {
+  border-top: 0;
+}
+
 .cc-history__row-link {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-3) var(--cc-space-9);
+  gap: var(--cc-space-3) var(--cc-space-7);
   align-items: baseline;
-  padding: var(--cc-space-8) var(--cc-space-9);
+  padding: var(--cc-space-5) var(--cc-space-6);
   color: inherit;
   text-decoration: none;
+  transition: background-color var(--cc-duration-fast) var(--cc-ease-out);
 }
 .cc-history__row-link:hover {
-  background: var(--cc-surface-muted);
+  background: var(--cc-surface-page);
 }
 
 .cc-history__row-name {
   flex: 1 1 230px;
   min-width: 0;
-  font-family: var(--cc-font-serif);
-  font-size: var(--cc-text-lg);
+  font-family: var(--cc-font-mono);
+  font-size: var(--cc-text-md);
   font-weight: 500;
   color: var(--cc-ink);
-  letter-spacing: -0.012em;
 }
 
 .cc-history__row-date {
@@ -110,10 +172,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Not --cc-ink-muted, unlike the prototype's own #7F857D here: that
-   clears only 3.62:1 against this card's background — the same 4.5:1
-   gap axe has caught on this literal colour in three earlier screens
-   (upload, auth, analyzing). --cc-ink-secondary is the fix used there. */
+/* --cc-ink-secondary, not --cc-ink-muted: the muted ink clears 4.5:1 on
+   the card under this palette, but secondary is what every other piece of
+   row metadata uses and a table column should not be quieter than the one
+   beside it. */
 .cc-history__row-words {
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-sm);
@@ -163,31 +225,59 @@
 .cc-history__row-delete {
   flex: none;
   align-self: center;
-  margin-right: var(--cc-space-8);
+  margin-right: var(--cc-space-4);
   min-width: 24px;
   min-height: 24px;
-  padding: var(--cc-space-3) var(--cc-space-4);
-  font-size: var(--cc-text-sm);
+  padding: var(--cc-space-2) var(--cc-space-3);
+  font-size: var(--cc-text-base);
   font-weight: 500;
-  color: var(--cc-ink-secondary);
+  color: var(--cc-ink-muted);
   background: none;
   border: var(--cc-border-width) solid transparent;
+  border-radius: var(--cc-radius-control);
   cursor: pointer;
+  transition:
+    color var(--cc-duration-fast) var(--cc-ease-out),
+    background-color var(--cc-duration-fast) var(--cc-ease-out);
 }
 .cc-history__row-delete:hover {
   color: var(--cc-danger);
+  background: var(--cc-severity-high-tint);
 }
 
 /* ---- Load more --------------------------------------------------------- */
 
 .cc-history__load-more {
-  margin-top: var(--cc-space-9);
+  margin-top: var(--cc-space-6);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--cc-space-5);
+  gap: var(--cc-space-4);
 }
 
 .cc-history__load-more-error {
   width: 100%;
+}
+
+/* Mobile: the row's columns stack rather than trying to hold five
+   baseline-aligned cells at 390px. */
+@media (max-width: 767px) {
+  .cc-history {
+    padding: var(--cc-space-7) var(--cc-space-4) var(--cc-space-9);
+  }
+
+  .cc-history__title {
+    font-size: var(--cc-text-3xl);
+  }
+
+  .cc-history__row-link,
+  .cc-history__skeleton-row {
+    padding: var(--cc-space-4);
+    gap: var(--cc-space-2) var(--cc-space-5);
+  }
+
+  .cc-history__row-name,
+  .cc-history__skeleton-bar--name {
+    flex: 1 1 100%;
+  }
 }
