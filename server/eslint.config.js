@@ -119,6 +119,17 @@ export default [
       // test — that's the whole mechanism, not a workaround for it.
       "tests/integration/globalSetup.js",
       "tests/setup.js",
+      // scripts/generate-openapi.js (step 59): it builds a static
+      // OpenAPI document and touches no database, Redis or LLM provider,
+      // but importing server/src/openapi/build.js transitively imports
+      // config.js — same shape of problem as tests/setup.js above,
+      // solved the same way, for a build tool rather than a test run.
+      // Unprefixed, unlike every other entry above: lint:scripts (see
+      // package.json) runs eslint from the REPO ROOT (`cd .. && eslint
+      // --config server/eslint.config.js scripts`), and flat config's
+      // `files` patterns resolve against the CWD ESLint is invoked from,
+      // not against this config file's own directory.
+      "scripts/generate-openapi.js",
     ],
     rules: {
       ...noDangerousHtml,

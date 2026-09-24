@@ -1,0 +1,677 @@
+# GENERATED FILE — do not hand-edit.
+# Produced by scripts/generate-openapi.js from the Zod schemas in
+# server/src/schemas/*.js and the error table in
+# server/src/lib/errorCodes.js. Run `npm run generate:openapi` (from
+# server/) after changing either, and commit the result.
+openapi: 3.1.0
+info:
+  title: ClauseCheck API
+  version: 1.0.0
+  description: >-
+    All endpoints are versioned under /api/v1. `/api/health`, `/api/ready` and
+    `/api/version` sit outside the version prefix because they are operational,
+    not product, surface.
+
+
+    **Versioning policy:** breaking changes go to `/api/v2` with `/api/v1`
+    supported for at least 90 days after a successor exists. Additive fields are
+    not breaking. A response field is removed only in a new version.
+paths:
+  /api/v1/auth/register:
+    post:
+      summary: Create an account
+      tags:
+        - Auth
+      responses:
+        "201":
+          description: Account created, session cookie set, verification email queued.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+  /api/v1/auth/login:
+    post:
+      summary: Sign in
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: Session cookie set.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+  /api/v1/auth/logout:
+    post:
+      summary: Sign out this browser
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: Session cookie cleared for this browser only.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - cookieAuth: []
+  /api/v1/auth/logout-all:
+    post:
+      summary: Sign out every session (FR-1.9)
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: tokenVersion incremented; every session, including this one, is now
+            invalid.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - cookieAuth: []
+  /api/v1/auth/me:
+    get:
+      summary: The current user
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: The authenticated user, including account state.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - cookieAuth: []
+  /api/v1/auth/verify-email:
+    post:
+      summary: Consume an email verification token (FR-1.7)
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: Account transitions to ACTIVE.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+  /api/v1/auth/resend-verification:
+    post:
+      summary: Resend the verification email
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: A new verification email was sent, unless the account is already
+            verified.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - cookieAuth: []
+  /api/v1/auth/forgot-password:
+    post:
+      summary: Request a password reset (FR-1.8)
+      tags:
+        - Auth
+      responses:
+        "202":
+          description: Always 202, whether or not the address has an account (FR-1.6).
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+  /api/v1/auth/reset-password:
+    post:
+      summary: Consume a password reset token
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: Password changed; tokenVersion incremented, signing out every
+            session.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+  /api/v1/auth/change-password:
+    post:
+      summary: Change password (FR-1.11)
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: Password changed; a fresh session cookie is issued for this session.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      security:
+        - cookieAuth: []
+  /api/v1/auth/change-email:
+    post:
+      summary: Request an email change (FR-1.13)
+      tags:
+        - Auth
+      responses:
+        "202":
+          description: A confirmation link was sent to the new address; the current
+            address is unchanged until it is opened.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeEmailRequest"
+      security:
+        - cookieAuth: []
+  /api/v1/auth/confirm-email-change:
+    post:
+      summary: Confirm an email change
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: The address changes here, and only here.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmEmailChangeRequest"
+  /api/v1/documents:
+    post:
+      summary: Upload or paste a document (FR-2.1)
+      tags:
+        - Documents
+      responses:
+        "201":
+          description: Document stored.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: FR-3.15. A repeat within 24 hours replays the original response
+            instead of creating a second document.
+          schema:
+            type: string
+            maxLength: 256
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: FR-2.1 upload path. Not Zod-validated — multer parses the multipart
+                body directly; this shape is documentation only.
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF or DOCX, ≤ 5 MB (FR-2.2). The field name is exactly "file".
+              required:
+                - file
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasteDocumentRequest"
+      security:
+        - cookieAuth: []
+    get:
+      summary: List documents (FR-4.1)
+      tags:
+        - Documents
+      responses:
+        "200":
+          description: Reverse-chronological, cursor-paginated (§4.4).
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      security:
+        - cookieAuth: []
+  /api/v1/documents/{id}/analyze:
+    post:
+      summary: Run analysis on a document
+      tags:
+        - Documents
+      responses:
+        "200":
+          description: The full report.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - cookieAuth: []
+  /api/v1/documents/{id}:
+    get:
+      summary: A document with its latest analysis
+      tags:
+        - Documents
+      responses:
+        "200":
+          description: The document and its latest analysis, whatever that analysis's
+            status.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - cookieAuth: []
+    delete:
+      summary: Permanently delete a document
+      tags:
+        - Documents
+      responses:
+        "200":
+          description: The document and its analyses and findings are gone (cascade).
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - cookieAuth: []
+  /api/v1/account/export:
+    get:
+      summary: Export all of the caller's own data (FR-4.5)
+      tags:
+        - Account
+      responses:
+        "200":
+          description: Account metadata, every document (including raw text), analysis and
+            finding, and the caller's own audit history. Rate limited to 3 per
+            day per user.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - cookieAuth: []
+  /api/v1/account:
+    delete:
+      summary: Permanently delete the account (FR-4.6)
+      tags:
+        - Account
+      responses:
+        "200":
+          description: Hard, cascading delete. No tombstone, no undo (D2).
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+      security:
+        - cookieAuth: []
+  /api/health:
+    get:
+      summary: Liveness probe
+      tags:
+        - Operations
+      responses:
+        "200":
+          description: Process responsiveness only — no dependency checks (FR-4.7).
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/ready:
+    get:
+      summary: Readiness probe
+      tags:
+        - Operations
+      responses:
+        "200":
+          description: Postgres and Redis are both reachable.
+        "503":
+          description: One or more dependencies are unreachable; the body names which
+            (FR-4.7).
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/version:
+    get:
+      summary: Build identity
+      tags:
+        - Operations
+      responses:
+        "200":
+          description: The running build's git SHA and build timestamp (FR-4.8).
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - requestId
+          properties:
+            code:
+              type: string
+              description: One of the codes in SRS §4.2, sourced from
+                server/src/lib/errorCodes.js.
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHENTICATED
+                - INVALID_CREDENTIALS
+                - SESSION_REVOKED
+                - EMAIL_NOT_VERIFIED
+                - ACCOUNT_SUSPENDED
+                - CSRF_CHECK_FAILED
+                - NOT_FOUND
+                - EMAIL_TAKEN
+                - ANALYSIS_IN_PROGRESS
+                - FILE_TOO_LARGE
+                - UNSUPPORTED_FILE_TYPE
+                - MALFORMED_DOCUMENT
+                - ENCRYPTED_DOCUMENT
+                - DOCUMENT_TOO_SHORT
+                - DOCUMENT_TOO_LONG
+                - STORAGE_QUOTA_EXCEEDED
+                - RATE_LIMITED
+                - QUOTA_EXCEEDED
+                - ACCOUNT_LOCKED
+                - INTERNAL
+                - LLM_INVALID_OUTPUT
+                - ALL_FINDINGS_DISCARDED
+                - LLM_UNAVAILABLE
+                - SPEND_LIMIT_REACHED
+                - SERVER_BUSY
+                - LLM_TIMEOUT
+            message:
+              type: string
+              description: Human-readable, safe to show the user as-is (NFR-4.3).
+            requestId:
+              type: string
+              description: Echoed so a user can quote it to support (§6.5).
+          additionalProperties: false
+      additionalProperties: false
+    RegisterRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: ^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$
+        password:
+          type: string
+          minLength: 10
+          maxLength: 200
+      required:
+        - email
+        - password
+      additionalProperties: false
+    LoginRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: ^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$
+        password:
+          type: string
+      required:
+        - email
+        - password
+      additionalProperties: false
+    VerifyEmailRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 20
+          maxLength: 128
+      required:
+        - token
+      additionalProperties: false
+    ForgotPasswordRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: ^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$
+      required:
+        - email
+      additionalProperties: false
+    ResetPasswordRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 20
+          maxLength: 128
+        password:
+          type: string
+          minLength: 10
+          maxLength: 200
+      required:
+        - token
+        - password
+      additionalProperties: false
+    ChangePasswordRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 10
+          maxLength: 200
+      required:
+        - currentPassword
+        - newPassword
+      additionalProperties: false
+    ChangeEmailRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: ^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$
+        currentPassword:
+          type: string
+      required:
+        - email
+        - currentPassword
+      additionalProperties: false
+    ConfirmEmailChangeRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 20
+          maxLength: 128
+      required:
+        - token
+      additionalProperties: false
+    PasteDocumentRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+      additionalProperties: false
+    DeleteAccountRequest:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        password:
+          type: string
+      required:
+        - password
+      additionalProperties: false
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: clausecheck_token

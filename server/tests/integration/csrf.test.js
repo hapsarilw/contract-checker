@@ -5,6 +5,7 @@ import app from "../../src/app.js";
 import config from "../../src/config.js";
 import { createUser } from "./factories.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
+import { registeredRoutes } from "../helpers/registeredRoutes.js";
 
 const FOREIGN_ORIGIN = "https://evil.example.com";
 const VALID_PASSWORD = "correct-horse-battery";
@@ -182,33 +183,6 @@ const AUDITED_SIDE_EFFECT_FREE_GET_ROUTES = [
   "GET /api/v1/documents/", // findMany, cursor-paginated; reads only (registeredRoutes concatenates the mount prefix with the route's own "/" path)
   "GET /api/v1/account/export", // FR-4.5: findUniqueOrThrow + findMany over the caller's own rows; writes nothing, not even an audit event
 ];
-
-function registeredRoutes(expressApp) {
-  // Express stores a mounted router's prefix as a regexp
-  // (/^\/api\/v1\/auth\/?(?=\/|$)/i); this recovers the literal path.
-  const decodeMount = (layer) => {
-    if (layer.path) return layer.path;
-    const source = layer.regexp?.source;
-    if (!source || source === "^\\/?(?=\\/|$)") return "";
-    const match = source.match(/^\^((?:\\\/[^\\?(]+)+)/);
-    return match ? match[1].replace(/\\\//g, "/") : "";
-  };
-
-  const routes = [];
-  const walk = (stack, prefix = "") => {
-    for (const layer of stack) {
-      if (layer.route) {
-        for (const method of Object.keys(layer.route.methods)) {
-          routes.push(`${method.toUpperCase()} ${prefix}${layer.route.path}`);
-        }
-      } else if (layer.handle?.stack) {
-        walk(layer.handle.stack, prefix + decodeMount(layer));
-      }
-    }
-  };
-  walk(expressApp._router?.stack ?? expressApp.router?.stack ?? []);
-  return routes;
-}
 
 describe("clause (d) — GET routes are audited as side-effect free", () => {
   it("has no GET or HEAD route that has not been audited", () => {

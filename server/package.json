@@ -17,6 +17,7 @@
     "lint": "eslint . && npm run lint:scripts",
     "lint:scripts": "cd .. && server/node_modules/.bin/eslint --config server/eslint.config.js scripts",
     "benchmark": "node --env-file=.env ../scripts/benchmark.js",
+    "generate:openapi": "node ../scripts/generate-openapi.js",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "db:migrate:dev": "prisma migrate dev",
@@ -64,6 +65,7 @@
     "prisma": "7.10.0",
     "supertest": "7.2.2",
     "typescript": "5.9.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "yaml": "^2.9.0"
   }
 }
