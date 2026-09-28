@@ -82,7 +82,21 @@ const envSchema = z
     PORT: positiveInt(3000),
 
     DATABASE_URL: z.string().min(1, "required"),
-    DATABASE_POOL_SIZE: positiveInt(10),
+    // At least 5, and the reason is not throughput. Every scheduled job holds
+    // ONE pool connection for its advisory-lock transaction and needs a
+    // SECOND for its work (jobs/lock.js runs the work outside the lock
+    // transaction on purpose). All four jobs tick at boot, together. With a
+    // pool no larger than the number of jobs running at once, the lock
+    // transactions can take every connection and the work then waits for
+    // one forever: the process stops answering. Found by the step-69
+    // runbook walkthrough — with a pool of 1 the reaper's first tick
+    // wedged the server for as long as it was watched (over two minutes).
+    // Four jobs plus one connection to make progress with is five.
+    DATABASE_POOL_SIZE: z.coerce
+      .number()
+      .int()
+      .min(5, "must be at least 5: each of the 4 scheduled jobs holds a lock connection and needs a second to work (jobs/lock.js)")
+      .default(10),
 
     // Required since step 44: rate limits are counted here, so an
     // instance without it cannot enforce a fleet-wide limit at all.

@@ -38,8 +38,15 @@ const ALERT_THRESHOLDS = Object.freeze([0.5, 0.8, 1.0]);
 const tokensKey = (period) => `spend:tokens:${period}`;
 const alertKey = (period, threshold) => `spend:alerted:${period}:${threshold}`;
 
-/** USD for a token count at the configured price. */
-function usdFor(inputTokens, outputTokens) {
+/**
+ * USD for a token count at the configured price. Exported at step 69 for
+ * the spend runbook's per-account breakdown (services/operator.js), so the
+ * two figures an operator compares are computed by one function.
+ *
+ * @param {number} inputTokens
+ * @param {number} outputTokens
+ */
+export function usdFor(inputTokens, outputTokens) {
   return (
     (inputTokens / 1e6) * config.LLM_PRICE_INPUT_PER_MTOK +
     (outputTokens / 1e6) * config.LLM_PRICE_OUTPUT_PER_MTOK

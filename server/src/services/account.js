@@ -94,7 +94,25 @@ export async function exportAccount(userId) {
 export async function deleteAccount(userId, password) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   await assertCurrentPassword(user, password, "password");
+  return eraseAccount(user);
+}
 
+/**
+ * The erasure itself, with no password check: the ONE code path every
+ * deletion goes through. deleteAccount calls it once the user has proved
+ * who they are; the operator's DSAR erasure (services/operator.js) calls it
+ * once the operator has verified identity out of band (SRS §12.4 step 1).
+ *
+ * Split out at step 69 rather than copied, because §12.4 step 3 is
+ * specific about why: "use the same code path — never hand-written SQL,
+ * which is where a forgotten child table becomes an incomplete deletion."
+ * A second copy of this function would be that failure one refactor later.
+ *
+ * @param {{ id: string, email: string }} user
+ * @returns {Promise<{ email: string }>}
+ */
+export async function eraseAccount(user) {
+  const userId = user.id;
   // FR-4.6's "in one transaction". A single DELETE with cascading foreign
   // keys is already atomic, so the transaction is not what makes the
   // cascade safe — it is what makes this explicit at the call site, and

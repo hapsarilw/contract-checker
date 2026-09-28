@@ -16,6 +16,12 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     passWithNoTests: true,
+    // A zone AHEAD of UTC for every test, on every machine, CI included. Two
+    // real bugs so far lived only in the gap between local time and UTC —
+    // the client's quota reset date (step 64) and restore-deletions (step
+    // 69), which read a zoneless UTC column with a local-time parameter and
+    // found nothing. In UTC both are invisible; here both fail.
+    env: { TZ: "Asia/Jakarta" },
     projects: [
       {
         test: {

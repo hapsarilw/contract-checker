@@ -19,6 +19,7 @@
     "benchmark": "node --env-file=.env ../scripts/benchmark.js",
     "generate:openapi": "node ../scripts/generate-openapi.js",
     "test:alerts": "node scripts/run-alert-rule-tests.js",
+    "ops": "node scripts/ops.js",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "db:migrate:dev": "prisma migrate dev",

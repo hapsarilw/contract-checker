@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -85,16 +85,17 @@ const BY_NAME = new Map(DEFINED.map((alert) => [alert.name, alert]));
 
 /**
  * The runbooks Appendix C leaves blank, plus the one it marks "adapted".
- * Step 68's own instructions say to note these so step 69 does not miss
- * them; this list is that note, made to fail if it drifts.
+ * Step 68 marked them so step 69 could not miss them; step 69 wrote them
+ * and cleared the markers. The list stays as the record of which ones the
+ * specification left open, and the test below checks each now has a file.
  */
-const RUNBOOK_GAPS = {
-  db_pool_saturated: "missing",
-  analysis_latency_p95: "missing",
-  memory_high: "missing",
-  email_delivery_failures: "missing",
-  cross_user_access: "adapted",
-};
+const APPENDIX_C_GAPS = [
+  "db_pool_saturated",
+  "analysis_latency_p95",
+  "memory_high",
+  "email_delivery_failures",
+  "cross_user_access",
+];
 
 describe("Appendix C is defined as code, completely and without drift", () => {
   it("parses the specification's table to 19 alerts", () => {
@@ -147,24 +148,19 @@ describe("Appendix C is defined as code, completely and without drift", () => {
     }
   });
 
-  it("marks exactly the alerts whose runbook Appendix C left blank or borrowed", () => {
-    // Step 69 writes these four and adapts the fifth. If a runbook is
-    // written, this test fails until the marker is cleared; if a sixth gap
-    // appears, it fails until it is listed. Either way nobody is left
-    // holding a page with no procedure and no record that there isn't one.
-    const marked = Object.fromEntries(
-      DEFINED.filter((alert) => alert.annotations.runbook_state).map((alert) => [
-        alert.name,
-        alert.annotations.runbook_state,
-      ]),
-    );
-    expect(marked).toEqual(RUNBOOK_GAPS);
+  it("no alert is left marked as missing a runbook", () => {
+    // Step 68 marked five; step 69 wrote them. A marker left behind, or a
+    // new one, means an alert whose procedure is not written.
+    expect(DEFINED.filter((alert) => alert.annotations.runbook_state).map((a) => a.name)).toEqual([]);
   });
 
-  it("the four blank ones are blank in the specification too", () => {
-    for (const [name, state] of Object.entries(RUNBOOK_GAPS)) {
-      if (state !== "missing") continue;
-      expect(SPEC[name].runbook, name).toBeNull();
+  it("every runbook an alert links to exists — including the ones Appendix C left blank", () => {
+    for (const alert of DEFINED) {
+      const file = join(ROOT, alert.annotations.runbook_url);
+      expect(existsSync(file), `${alert.name} links to ${alert.annotations.runbook_url}, which does not exist`).toBe(true);
+    }
+    for (const name of APPENDIX_C_GAPS) {
+      expect(existsSync(join(ROOT, /** @type {any} */ (BY_NAME.get(name)).annotations.runbook_url)), name).toBe(true);
     }
   });
 });

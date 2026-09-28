@@ -35,9 +35,13 @@ describe("subjectHash", () => {
   });
 });
 
-describe("AUDIT_ACTIONS — NFR-2.12's ten event types", () => {
-  it("has exactly ten actions", () => {
-    expect(Object.keys(AUDIT_ACTIONS)).toHaveLength(10);
+describe("AUDIT_ACTIONS — NFR-2.12's event types", () => {
+  // Ten until step 69, which added the two operator actions the runbooks
+  // needed (OPERATOR_SUSPENSION_LIFTED, OPERATOR_EXPORTED) and amended
+  // NFR-2.12's text to name them. A count, not just a list, so an action
+  // cannot be added without this — and the spec — being updated with it.
+  it("has exactly twelve actions", () => {
+    expect(Object.keys(AUDIT_ACTIONS)).toHaveLength(12);
   });
 
   it.each([
@@ -51,6 +55,8 @@ describe("AUDIT_ACTIONS — NFR-2.12's ten event types", () => {
     "SIGNED_OUT_EVERYWHERE",
     "ACCOUNT_DELETED",
     "OPERATOR_SUSPENDED",
+    "OPERATOR_SUSPENSION_LIFTED",
+    "OPERATOR_EXPORTED",
   ])("defines %s", (action) => {
     expect(AUDIT_ACTIONS[action]).toBe(action);
   });

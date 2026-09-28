@@ -56,8 +56,10 @@ tests:
     input_series:
       - series: 'retention_job_last_success_timestamp{job="retention"}'
         values: "0x40"
+      # Healthy, and last succeeded 38 hours ago: fine for a monthly job,
+      # which is exactly what the first version of this rule got wrong.
       - series: 'retention_job_last_success_timestamp{job="quota-reset"}'
-        values: "0+3600x40"
+        values: "7200x40"
     alert_rule_test:
       - eval_time: 40h
         alertname: retention_job_stale
@@ -79,6 +81,55 @@ tests:
         alertname: retention_job_stale
         exp_alerts: []
       - eval_time: 38h
+        alertname: retention_job_stale
+        exp_alerts:
+          - exp_labels:
+              { severity: "3", route: digest, owner: maintainer, domain: jobs, job: retention }
+
+  # --- Each job against its OWN cadence. The metric is shared by a nightly,
+  # a weekly and a monthly job; one 36-hour threshold for all three kept the
+  # digest permanently firing. These pin each threshold from both sides.
+  - interval: 1d
+    name: quota-reset is monthly — ten days since the last reset is healthy
+    input_series:
+      - series: 'retention_job_last_success_timestamp{job="quota-reset"}'
+        values: "86400x40" # succeeded on day 1
+    alert_rule_test:
+      - eval_time: 11d
+        alertname: retention_job_stale
+        exp_alerts: []
+      # 33 days after the last reset, a month has been missed.
+      - eval_time: 34d
+        alertname: retention_job_stale
+        exp_alerts:
+          - exp_labels:
+              { severity: "3", route: digest, owner: maintainer, domain: jobs, job: quota-reset }
+
+  - interval: 1d
+    name: backup-verify is weekly — five days since the last check is healthy, nine is not
+    input_series:
+      - series: 'retention_job_last_success_timestamp{job="backup-verify"}'
+        values: "86400x40" # succeeded on day 1
+    alert_rule_test:
+      - eval_time: 6d
+        alertname: retention_job_stale
+        exp_alerts: []
+      - eval_time: 10d
+        alertname: retention_job_stale
+        exp_alerts:
+          - exp_labels:
+              { severity: "3", route: digest, owner: maintainer, domain: jobs, job: backup-verify }
+
+  - interval: 1h
+    name: retention keeps Appendix C's own 36 hours
+    input_series:
+      - series: 'retention_job_last_success_timestamp{job="retention"}'
+        values: "3600x60"
+    alert_rule_test:
+      - eval_time: 30h
+        alertname: retention_job_stale
+        exp_alerts: []
+      - eval_time: 40h
         alertname: retention_job_stale
         exp_alerts:
           - exp_labels:

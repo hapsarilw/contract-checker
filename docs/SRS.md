@@ -729,7 +729,7 @@ Cascade deletes are declared in the schema (`onDelete: Cascade`) so deletion can
 **NFR-2.9 [P1.5]** Secrets are supplied by the platform's secret store, never committed, never printed, never included in error output. `JWT_SECRET` and `AUDIT_SALT` are ≥ 32 random bytes. Rotation procedure and schedule in §12.5.
 **NFR-2.10 [P1.5]** Dependency and container-image vulnerability scanning runs on every pull request and weekly on the default branch; secret scanning is enabled on the repository (§2.1 dependency policy).
 **NFR-2.11 [P1.5]** The application runs as a non-root user in the container, with a read-only root filesystem except for a `tmpfs` scratch area.
-**NFR-2.12 [P1.5]** Security-relevant events are written to `AuditEvent` (§5.1): registration, login success and failure, lockout, password change and reset, email change, sign-out-everywhere, account deletion, and operator suspension. No document content, no plaintext identifiers.
+**NFR-2.12 [P1.5]** Security-relevant events are written to `AuditEvent` (§5.1): registration, login success and failure, lockout, password change and reset, email change, sign-out-everywhere, account deletion, and operator suspension, lifting of a suspension, and operator-assisted export (§12.4). No document content, no plaintext identifiers.
 **NFR-2.13 [P1.5]** A `security.txt` is published with a disclosure contact and a 72-hour acknowledgment target (PRD §12.7).
 
 #### 6.2.1 Threat model **[P1.5]**
@@ -1298,7 +1298,7 @@ All are validated by a Zod schema at boot (§8); a missing or malformed required
 | `NODE_ENV` | ✓ | — | `production` enables Secure cookies and HSTS |
 | `PORT` | | 3000 | Listen port |
 | `DATABASE_URL` | ✓ | — | Postgres connection string |
-| `DATABASE_POOL_SIZE` | | 10 | Set so `instances × pool_size` stays under the database's limit (§6.1) |
+| `DATABASE_POOL_SIZE` | | 10 | Set so `instances × pool_size` stays under the database's limit (§6.1). Minimum 5: each scheduled job holds a lock connection and needs a second to work, and all four tick at boot |
 | `REDIS_URL` | ✓ [P1.5] | — | Rate limits, quota and spend counters |
 | `ANTHROPIC_API_KEY` | ✓ | — | Server-side only |
 | `ANTHROPIC_MODEL` | ✓ | — | Model identifier; recorded per analysis; changes gated by §10.4. Must match a known parameter profile (§5.4) or boot fails |
@@ -1357,7 +1357,7 @@ Every alert names a condition, a severity, a destination, and a runbook. **Phase
 | `discard_rate_high` | `discardedFindings` / findings > 10% over 7 days | 3 | digest | review §5.3 strictness |
 | `risk_drift_high` | rule/model disagreement > 25% over 7 days | 3 | digest | review FR-3.9 |
 | `analysis_latency_p95` | p95 > 45 s over 30 min | 3 | digest | — |
-| `retention_job_stale` | last success > 36 h ago | 3 | digest | §12.3 |
+| `retention_job_stale` | last success > 36 h ago (the nightly retention job; the weekly and monthly jobs sharing the metric against their own cadence) | 3 | digest | §12.3 |
 | `backup_verify_failed` | weekly check failed | 2 | page | `database-restore` |
 | `email_delivery_failures` | > 10% failures over 1 h | 3 | digest | — |
 | `memory_high` | instance RSS > 80% of limit for 10 min | 3 | digest | — |

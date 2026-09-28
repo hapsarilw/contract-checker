@@ -43,13 +43,22 @@ import { getRequestId } from "../middleware/requestId.js";
  */
 
 /**
- * NFR-2.12's ten event types. Eight have a real caller as of this step:
- * ACCOUNT_DELETED is step 57's (account deletion does not exist yet, so
- * nothing calls it), and OPERATOR_SUSPENDED has no caller anywhere in
- * this plan through step 75 — there is no admin surface that sets
- * `state: SUSPENDED`, only auth middleware that checks for it. Both
- * constants exist now so the action string is fixed once, here, rather
- * than invented ad hoc whenever a caller finally shows up.
+ * NFR-2.12's event types. All have a caller: OPERATOR_SUSPENDED waited
+ * until step 69, when the spend runbook needed a way to suspend an account
+ * and services/operator.js became it.
+ *
+ * Two were added at step 69, for the operator actions the runbooks call
+ * for, because an operator acting on a user's data is exactly the kind of
+ * event NFR-2.12 exists to record:
+ *   OPERATOR_EXPORTED           SRS §12.4 step 4: "Record completion in
+ *                               AuditEvent" — a DSAR export run for a user
+ *                               who could not use the self-serve one.
+ *   OPERATOR_SUSPENSION_LIFTED  the other half of OPERATOR_SUSPENDED, so a
+ *                               suspension that was lifted is not
+ *                               indistinguishable from one still in force.
+ * An operator ERASURE records ACCOUNT_DELETED, the same event self-serve
+ * deletion records, because it is the same deletion (services/account.js's
+ * eraseAccount); its requestId carries the DSAR reference.
  */
 export const AUDIT_ACTIONS = Object.freeze({
   REGISTERED: "REGISTERED",
@@ -62,6 +71,8 @@ export const AUDIT_ACTIONS = Object.freeze({
   SIGNED_OUT_EVERYWHERE: "SIGNED_OUT_EVERYWHERE",
   ACCOUNT_DELETED: "ACCOUNT_DELETED",
   OPERATOR_SUSPENDED: "OPERATOR_SUSPENDED",
+  OPERATOR_SUSPENSION_LIFTED: "OPERATOR_SUSPENSION_LIFTED",
+  OPERATOR_EXPORTED: "OPERATOR_EXPORTED",
 });
 
 /** @typedef {typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]} AuditAction */

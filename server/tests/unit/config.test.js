@@ -148,6 +148,23 @@ describe("config.js — the email provider (step 51)", () => {
   });
 });
 
+describe("config.js — DATABASE_POOL_SIZE (step 69)", () => {
+  it("refuses a pool smaller than 5, naming why", () => {
+    // Found by the db-pool-saturated runbook walkthrough: with a pool of 1
+    // the reaper's lock transaction held the only connection and its work
+    // waited for a second one forever, wedging the whole process.
+    const result = runConfig({ DATABASE_POOL_SIZE: "4" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("DATABASE_POOL_SIZE");
+    expect(result.stderr).toMatch(/at least 5/);
+  });
+
+  it("accepts 5, and defaults to 10", () => {
+    expect(runConfig({ DATABASE_POOL_SIZE: "5" }).status).toBe(0);
+    expect(JSON.parse(runConfig({}).stdout).DATABASE_POOL_SIZE).toBe(10);
+  });
+});
+
 describe("config.js — observability (step 67)", () => {
   it("refuses to boot in production without METRICS_TOKEN, naming it", () => {
     // Without it nothing can be scraped and no alert can fire.

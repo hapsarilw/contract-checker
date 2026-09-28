@@ -16,13 +16,15 @@
 #             provider outage arrives as one notification instead of four.
 #   runbook / runbook_url  the procedure, as a repo-relative path.
 #
-# FOUR ALERTS HAVE NO RUNBOOK YET, which Appendix C itself leaves blank:
-# db_pool_saturated, analysis_latency_p95, memory_high and
-# email_delivery_failures. They are marked `runbook_state: missing` and
-# BUILD-PLAN step 69 writes them; `cross_user_access` is marked `adapted`
-# because it borrows another alert's procedure. A test asserts that exactly
-# those five carry the marker, so a sixth gap cannot appear quietly and a
-# runbook cannot be written without the marker being cleared.
+# EVERY ALERT'S RUNBOOK EXISTS (BUILD-PLAN step 69). Appendix C left four
+# blank — db_pool_saturated, analysis_latency_p95, memory_high and
+# email_delivery_failures — and had cross_user_access borrow
+# fabricated-excerpt-reported "(adapted)"; step 68 marked those five
+# `runbook_state` so they could not be forgotten, and step 69 wrote them and
+# removed the markers (cross_user_access's adaptation is Part B of its
+# runbook). A test now asserts every runbook_url resolves to a file in
+# docs/runbooks/, so a new alert cannot point at a procedure that does not
+# exist.
 #
 # THRESHOLDS ARE THE TABLE'S, unchanged. Where a condition names a duration
 # ("open > 5 min") it is a `for:`; where it names a window ("over 15 min")
@@ -75,7 +77,6 @@ groups:
             served. Treat as a potential breach until the path is found.
           runbook: fabricated-excerpt-reported
           runbook_url: docs/runbooks/fabricated-excerpt-reported.md
-          runbook_state: adapted
 
   # -------------------------------------------------------------- provider
   - name: clausecheck-provider
@@ -192,7 +193,6 @@ groups:
             capacity model (instances x DATABASE_POOL_SIZE) is the place to start.
           runbook: db-pool-saturated
           runbook_url: docs/runbooks/db-pool-saturated.md
-          runbook_state: missing
       - alert: memory_high
         # Both series are per instance, so this divides each instance's RSS
         # by its own limit. memory_limit_bytes is configuration
@@ -216,7 +216,6 @@ groups:
             for ten minutes. The platform will kill it at 100%, mid-analysis.
           runbook: memory-high
           runbook_url: docs/runbooks/memory-high.md
-          runbook_state: missing
 
   # ------------------------------------------------------------------ cost
   - name: clausecheck-cost
@@ -315,7 +314,6 @@ groups:
             (analysis.provider_call and the rest) say which part is slow.
           runbook: analysis-latency-p95
           runbook_url: docs/runbooks/analysis-latency-p95.md
-          runbook_state: missing
 
   # ------------------------------------------------------------------ jobs
   - name: clausecheck-jobs
@@ -342,7 +340,25 @@ groups:
         # 0 means "never succeeded" (jobs/jobRuns.js sets it deliberately
         # rather than leaving the series absent), so a job that has never run
         # reads as maximally stale and fires here, which is the point.
-        expr: time() - max by (job) (retention_job_last_success_timestamp) > 36 * 3600
+        #
+        # ONE THRESHOLD PER JOB, because the metric is shared by jobs with
+        # different cadences. Appendix C's 36 hours is sized for the NIGHTLY
+        # retention job. Applied to all three — as this rule first was —
+        # it fired for quota-reset (monthly) from 36 hours into every month
+        # until the next one, and for backup-verify (weekly) for five and a
+        # half days of every week: a digest that is always firing, which is
+        # how an operator learns to delete the digest. Found by the step-69
+        # runbook walkthrough reading the JobRun table. Each threshold is the
+        # job's own cadence plus a day or so of slack:
+        #   retention      nightly            36 h   (Appendix C's figure)
+        #   backup-verify  weekly from success  8 d
+        #   quota-reset    monthly, 1st       32 d  (31-day month + a day)
+        expr: >-
+          (time() - max by (job) (retention_job_last_success_timestamp{job="retention"}) > 36 * 3600)
+          or
+          (time() - max by (job) (retention_job_last_success_timestamp{job="backup-verify"}) > 8 * 24 * 3600)
+          or
+          (time() - max by (job) (retention_job_last_success_timestamp{job="quota-reset"}) > 32 * 24 * 3600)
         for: 0s
         labels:
           severity: "3"
@@ -396,4 +412,3 @@ groups:
             `type` label says which kind of message is failing.
           runbook: email-delivery-failures
           runbook_url: docs/runbooks/email-delivery-failures.md
-          runbook_state: missing

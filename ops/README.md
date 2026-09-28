@@ -70,7 +70,7 @@ The first needs Docker (promtool comes from the Prometheus image); the second ru
 
 **An open decision, for when there is traffic.** The ratio alerts have no minimum volume, so two analyses of which one failed is a 50% failure rate and pages. That is Appendix C's condition as written and it is implemented as written; the fix is a floor, and the number for it should come from a week of real traffic rather than a guess. See `docs/alert-drills.md` §6.
 
-**Four runbooks do not exist yet** — `db_pool_saturated`, `analysis_latency_p95`, `memory_high` and `email_delivery_failures` — and `cross_user_access` borrows another. They are marked `runbook_state` in `alerts.yml`, and BUILD-PLAN step 69 writes them.
+**Every alert's runbook is in `docs/runbooks/`**, including the four Appendix C left blank (`db_pool_saturated`, `analysis_latency_p95`, `memory_high`, `email_delivery_failures`) and the `cross_user_access` adaptation. A test checks that every alert's `runbook_url` resolves.
 
 ## Synthetic uptime checks
 
