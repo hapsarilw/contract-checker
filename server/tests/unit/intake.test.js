@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { intakeUpload, intakePastedText } from "../../src/services/intake.js";
@@ -7,6 +7,8 @@ import { countWords } from "../../src/services/extraction.js";
 import { buildDocx } from "../helpers/buildDocx.js";
 import { AppError } from "../../src/lib/AppError.js";
 import config from "../../src/config.js";
+import { assertArchiveWithinLimits } from "../../src/services/zipLimits.js";
+import { generatedFixtures } from "../fixtures/generated.js";
 
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "..", "fixtures");
 const readFixture = (name) => readFileSync(join(fixturesDir, name));
@@ -88,8 +90,19 @@ describe("the fixture corpus meets its answer key's intake outcomes (§11.1)", (
     ]),
   );
 
+  /**
+   * A committed fixture from disk; 10 to 12 from their generator (step 72:
+   * never committed), so the answer key is held against all twelve alike.
+   * @param {string} file
+   */
+  const fixtureBytes = async (file) => {
+    const [name, format] = file.split(".");
+    const generate = generatedFixtures[name]?.[format];
+    return generate ? generate() : readFixture(file);
+  };
+
   it.each(cases)("%s: %s", async (file, expected) => {
-    const buffer = readFixture(file);
+    const buffer = await fixtureBytes(file);
     const intake = file.endsWith(".txt")
       ? Promise.resolve().then(() => intakePastedText(buffer.toString("utf8")))
       : intakeUpload(buffer);
@@ -99,6 +112,40 @@ describe("the fixture corpus meets its answer key's intake outcomes (§11.1)", (
       (err) => (err instanceof AppError ? err.code : `unexpected: ${err}`),
     );
     expect(outcome).toBe(expected);
+  });
+
+  it("every document in the key is either committed or generated, never both", () => {
+    for (const document of answerKey.documents) {
+      for (const format of document.formats) {
+        const generated = Boolean(generatedFixtures[document.file]?.[format]);
+        const committed = existsSync(join(fixturesDir, `${document.file}.${format}`));
+        expect(generated !== committed, `${document.file}.${format}`).toBe(true);
+        expect(
+          Boolean(document.generated),
+          `${document.file}: "generated" in the key`,
+        ).toBe(generated);
+      }
+    }
+  });
+
+  // The same code can have several causes; these two fixtures exist for one
+  // cause each, so the cause is checked, not just the code.
+  it("10-zip-bomb is refused by the archive limits (FR-2.9), before mammoth", async () => {
+    const bomb = await generatedFixtures["10-zip-bomb"].docx();
+    await expect(assertArchiveWithinLimits(bomb)).rejects.toMatchObject({
+      code: "MALFORMED_DOCUMENT",
+    });
+  });
+
+  it("12-many-pages is refused by the page limit, not the word cap", async () => {
+    const key = answerKey.documents.find((d) => d.file === "12-many-pages");
+    const err = await intakeUpload(await generatedFixtures["12-many-pages"].pdf()).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.code).toBe(key.expect_error.code);
+    expect(err.details?.limit).toBe(key.expect_error.limit);
+    expect(err.details?.pages).toBeGreaterThan(config.MAX_PDF_PAGES);
   });
 
   /** @type {[string, number][]} */

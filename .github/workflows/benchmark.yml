@@ -1,0 +1,145 @@
+# The accuracy benchmark. BUILD-PLAN step 72 / SRS §10.4 / PRD §11.1:
+# scripts/benchmark.js over every accepted fixture (01 to 04 and 09), each
+# three times, gated on the WORST repeat. Recall and precision below 85%,
+# any noise on the clean contract, any wrong derived risk, or any hostile
+# document coming back clean (TR-15) fails the run.
+#
+# THE ONLY WORKFLOW THAT HOLDS A PROVIDER KEY (SRS §2.3), and so:
+#
+#   - NEVER FROM A FORK. `pull_request` (never `pull_request_target`) gives a
+#     fork's run no secrets at all, and the job's `if` refuses to start one
+#     anyway, so a fork cannot even queue a request for the key.
+#     ciPipeline.test.js fails if either is changed.
+#   - ITS OWN KEY, WITH ITS OWN SPEND CEILING: ANTHROPIC_BENCHMARK_KEY, an
+#     environment secret, never the development, staging or production key
+#     (the owner's rule: no key is shared between environments). A run costs
+#     about USD 0.25 at today's corpus size (scripts/benchmark-history.jsonl
+#     records every run's cost); set the key's own limit in the Anthropic
+#     console well above a few runs a week and well below anything that
+#     would matter.
+#   - AN APPROVAL GATE FOR PULL REQUESTS. A pull request's run uses the
+#     `benchmark-pr` environment, which has a required reviewer: someone
+#     looks at the diff before it runs with the key. Pushes to main and the
+#     weekly run use `benchmark`, which only main may use (a deployment
+#     branch rule on the environment) and which needs no reviewer.
+#
+# THE HISTORY FILE: CI NEVER COMMITS. Decided before wiring, as step 72
+# asks. Branch protection forbids pushes to main with admins included, so a
+# bot commit there would fail every time; a bot commit to a pull request's
+# branch would trigger CI and this approval again, which is the push loop
+# the plan warns about. So the run writes its history row to an artifact and
+# prints it in the job summary, and a person appends that line to
+# scripts/benchmark-history.jsonl in the pull request that caused it (or in
+# a follow-up, for the weekly run). A row in the history is therefore
+# always attributable to a commit a person chose to record it against.
+#
+# WHAT TRIGGERS IT. SRS §10.4: prompts/, schemas/, verify.js, risk.js, or
+# ANTHROPIC_MODEL. The model a benchmark measures is pinned BELOW, in this
+# file, and it is the model production runs: changing production's model is
+# a pull request that edits that line, which triggers this run first
+# (FR-3.14). Also the benchmark's own code and corpus, since changing the
+# measurement is a change to what is being gated. And weekly, for
+# provider-side drift that no change in this repository would reveal.
+
+name: Benchmark
+
+on:
+  push:
+    branches: [main]
+    # The same list twice, on purpose: ciPipeline.test.js checks the two
+    # match (actionlint rejects a YAML anchor here).
+    paths:
+      - server/src/prompts/**
+      - server/src/schemas/**
+      - server/src/services/verify.js
+      - server/src/services/risk.js
+      - server/src/config.js
+      - server/tests/fixtures/**
+      - scripts/benchmark.js
+      - scripts/score.js
+      - .github/workflows/benchmark.yml
+  pull_request:
+    paths:
+      - server/src/prompts/**
+      - server/src/schemas/**
+      - server/src/services/verify.js
+      - server/src/services/risk.js
+      - server/src/config.js
+      - server/tests/fixtures/**
+      - scripts/benchmark.js
+      - scripts/score.js
+      - .github/workflows/benchmark.yml
+  schedule:
+    # Mondays, 04:00 UTC, an hour after the vulnerability scan.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+# Two runs never overlap: each spends money, and they would race to
+# report against the same commit.
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: benchmark
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    environment: ${{ github.event_name == 'pull_request' && 'benchmark-pr' || 'benchmark' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The model production runs (see the header), and its list price, so
+      # the benchmark's cost report and FR-5.3's estimate use the same numbers.
+      ANTHROPIC_MODEL: claude-sonnet-5
+      LLM_PRICE_INPUT_PER_MTOK: "2"
+      LLM_PRICE_OUTPUT_PER_MTOK: "10"
+      LLM_PROVIDER: anthropic
+      # The benchmark reaches no database, Redis or mail provider
+      # (scripts/benchmark.js's header), but config.js validates a whole
+      # environment at import. These are the test suite's own placeholders
+      # (server/tests/setup.js): nothing listens at those addresses.
+      NODE_ENV: test
+      DATABASE_URL: postgres://test:test@localhost:5432/clausecheck_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-jwt-secret-at-least-32-bytes-long-ok
+      AUDIT_SALT: test-audit-salt-at-least-32-bytes-long-ok
+      FRONTEND_ORIGIN: http://localhost:5173
+      MONTHLY_SPEND_CEILING_USD: "100"
+      LOG_LEVEL: silent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install (frozen lockfile)
+        working-directory: server
+        run: npm ci
+      - name: Benchmark (three repeats, gated on the worst)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_BENCHMARK_KEY }}
+        run: node scripts/benchmark.js --history-out benchmark-row.jsonl
+      - name: History row for a person to commit
+        if: always()
+        run: |
+          if [ -f benchmark-row.jsonl ]; then
+            {
+              echo "### Benchmark history row"
+              echo "Append this line to \`scripts/benchmark-history.jsonl\` in the pull request that caused this run (CI never commits; see the workflow's header)."
+              echo '```json'
+              cat benchmark-row.jsonl
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-row
+          path: benchmark-row.jsonl
+          if-no-files-found: ignore

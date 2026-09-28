@@ -44,8 +44,11 @@ import { fileURLToPath } from "node:url";
 // an invalid one. Vitest gets this via vitest.config.js's setupFiles; this
 // script is plain `node`, so it imports the same file itself, first.
 import "../setup.js";
+import mammoth from "mammoth";
 import { intakeUpload, intakePastedText } from "../../src/services/intake.js";
 import { normalizeForMatch, excerptAppears } from "../../src/services/verify.js";
+import { answerKeyJson } from "./answerKey.js";
+import { countZeroWidth } from "./contracts.js";
 
 const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -76,6 +79,11 @@ function excerptsToVerify() {
     }
     for (const entry of doc.fair_clauses_do_not_flag ?? []) {
       checks.push({ document: doc.file, excerpt: entry.excerpt, source: "fair_clauses_do_not_flag" });
+    }
+    // Fixture 09's injections (TR-15): the POST-normalisation text the model
+    // reads, which must be what every format produces once FR-2.4 has run.
+    for (const entry of doc.injection ?? []) {
+      checks.push({ document: doc.file, excerpt: entry.excerpt, source: "injection" });
     }
   }
   return checks;
@@ -137,8 +145,46 @@ async function checkAgainstEveryFormat(file, excerpt, source, shouldAppear, fail
   }
 }
 
+/**
+ * The committed files of a document with a disguised injection must still
+ * SHIP its zero-width characters, raw, before any normalisation: a rebuild
+ * that lost them would leave every other check here passing (they all read
+ * normalised text, where the characters are gone either way) while TR-15
+ * silently stopped covering the invisible variant.
+ *
+ * @param {string[]} failures
+ */
+async function checkZeroWidthShipped(failures) {
+  for (const doc of answerKey.documents) {
+    for (const entry of (doc.injection ?? []).filter((i) => i.disguised)) {
+      const txt = countZeroWidth(readFixture(`${doc.file}.txt`).toString("utf8"));
+      const { value } = await mammoth.extractRawText({ buffer: readFixture(`${doc.file}.docx`) });
+      const docx = countZeroWidth(value);
+      if (!(entry.zero_width_characters > 0) || txt !== entry.zero_width_characters || docx !== entry.zero_width_characters) {
+        failures.push(
+          `${doc.file}: the answer key declares ${entry.zero_width_characters} zero-width character(s); ` +
+            `the committed .txt carries ${txt}, the .docx ${docx}`,
+        );
+      }
+    }
+  }
+}
+
+/** @param {string[]} failures */
+function checkAnswerKeyCurrent(failures) {
+  const expected = answerKeyJson((file) => readFixture(`${file}.txt`).toString("utf8"));
+  if (readFixture("expected.json").toString("utf8") !== expected) {
+    failures.push(
+      "expected.json is not what answerKey.js generates: it was edited by hand, or answerKey.js/contracts.js " +
+        "changed without `node tests/fixtures/build.js`",
+    );
+  }
+}
+
 async function main() {
   const failures = [];
+  checkAnswerKeyCurrent(failures);
+  await checkZeroWidthShipped(failures);
 
   const checks = excerptsToVerify();
   for (const { document, excerpt, source } of checks) {

@@ -26,8 +26,14 @@
  * database. If FR-3.2's retry behaviour changes there, change it here too.
  *
  * Usage:  node scripts/benchmark.js [--repeats N] [--fixtures a,b] [--no-history]
+ *                                   [--history-out FILE]
+ *
+ * --history-out writes this run's history row to FILE INSTEAD of appending
+ * it to the committed history. CI uses it (.github/workflows/benchmark.yml):
+ * CI never commits (step 72's decision, recorded there), so the row travels
+ * as an artifact and a person appends it in the pull request that caused it.
  */
-import { readFileSync, appendFileSync } from "node:fs";
+import { readFileSync, appendFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execSync } from "node:child_process";
@@ -55,16 +61,17 @@ const PRICING = Object.freeze({
 
 /**
  * @param {readonly string[]} argv
- * @returns {{ repeats: number, fixtures: string[] | null, history: boolean }}
+ * @returns {{ repeats: number, fixtures: string[] | null, history: boolean, historyOut: string | null }}
  */
 function parseArgs(argv) {
-  /** @type {{ repeats: number, fixtures: string[] | null, history: boolean }} */
-  const args = { repeats: 3, fixtures: null, history: true };
+  /** @type {{ repeats: number, fixtures: string[] | null, history: boolean, historyOut: string | null }} */
+  const args = { repeats: 3, fixtures: null, history: true, historyOut: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--repeats") args.repeats = Number(argv[(i += 1)]);
     else if (arg === "--fixtures") args.fixtures = String(argv[(i += 1)]).split(",");
     else if (arg === "--no-history") args.history = false;
+    else if (arg === "--history-out") args.historyOut = String(argv[(i += 1)]);
     else throw new Error(`unknown argument: ${arg}`);
   }
   if (!Number.isInteger(args.repeats) || args.repeats < 1)
@@ -170,7 +177,16 @@ async function main() {
   console.log(`model ${config.ANTHROPIC_MODEL}  prompt ${PROMPT_VERSION}  effort ${config.llmParamProfile.effort ? "low" : "n/a"}`);
   console.log(`${prepared.length} document(s) x ${args.repeats} repeat(s)\n`);
 
-  const provider = createLlmProvider(config);
+  // No circuit breaker. The real one keeps fleet-wide state in Redis
+  // (server/src/services/llm/circuitBreaker.js): a benchmark must neither
+  // trip it for production users nor be refused by it, and the CI job that
+  // runs this has no Redis at all. Before step 72 this used the real
+  // breaker, whose Redis client, left retrying a server that is not there,
+  // held the process open after the report printed: the run never exited,
+  // and in CI would have ended in a timeout whatever the gates said.
+  const provider = createLlmProvider(config, {
+    breaker: { assertClosed: async () => {}, record: async () => {} },
+  });
   const repeats = [];
   const allRuns = [];
 
@@ -227,6 +243,7 @@ async function main() {
     ["fair clauses flagged", repeats.flatMap((r) => r.flaggedFair).map((m) => `${m.file}: ${m.why}`)],
     ["wrong risk", repeats.flatMap((r) => r.riskWrong).map((m) => `${m.file}: expected ${m.expected}, got ${m.got}`)],
     ["noise on the clean contract", repeats.flatMap((r) => r.cleanNoise).map((m) => `${m.file} [${m.kind}] ${m.text}`)],
+    ["hostile documents that came back clean (TR-15)", repeats.flatMap((r) => r.falseClean).map((m) => `${m.file}: ${m.returned} finding(s), none of them a planted clause`)],
   ];
   for (const [heading, lines] of detail) {
     if (lines.length === 0) continue;
@@ -237,15 +254,24 @@ async function main() {
   const failing = gates.filter((g) => g.verdict === "FAIL");
   const warning = gates.filter((g) => g.verdict === "WARN");
 
-  if (args.history) {
+  if (args.history || args.historyOut) {
     let gitSha = null;
     try {
       gitSha = execSync("git rev-parse --short HEAD", { cwd: HERE, encoding: "utf8" }).trim();
+      // A run over uncommitted prompts, fixtures or scoring measured
+      // something HEAD does not contain: the row must say so, or it
+      // attributes the result to the wrong change. Found in step 72, whose
+      // first real run measured fixture 09 before it was committed and was
+      // recorded against the commit before it.
+      const dirty = execSync("git status --porcelain -- server scripts .github/workflows/benchmark.yml", {
+        cwd: join(HERE, ".."),
+        encoding: "utf8",
+      }).trim();
+      if (dirty !== "") gitSha = `${gitSha}-dirty`;
     } catch {
       // Not a git checkout, or git unavailable. The row is still worth writing.
     }
-    appendFileSync(
-      HISTORY,
+    const row =
       JSON.stringify({
         ranAt: new Date().toISOString(),
         gitSha,
@@ -257,10 +283,14 @@ async function main() {
         recall, precision, broadPrecision: broad, riskCorrect: risk, discardRate: discard,
         inputTokens, outputTokens, usd, retries,
         gates: gates.map((g) => ({ name: g.name, verdict: g.verdict, value: g.value })),
-      }) + "\n",
-      "utf8",
-    );
-    console.log(`\nAppended to ${HISTORY}`);
+      }) + "\n";
+    if (args.historyOut) {
+      writeFileSync(args.historyOut, row, "utf8");
+      console.log(`\nHistory row written to ${args.historyOut} (not appended to ${HISTORY})`);
+    } else {
+      appendFileSync(HISTORY, row, "utf8");
+      console.log(`\nAppended to ${HISTORY}`);
+    }
   }
 
   if (failing.length > 0) {

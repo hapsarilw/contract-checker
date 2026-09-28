@@ -171,7 +171,7 @@ Each of these blocks staging, and so blocks this step's "done when":
 4. **A transactional email provider and a verified sending domain.** Until one exists, **no production-mode process can boot at all**, staging included: `config.js` refuses the sink in production mode, correctly (BUILD-PLAN step 51's note: "Step 71 is where this bites").
 5. **Domains and TLS** for the API and the frontend of each environment.
 6. **Staging's own provider key** with its own spend ceiling, created in the Anthropic console and put **only** in the platform's staging secret store.
-7. **The GitHub environments, secrets and variables** in §2.
+7. **The GitHub environments, secrets and variables** in §2, plus the benchmark's two (step 72): `benchmark`, restricted to `main` by a deployment branch rule, and `benchmark-pr`, with a required reviewer. Each holds `ANTHROPIC_BENCHMARK_KEY`, a key of the benchmark's own with its own spend limit in the Anthropic console, never the development, staging or production key.
 8. A metrics backend (optional for the watch, required for alerting; [ops/README.md](../ops/README.md)).
 
 ## 10. First deploy, in order

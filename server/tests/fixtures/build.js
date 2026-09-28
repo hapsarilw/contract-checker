@@ -24,10 +24,35 @@
 //
 // Typographic apostrophes in contracts.js (§11.3, to exercise §5.3's
 // curly-quote branch) pass through untouched into every format.
+//
+// It also writes expected.json, from answerKey.js (step 72). The answer key
+// is source, not a hand-edited file: every excerpt is a reference into the
+// same constants the documents are built from.
+//
+// FIXTURE 09 AND ZERO-WIDTH CHARACTERS (step 72). Its disguised injection
+// must SHIP with its zero-width spaces, in every format, and must reach the
+// model as the same instruction once FR-2.4 strips them. Two facts about
+// PDFs, both measured while building it, shape how:
+//   - pdfkit's standard fonts cannot encode U+200B at all, and the fonts
+//     that have a glyph for it map it to the SPACE glyph, so the ToUnicode
+//     table says U+0020: "Ig<ZWSP>nore" came back from the PDF as
+//     "Ig nore", a different instruction that normalisation would never
+//     rejoin. So each zero-width space is drawn with a separate font whose
+//     one glyph is invisible, has no advance, and maps to U+200B.
+//   - pdf.js, which production's pdf-parse runs on, drops every Unicode
+//     format character (category Cf, which includes U+200B) during text
+//     extraction. So NO PDF can carry a zero-width space into production's
+//     text; extraction strips it even before FR-2.4 does. What the
+//     generator can and does verify is that the PDF carries them (its
+//     ToUnicode maps a glyph to U+200B) and that production's extractor
+//     turns the disguised line into exactly the plain instruction the
+//     answer key quotes, with no space where a zero-width one was.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inflateSync } from "node:zlib";
 import { Document, HeadingLevel, Packer, Paragraph } from "docx";
 import JSZip from "jszip";
 import mammoth from "mammoth";
@@ -36,12 +61,23 @@ import { PDFParse } from "pdf-parse";
 import { detectSourceType } from "../../src/middleware/upload.js";
 import { countWords, normalize } from "../../src/services/extraction.js";
 import { deriveOverallRisk } from "../../src/services/risk.js";
-import { normalizeForMatch } from "../../src/services/verify.js";
-import { contracts, plainFixtures, stressReport } from "./contracts.js";
+import { excerptAppears, normalizeForMatch } from "../../src/services/verify.js";
+import { answerKey, answerKeyJson } from "./answerKey.js";
+import { ZERO_WIDTH_SPACE, contracts, countZeroWidth, plainFixtures, stressReport } from "./contracts.js";
+import { generatedFixtures } from "./generated.js";
 
 const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
 const FIXED_DATE = new Date("2026-01-01T00:00:00Z");
 const CONTENT_TYPES = "[Content_Types].xml";
+
+// Any TrueType font will do: only one glyph is drawn with it, invisible and
+// with no advance, and its ToUnicode entry is rewritten to U+200B. This one
+// ships with pdf.js (pdf-parse's dependency), so the build needs nothing new.
+const ZW_FONT_FILE = join(
+  dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json")),
+  "standard_fonts",
+  "LiberationSans-Regular.ttf",
+);
 
 /**
  * @param {{ title: string, body: [string, string][] }} contract
@@ -111,12 +147,86 @@ function buildPdf({ title, body }) {
     for (const [kind, text] of body) {
       if (kind === "h") {
         doc.font("Helvetica-Bold").fontSize(11).text(text).moveDown(0.3);
+      } else if (text.includes(ZERO_WIDTH_SPACE)) {
+        drawWithZeroWidth(doc, text);
+        doc.moveDown(0.6);
       } else {
         doc.font("Helvetica").fontSize(11).text(text, { align: "left" }).moveDown(0.6);
       }
     }
     doc.end();
   });
+}
+
+/**
+ * A paragraph containing zero-width spaces: the visible text in Helvetica as
+ * everywhere else, each U+200B as one glyph of the "zw" font (see the header
+ * for why). The font instance is patched once, the first time it is used,
+ * so every glyph drawn with it maps to U+200B and takes no room:
+ *   - widthOfString = 0 is what extraction depends on. pdfkit's line wrapper
+ *     moves its cursor by it, and a real width there leaves a gap that
+ *     pdf.js reads as a space ("Ig nore"). Breaking this fails the build.
+ *   - widths[gid] = 0, the embedded width table, is for the PAGE, not the
+ *     text. A PDF viewer advances by it after drawing the glyph, so with
+ *     the glyph's real width the rest of the line should be drawn shifted,
+ *     leaving a visible gap in the disguised words. That is inferred from
+ *     how PDF text is drawn, NOT observed: no PDF renderer was available
+ *     where this was built. Extraction does not notice either way (breaking
+ *     it alone passes the build), so nothing here checks it.
+ * Overriding the layout's xAdvance as well was tried and removed: breaking
+ * it changed nothing at all.
+ *
+ * @param {PDFKit.PDFDocument} doc
+ * @param {string} text
+ */
+function drawWithZeroWidth(doc, text) {
+  const pieces = text.split(ZERO_WIDTH_SPACE);
+  pieces.forEach((piece, i) => {
+    const last = i === pieces.length - 1;
+    doc.font("Helvetica").fontSize(11).text(piece, { align: "left", continued: !last });
+    if (last) return;
+    doc.registerFont("zw", ZW_FONT_FILE);
+    doc.font("zw");
+    const font = /** @type {any} */ (doc)._font;
+    if (!font.zeroWidthPatched) {
+      const encode = font.encode.bind(font);
+      font.encode = (/** @type {string} */ value, /** @type {unknown} */ features) => {
+        const [encoded, positions] = encode(value, features);
+        for (const hex of encoded) {
+          const gid = parseInt(hex, 16);
+          font.widths[gid] = 0;
+          font.unicode[gid] = [ZERO_WIDTH_SPACE.codePointAt(0)];
+        }
+        return [encoded, positions];
+      };
+      font.widthOfString = () => 0;
+      font.zeroWidthPatched = true;
+    }
+    doc.fillOpacity(0).text("x", { continued: true }).fillOpacity(1);
+  });
+}
+
+/**
+ * Whether the PDF maps any glyph to U+200B in a ToUnicode table: the PDF
+ * carries a zero-width space, whatever a particular extractor then does
+ * with it.
+ *
+ * @param {Buffer} buffer
+ */
+function pdfCarriesZeroWidth(buffer) {
+  const raw = buffer.toString("latin1");
+  let at = 0;
+  while ((at = raw.indexOf("stream\n", at)) !== -1) {
+    const end = raw.indexOf("\nendstream", at);
+    try {
+      const content = inflateSync(buffer.subarray(at + 7, end)).toString("latin1");
+      if (/beginbf(char|range)[\s\S]*<200b>/i.test(content)) return true;
+    } catch {
+      // not a Flate stream
+    }
+    at = end + 10;
+  }
+  return false;
 }
 
 /**
@@ -174,17 +284,104 @@ async function buildContract(slug, contract) {
   // document; a dropped or mis-encoded character is still caught. Whether
   // wrapping breaks an answer-key excerpt is left visible on purpose: that is
   // what checking excerpts against the production extractor is for.
-  const characters = (value) => normalizeForMatch(value).replace(/\s+/g, "");
-  const fromPdf = characters(await readPdfText(pdf));
+  // normalize() first, as production does before anything reads the text:
+  // FR-2.4 strips the zero-width spaces fixture 09 ships with, and pdf.js
+  // has already dropped them from the PDF's side (see the header).
+  const characters = (value) => normalizeForMatch(normalize(value)).replace(/\s+/g, "");
+  const pdfText = await readPdfText(pdf);
+  const fromPdf = characters(pdfText);
   const fromDocx = characters(text);
   if (fromPdf !== fromDocx) {
     throw new Error(`${slug}: the PDF's text differs from the .docx's ${firstDifference(fromPdf, fromDocx)}`);
   }
 
+  checkZeroWidthRoundTrip(slug, contract, text, pdf, pdfText);
+
   writeFileSync(join(FIXTURES_DIR, `${slug}.docx`), docx);
   writeFileSync(join(FIXTURES_DIR, `${slug}.txt`), text, "utf8");
   writeFileSync(join(FIXTURES_DIR, `${slug}.pdf`), pdf);
   console.log(`${slug}: .docx .txt .pdf (${countWords(normalize(text))} words)`);
+}
+
+/**
+ * BUILD-PLAN step 72's second trap, checked explicitly for any contract that
+ * ships zero-width characters (fixture 09):
+ *   1. the .docx, read back by mammoth, and so the .txt, carry every one;
+ *   2. the .pdf carries them too (a ToUnicode entry for U+200B);
+ *   3. in every format, the text production stores — intake's normalize(),
+ *      after pdf-parse for the PDF — contains each disguised instruction as
+ *      the plain text the answer key quotes. A space left where a zero-width
+ *      one was ("Ig nore") fails here: the PDF path would then be testing a
+ *      different instruction, silently.
+ *
+ * @param {string} slug
+ * @param {{ body: [string, string][] }} contract
+ * @param {string} docxText
+ * @param {Buffer} pdf
+ * @param {string} pdfText
+ */
+function checkZeroWidthRoundTrip(slug, contract, docxText, pdf, pdfText) {
+  const planted = contract.body.reduce((sum, [, text]) => sum + countZeroWidth(text), 0);
+  const entry = answerKey.documents.find((d) => d.file === slug);
+  const disguised = (entry?.injection ?? []).filter((i) => i.disguised);
+  if (planted === 0 && disguised.length === 0) return;
+  // Either side alone is a broken fixture: a disguised injection with
+  // nothing hidden in it (disguise() stopped working, say, and the key's
+  // count followed it down to zero) tests nothing it claims to.
+  if (planted === 0) {
+    throw new Error(`${slug}: its answer key has a disguised injection, but the document ships no zero-width characters`);
+  }
+
+  const inDocx = countZeroWidth(docxText);
+  if (inDocx !== planted) {
+    throw new Error(`${slug}: ${planted} zero-width space(s) planted, the .docx carries ${inDocx} (read back with mammoth)`);
+  }
+  if (!pdfCarriesZeroWidth(pdf)) {
+    throw new Error(`${slug}: the .pdf carries no zero-width space (no ToUnicode entry for U+200B)`);
+  }
+
+  if (disguised.length === 0) {
+    throw new Error(`${slug}: ships zero-width characters, but its answer key has no disguised injection entry to check them against`);
+  }
+  for (const { excerpt, zero_width_characters: declared } of disguised) {
+    if (declared !== planted) {
+      throw new Error(`${slug}: the answer key declares ${declared} zero-width character(s), the document ships ${planted}`);
+    }
+    for (const [format, extracted] of [["docx/txt", docxText], ["pdf", pdfText]]) {
+      if (!excerptAppears(excerpt, normalize(extracted))) {
+        throw new Error(
+          `${slug}.${format}: after normalisation the disguised instruction does not read as the plain one: ${JSON.stringify(excerpt)}`,
+        );
+      }
+    }
+  }
+  console.log(
+    `${slug}: ${planted} zero-width spaces carried by the .docx, .txt and .pdf; the disguised instruction ` +
+      `reads as the plain one after normalisation in every format (the PDF's are dropped by pdf.js itself)`,
+  );
+}
+
+/**
+ * expected.json, from answerKey.js. word_count is measured here, from the
+ * .txt just written, the way intake counts, and added last to each entry
+ * that has a .txt.
+ */
+function writeAnswerKey() {
+  const json = answerKeyJson((file) => readFileSync(join(FIXTURES_DIR, `${file}.txt`), "utf8"));
+  writeFileSync(join(FIXTURES_DIR, "expected.json"), json, "utf8");
+  console.log(`expected.json: ${answerKey.documents.length} documents, from answerKey.js`);
+}
+
+/** 10 to 12 are generated at test time and must never be committed. */
+function checkGeneratedFixturesAbsent() {
+  for (const [slug, formats] of Object.entries(generatedFixtures)) {
+    for (const format of Object.keys(formats)) {
+      if (existsSync(join(FIXTURES_DIR, `${slug}.${format}`))) {
+        throw new Error(`${slug}.${format} exists on disk: it is generated at test time (generated.js) and must not be committed`);
+      }
+    }
+  }
+  console.log(`${Object.keys(generatedFixtures).join(", ")}: generated at test time, none on disk`);
 }
 
 function writePlainFixtures() {
@@ -256,6 +453,8 @@ async function main() {
   checkScannedFixture();
   writePlainFixtures();
   writeStressReport();
+  checkGeneratedFixturesAbsent();
+  writeAnswerKey();
 }
 
 main().catch((err) => {

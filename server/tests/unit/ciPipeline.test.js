@@ -321,6 +321,81 @@ describe("deploy.yml: SRS §8's procedure, and its secrets kept apart (step 71)"
   });
 });
 
+describe("benchmark.yml: the one workflow with a provider key (step 72)", () => {
+  const text = read(".github", "workflows", "benchmark.yml");
+  const workflow = parse(text);
+  const job = workflow.jobs.benchmark;
+  const parsed = JSON.stringify(workflow);
+
+  it("never runs from a fork: pull_request only, and the job refuses a fork's", () => {
+    expect(Object.keys(workflow.on)).toContain("pull_request");
+    expect(parsed).not.toContain("pull_request_target");
+    expect(job.if).toContain(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    );
+  });
+
+  it("puts a pull request's run behind the approval environment", () => {
+    expect(job.environment).toBe(
+      "${{ github.event_name == 'pull_request' && 'benchmark-pr' || 'benchmark' }}",
+    );
+  });
+
+  it("reads exactly one secret, its own key, in the one step that needs it", () => {
+    expect([...parsed.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1])).toEqual([
+      "ANTHROPIC_BENCHMARK_KEY",
+    ]);
+    const holders = job.steps.filter((/** @type {any} */ s) =>
+      /secrets\./.test(JSON.stringify(s.env ?? {})),
+    );
+    expect(holders).toHaveLength(1);
+    expect(holders[0].run).toContain("scripts/benchmark.js");
+    expect(JSON.stringify(job.env)).not.toMatch(/secrets\./);
+  });
+
+  it("measures the real model, not the mock", () => {
+    expect(job.env.LLM_PROVIDER).toBe("anthropic");
+  });
+
+  it("pins a model config.js knows, at the price benchmark.js reports with", () => {
+    expect(read("server", "src", "config.js")).toContain(`"${job.env.ANTHROPIC_MODEL}":`);
+    const bench = read("scripts", "benchmark.js");
+    const price = new RegExp(
+      `"${job.env.ANTHROPIC_MODEL}": \\{ input: (\\d+(?:\\.\\d+)?), output: (\\d+(?:\\.\\d+)?) \\}`,
+    ).exec(bench);
+    expect(price, "benchmark.js PRICING has the pinned model").not.toBeNull();
+    expect(job.env.LLM_PRICE_INPUT_PER_MTOK).toBe(price?.[1]);
+    expect(job.env.LLM_PRICE_OUTPUT_PER_MTOK).toBe(price?.[2]);
+  });
+
+  it("triggers on SRS §10.4's paths, the same for pushes and pull requests, and weekly", () => {
+    const paths = workflow.on.push.paths;
+    expect(workflow.on.pull_request.paths).toEqual(paths);
+    for (const required of [
+      "server/src/prompts/**",
+      "server/src/schemas/**",
+      "server/src/services/verify.js",
+      "server/src/services/risk.js",
+      // ANTHROPIC_MODEL is pinned in this file, so a model change edits it.
+      ".github/workflows/benchmark.yml",
+    ]) {
+      expect(paths).toContain(required);
+    }
+    expect(workflow.on.push.branches).toEqual(["main"]);
+    expect(workflow.on.schedule[0].cron).toMatch(/^\S+ \S+ \S+ \S+ 1$/);
+  });
+
+  it("never commits: read-only token, no git writes, the row goes to an artifact", () => {
+    expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(job.permissions).toBeUndefined();
+    expect(parsed).not.toMatch(/git (push|commit)/);
+    const run = job.steps.find((/** @type {any} */ s) =>
+      /scripts\/benchmark\.js/.test(s.run ?? ""),
+    ).run;
+    expect(run).toContain("--history-out");
+  });
+});
+
 describe("the coverage gates carry SRS §10.5's numbers", () => {
   const config = read("server", "vitest.config.js");
 
