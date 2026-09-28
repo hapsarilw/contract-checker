@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router";
 import { apiFetch, ApiError } from "../api/client.js";
 import { useI18n } from "../i18n/useI18n.js";
 import { SEVERITY_MARKS } from "../components/SeverityBadge.jsx";
-import SkipLink from "../components/SkipLink.jsx";
 import Banner from "../components/Banner.jsx";
 import Button from "../components/Button.jsx";
 import DeleteDocumentDialog from "../components/DeleteDocumentDialog.jsx";
@@ -162,7 +161,6 @@ function ReportPageForDocument({ id }) {
   if (state.status === "loading") {
     return (
       <div className="cc-report">
-        <SkipLink />
         <main id="main" tabIndex={-1}>
           <h1 className="cc-sr-only">{t.overallRisk}</h1>
           <p role="status" aria-live="polite" className="cc-report__loading">
@@ -180,7 +178,6 @@ function ReportPageForDocument({ id }) {
         : "Something went wrong loading this report. Try again in a moment.";
     return (
       <div className="cc-report">
-        <SkipLink />
         <main id="main" tabIndex={-1}>
           <h1 className="cc-report__error-title">We couldn’t load this report.</h1>
           <Banner tone="danger">{message}</Banner>
@@ -204,7 +201,6 @@ function ReportPageForDocument({ id }) {
   if (!analysis || analysis.status !== "COMPLETED") {
     return (
       <div className="cc-report">
-        <SkipLink />
         <main id="main" tabIndex={-1}>
           <h1 className="cc-report__error-title">
             This document hasn’t been checked yet.
@@ -275,7 +271,6 @@ function ReportPageForDocument({ id }) {
 
   return (
     <div className="cc-report">
-      <SkipLink />
       {/* /documents exists as a route (App.jsx's HistoryPlaceholder, added
           this step for FR-7.6's delete redirect) but not yet as the real
           history screen — step 38's. The link is real; what it lands on

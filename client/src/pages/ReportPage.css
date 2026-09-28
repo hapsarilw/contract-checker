@@ -30,8 +30,12 @@
   padding: var(--cc-space-6) var(--cc-space-6) var(--cc-space-10);
 }
 
+/* A standalone link, not one inside a sentence, so it gets the full
+   24 px target (SRS §7.15; it measured 22 px tall at the step-65 audit). */
 .cc-report__back-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   margin-bottom: var(--cc-space-4);
   font-size: var(--cc-text-md);
   font-weight: 500;

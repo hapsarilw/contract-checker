@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
 import { useAuth } from "../auth/useAuth.js";
 import { useI18n } from "../i18n/useI18n.js";
@@ -31,13 +32,36 @@ export default function AppHeader() {
   const location = useLocation();
   const { signOut } = useAuth();
   const { t } = useI18n();
+  const headerRef = useRef(/** @type {HTMLElement | null} */ (null));
+
+  // Publishes the header's real height for global.css's scroll-padding-
+  // top, so that focus and anchor scrolling stop BELOW this sticky header
+  // (WCAG 2.2, 2.4.11 Focus Not Obscured). Measured rather than assumed
+  // because the height changes with the width: the nav wraps on a phone.
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) return undefined;
+    const root = document.documentElement;
+    const publish = () =>
+      root.style.setProperty("--cc-app-header-height", `${header.offsetHeight}px`);
+    publish();
+    // Measured once where there is no ResizeObserver (an old browser;
+    // jsdom), which still beats the fixed guess it replaced.
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
+    observer?.observe(header);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty("--cc-app-header-height");
+    };
+  }, []);
 
   const isUpload = location.pathname === "/";
   const isHistory = location.pathname.startsWith("/documents");
   const isSettings = location.pathname === "/settings";
 
   return (
-    <header className="cc-app-header">
+    <header ref={headerRef} className="cc-app-header">
       <div className="cc-app-header__inner">
         <div className="cc-app-header__brand">
           <span className="cc-app-header__brand-mark" aria-hidden="true" />

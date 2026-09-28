@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import { apiFetch, ApiError } from "../api/client.js";
 import { useI18n } from "../i18n/useI18n.js";
 import { SEVERITY_MARKS } from "../components/SeverityBadge.jsx";
-import SkipLink from "../components/SkipLink.jsx";
 import Banner from "../components/Banner.jsx";
 import Button from "../components/Button.jsx";
 import DeleteDocumentDialog from "../components/DeleteDocumentDialog.jsx";
@@ -141,7 +140,6 @@ export default function HistoryPage() {
 
   return (
     <div className="cc-history">
-      <SkipLink />
       <main id="main" tabIndex={-1}>
         <h1 className="cc-history__title">{t.navHistory}</h1>
         <p className="cc-history__blurb">

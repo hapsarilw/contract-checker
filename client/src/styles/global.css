@@ -15,7 +15,14 @@ html {
   /* Anchored navigation (the report's finding list) should not slam the
      target under the sticky header. */
   scroll-behavior: smooth;
-  scroll-padding-top: var(--cc-space-9);
+  /* Clear of the sticky app header, whose real height AppHeader measures
+     and publishes (60 px on a desktop, taller on a phone where the nav
+     wraps). A fixed 48 px here left anything the browser scrolled to the
+     top edge, Shift+Tab especially, wholly under the header on a phone
+     and partly under it everywhere: WCAG 2.2's 2.4.11, found by the
+     step-65 audit. With no header (the auth screens) it falls back to a
+     small margin. */
+  scroll-padding-top: calc(var(--cc-app-header-height, 0px) + var(--cc-space-4));
 }
 
 @media (prefers-reduced-motion: reduce) {

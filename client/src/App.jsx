@@ -11,6 +11,7 @@ import SettingsPage from "./pages/SettingsPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 import { RequireAuth } from "./auth/RequireAuth.jsx";
 import AppHeader from "./components/AppHeader.jsx";
+import SkipLink from "./components/SkipLink.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 /**
@@ -40,6 +41,12 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 function Protected({ children }) {
   return (
     <RequireAuth>
+      {/* FIRST in the document, before the header: a skip link exists to
+          get past the navigation, so it is useless placed after it. It
+          used to live inside each page, which put it behind the four nav
+          links on every signed-in screen (found by the step-65 audit;
+          axe's own skip-link rule only checks that the target exists). */}
+      <SkipLink />
       <AppHeader />
       {children}
     </RequireAuth>

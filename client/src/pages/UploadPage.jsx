@@ -6,7 +6,6 @@ import AnalyzingPanel from "./AnalyzingPanel.jsx";
 import VerifyEmailBanner from "../components/VerifyEmailBanner.jsx";
 import DegradedBanner from "../components/DegradedBanner.jsx";
 import { useDegraded } from "../api/useDegraded.js";
-import SkipLink from "../components/SkipLink.jsx";
 import Tabs from "../components/Tabs.jsx";
 import Banner from "../components/Banner.jsx";
 import Button from "../components/Button.jsx";
@@ -192,7 +191,6 @@ export default function UploadPage() {
 
   return (
     <div className="cc-upload-page">
-      <SkipLink />
       <div className="cc-upload-page__hero">
         <h1 className="cc-upload-page__title">
           Hand over the contract.

@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import { apiFetch, ApiError } from "../api/client.js";
 import { resolveAnalyzeError } from "./analyzeErrors.js";
 import Button from "../components/Button.jsx";
-import SkipLink from "../components/SkipLink.jsx";
 import "./AnalyzingPanel.css";
 
 /**
@@ -149,7 +148,6 @@ export default function AnalyzingPanel({ documentId, meta, onComplete, onBackToU
   if (analyzeError) {
     return (
       <div className="cc-analyzing">
-        <SkipLink />
         <div className="cc-analyzing__frame">
           <main id="main" tabIndex={-1}>
             <div className="cc-analyzing-error">
@@ -187,7 +185,6 @@ export default function AnalyzingPanel({ documentId, meta, onComplete, onBackToU
 
   return (
     <div className="cc-analyzing">
-      <SkipLink />
       <div className="cc-analyzing__frame">
         <main id="main" tabIndex={-1}>
           <div className="cc-analyzing__meta">

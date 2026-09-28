@@ -1,5 +1,4 @@
 import { useAuth } from "../auth/useAuth.js";
-import SkipLink from "../components/SkipLink.jsx";
 import ChangePasswordSection from "./settings/ChangePasswordSection.jsx";
 import DeleteAccountSection from "./settings/DeleteAccountSection.jsx";
 import ExportSection from "./settings/ExportSection.jsx";
@@ -24,7 +23,6 @@ export default function SettingsPage() {
 
   return (
     <div className="cc-settings">
-      <SkipLink />
       <main id="main" tabIndex={-1}>
         <h1 className="cc-settings__title">Settings</h1>
         <p className="cc-settings__account">
