@@ -549,9 +549,13 @@ model AuditEvent {
 // scraped from every instance, so the time is stored here once and every
 // instance reads it. A table rather than Redis because a flushed Redis key
 // would read as "the retention job has stopped" and page someone.
+// Step 62 added the failure half: backup-verify's whole output is "did the
+// last check fail", which lastSuccessAt alone cannot say.
 model JobRun {
-  job           String   @id               // "retention"; step 62 adds more
-  lastSuccessAt DateTime
+  job               String    @id           // "retention", "quota-reset", "backup-verify"
+  lastSuccessAt     DateTime?
+  lastFailureAt     DateTime?
+  lastFailureReason String?                 // a code from a closed set, never free text
 }
 
 enum UserState     { UNVERIFIED ACTIVE LOCKED SUSPENDED }
@@ -1312,6 +1316,9 @@ All are validated by a Zod schema at boot (§8); a missing or malformed required
 | `MAX_DOCS_PER_USER` | | 100 | FR-2.13 |
 | `MAX_BYTES_PER_USER` | | 52428800 | FR-2.13 |
 | `RETENTION_DAYS` | | 90 | FR-4.4 |
+| `BACKUP_DIR` | | — | Where the weekly backup-verify job looks for backup files (§12.3). Unset in production makes the job fail, not skip |
+| `BACKUP_MIN_BYTES` | | 1048576 | Floor below which a backup is implausibly small |
+| `BACKUP_MAX_AGE_HOURS` | | 36 | A newest backup older than this means backups stopped |
 | `JWT_SECRET` | ✓ | — | ≥ 32 random bytes; rotating logs everyone out |
 | `AUDIT_SALT` | ✓ [P1.5] | — | HMAC salt for audit subject/IP hashes; never rotated casually |
 | `FRONTEND_ORIGIN` | ✓ | — | Exact origin for CORS; no wildcard |

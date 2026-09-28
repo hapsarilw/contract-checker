@@ -2,6 +2,7 @@ import config from "../config.js";
 import prisma from "../lib/prisma.js";
 import logger from "../observability/logger.js";
 import { readJobSuccess, recordJobSuccess } from "./jobRuns.js";
+import { withJobLock } from "./lock.js";
 import { startRecurring, stopRecurring } from "./scheduler.js";
 
 /**
@@ -195,19 +196,10 @@ async function deleteInBatches(model, where, orderField, batchSize) {
 }
 
 /**
- * One retention run, under the advisory lock.
- *
- * THE LOCK IS HELD BY A TRANSACTION THAT DOES NO WORK. The deletes run
- * OUTSIDE it, on the ordinary client, each batch committing on its own.
- * That separation is the whole design: `pg_try_advisory_xact_lock` is
- * released when its transaction ends, so the lock has to live in a
- * transaction that spans the run — but if the deletes ran INSIDE that
- * transaction, the entire night's deletion would be one giant transaction
- * and the batching would bound nothing. So one connection sits in an open
- * transaction holding the lock, and the batches commit around it. If the
- * process dies mid-run, that connection dies with it and Postgres releases
- * the lock; every batch already committed stays deleted, and the next run
- * continues from there.
+ * One retention run, under the advisory lock (jobs/lock.js, which
+ * documents why the lock is held by a transaction that does no work: the
+ * deletes below commit batch by batch OUTSIDE it, and an unbounded
+ * transaction would defeat the batching).
  *
  * `shouldRun` is evaluated INSIDE the lock, so the due-check and the run
  * are atomic across instances: an instance that read "due" a moment
@@ -224,13 +216,10 @@ async function deleteInBatches(model, where, orderField, batchSize) {
 export async function runRetention(now = new Date(), { batchSize = BATCH_SIZE, shouldRun } = {}) {
   const cutoffs = cutoffsFor(now);
 
-  return prisma.$transaction(
-    async (lockTx) => {
-      const [{ locked }] = /** @type {[{ locked: boolean }]} */ (
-        await lockTx.$queryRaw`SELECT pg_try_advisory_xact_lock(hashtext(${RETENTION_LOCK_KEY})) AS locked`
-      );
-      if (!locked) return { lockAcquired: false, ran: false };
-      if (shouldRun && !(await shouldRun())) return { lockAcquired: true, ran: false };
+  const outcome = await withJobLock(
+    RETENTION_LOCK_KEY,
+    async () => {
+      if (shouldRun && !(await shouldRun())) return { ran: false };
 
       logger.info({ job: "retention" }, "retention run started");
 
@@ -255,19 +244,20 @@ export async function runRetention(now = new Date(), { batchSize = BATCH_SIZE, s
 
       // Recorded while the lock is still held, so no other instance can
       // see "due" in the gap between this run finishing and the record
-      // saying so. On the ordinary client, like the deletes: it must
-      // survive even if the lock transaction itself fails to commit.
+      // saying so.
       await recordJobSuccess("retention", now);
 
-      const result = { lockAcquired: true, ran: true, documents, authTokens, auditEvents };
       logger.info(
         { job: "retention", documents, authTokens, auditEvents },
         "retention run finished",
       );
-      return result;
+      return { ran: true, documents, authTokens, auditEvents };
     },
-    { timeout: RUN_TIMEOUT_MS, maxWait: 10_000 },
+    { timeoutMs: RUN_TIMEOUT_MS },
   );
+
+  if (!outcome.lockAcquired) return { lockAcquired: false, ran: false };
+  return { lockAcquired: true, ...outcome.value };
 }
 
 /**

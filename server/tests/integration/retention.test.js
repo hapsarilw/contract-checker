@@ -168,7 +168,10 @@ describe("the last-success timestamp (step 61's cross-instance requirement)", ()
   it("reports a never-run job as 0 rather than omitting it, so an alert on staleness has a series to fire on", async () => {
     const gauge = createJobLastSuccessGauge({ registers: [new Registry()] });
     const metric = await gauge.get();
-    expect(metric.values).toEqual([expect.objectContaining({ labels: { job: "retention" }, value: 0 })]);
+    // One series per known job (retention, quota-reset, backup-verify),
+    // every one of them present and 0 before any has ever succeeded.
+    expect(metric.values.map((v) => v.labels.job).sort()).toEqual(["backup-verify", "quota-reset", "retention"]);
+    expect(metric.values.every((v) => v.value === 0)).toBe(true);
   }, 30_000);
 
   it("a run that loses the lock does not record a success", async () => {

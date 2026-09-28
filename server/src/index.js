@@ -35,6 +35,8 @@ import { flushEmails } from "./lib/email.js";
 import { closeRedis } from "./lib/redis.js";
 import { startReaper, stopReaper } from "./jobs/reaper.js";
 import { startRetentionJob, stopRetentionJob } from "./jobs/retention.js";
+import { startQuotaResetJob, stopQuotaResetJob } from "./jobs/quotaReset.js";
+import { shouldScheduleBackupVerify, startBackupVerifyJob, stopBackupVerifyJob } from "./jobs/backupVerify.js";
 
 const server = app.listen(config.PORT, () => {
   logger.info(
@@ -62,6 +64,16 @@ const reaperHandle = startReaper();
 // FR-4.4 — checks every 15 minutes whether tonight's run is due; see
 // jobs/retention.js for why "nightly" is a due-check and not a timer.
 const retentionHandle = startRetentionJob();
+// §12.3's monthly quota roll. Hourly due-check, for the same reason as
+// retention: see jobs/quotaReset.js.
+const quotaResetHandle = startQuotaResetJob();
+// §12.3's weekly backup check. Scheduled in production whether or not a
+// backup directory is configured (unconfigured there is a FAILURE that
+// pages, never a skip), and in development only when one is given.
+const backupVerifyHandle = shouldScheduleBackupVerify() ? startBackupVerifyJob() : undefined;
+if (!backupVerifyHandle) {
+  logger.info("backup verification not scheduled: no BACKUP_DIR in a non-production environment");
+}
 
 attachGracefulShutdown({
   server,
@@ -86,6 +98,8 @@ attachGracefulShutdown({
     // already committed stays deleted, and the next run resumes from
     // whatever is left.
     stopRetentionJob(retentionHandle);
+    stopQuotaResetJob(quotaResetHandle);
+    if (backupVerifyHandle) stopBackupVerifyJob(backupVerifyHandle);
     // Email next, because a message one retry from delivered is worth
     // waiting for (bounded — flushEmails gives up after five seconds).
     await flushEmails();

@@ -170,9 +170,19 @@ model AuditEvent {
 // be flushed or evicted, and a flushed key would read as "the retention job
 // has stopped" — a false page about a published privacy-policy claim. One
 // row per job name; step 62's jobs add rows, not columns.
+//
+// Step 62 added the failure half. backup-verify's whole output is "did the
+// last check fail", which lastSuccessAt alone cannot say: a job that
+// succeeded a week ago and failed an hour ago has a perfectly good
+// lastSuccessAt. Both columns are nullable, so the change is pure expand
+// and needs no backfill. lastFailureReason is a short code from a closed
+// set (never free text, never file names or paths), so it is safe to log
+// and to export.
 model JobRun {
-  job           String   @id
-  lastSuccessAt DateTime
+  job               String    @id
+  lastSuccessAt     DateTime?
+  lastFailureAt     DateTime?
+  lastFailureReason String?
 }
 
 // Four states, not five. PRD §8.1's table also lists DELETED, but says of

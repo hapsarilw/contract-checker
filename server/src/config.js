@@ -124,6 +124,21 @@ const envSchema = z
     MAX_BYTES_PER_USER: positiveInt(52_428_800),
     RETENTION_DAYS: positiveInt(90),
 
+    // Step 62 / SRS §12.3's backup-verify job. Backups themselves are made
+    // by the managed database provider (§5.6: "verified, not assumed"), so
+    // this is only WHERE the job looks for evidence of them: a directory
+    // of backup files. Unset in production is not "skip the check" — the
+    // job runs anyway and FAILS, loudly, because a backup nobody can find
+    // is exactly what it exists to catch. See jobs/backupVerify.js.
+    BACKUP_DIR: z.string().min(1).optional(),
+    // The floor below which a backup is implausible. Deliberately a floor
+    // and not a target: the real guard against a truncated dump is the
+    // comparison with the previous backup, which needs no tuning.
+    BACKUP_MIN_BYTES: positiveInt(1_048_576),
+    // Backups run at least daily on every candidate provider; a newest
+    // backup older than this means they have stopped.
+    BACKUP_MAX_AGE_HOURS: positiveInt(36),
+
     JWT_SECRET: z
       .string()
       .refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
