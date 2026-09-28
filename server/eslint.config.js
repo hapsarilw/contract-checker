@@ -136,6 +136,22 @@ export default [
     },
   },
   {
+    // ops/ (step 67): scripts that run OUTSIDE the server, on a monitoring
+    // provider or a scheduler, against a deployed API. They are not the
+    // server, never import config.js, and take their settings from the
+    // environment of whatever runs them, so the server's process.env rule
+    // does not apply. Unprefixed for the same reason as the entry above:
+    // lint:scripts runs from the repository root.
+    files: ["ops/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
     // Flat config replaces a rule's options rather than merging them, so the
     // repository-wide selectors are restated alongside the new ones.
     files: ["src/services/verify.js"],

@@ -1,8 +1,11 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { rateLimit } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import { AppError } from "../lib/AppError.js";
 import { FailurePolicyStore } from "../lib/failurePolicyStore.js";
 import { getRedis } from "../lib/redis.js";
+import { isAllowlisted, parseIpAllowlist } from "../lib/ipAllowlist.js";
+import config from "../config.js";
 import logger from "../observability/logger.js";
 
 /**
@@ -102,9 +105,10 @@ const stores = [];
  *   failurePolicy: import("../lib/failurePolicyStore.js").FailurePolicy,
  *   buildMessage: (retryTime: string) => string,
  *   keyGenerator?: (req: import("express").Request) => string,
+ *   skip?: (req: import("express").Request) => boolean,
  * }} options
  */
-export function createLimiter({ windowMs, limit, prefix, failurePolicy, buildMessage, keyGenerator }) {
+export function createLimiter({ windowMs, limit, prefix, failurePolicy, buildMessage, keyGenerator, skip }) {
   // Each limiter gets its own prefix so the three buckets cannot collide
   // in one Redis database — without it, an IP's 100-request general count
   // and its 5-attempt auth count would increment the same key.
@@ -143,6 +147,7 @@ export function createLimiter({ windowMs, limit, prefix, failurePolicy, buildMes
     standardHeaders: true,
     legacyHeaders: false,
     ...(keyGenerator ? { keyGenerator } : {}),
+    ...(skip ? { skip } : {}),
     // AppError -> the shared errorHandler (step 6), not a response
     // written directly here — SRS §4 is emphatic that every error
     // "follows one shape," and that shape (plus the Retry-After header,
@@ -157,6 +162,50 @@ export function createLimiter({ windowMs, limit, prefix, failurePolicy, buildMes
       );
     },
   });
+}
+
+/**
+ * §6.6's synthetic login check, and the one request the auth limiter lets
+ * through uncounted (step 67). A checker signing in once a minute from two
+ * regions makes 15 attempts per region per 15 minutes against NFR-2.6's
+ * limit of 5, so without this it would lock itself out within minutes and
+ * page someone about an outage that is not happening.
+ *
+ * ALL of these must hold, or the request is counted like any other:
+ *   - the bypass is configured at all (config.js: all three variables);
+ *   - it is /login, never /register;
+ *   - it comes from an address on SYNTHETIC_CHECK_IPS, the monitoring
+ *     provider's published checker ranges;
+ *   - it carries X-Synthetic-Check equal to SYNTHETIC_CHECK_TOKEN
+ *     (constant-time comparison); and
+ *   - it signs in as SYNTHETIC_ACCOUNT_EMAIL.
+ * The last is what keeps a leaked token harmless to everyone else: the
+ * only account it can hammer is the monitoring account itself, which
+ * FR-1.10's per-account lockout still protects. The address list is what
+ * keeps a leaked token useless from anywhere else.
+ */
+const syntheticAllowlist = config.SYNTHETIC_CHECK_IPS
+  ? parseIpAllowlist(config.SYNTHETIC_CHECK_IPS)
+  : null;
+
+/** @param {string} value */
+const digest = (value) => createHash("sha256").update(value).digest();
+
+/**
+ * @param {import("express").Request} req
+ * @returns {boolean}
+ */
+export function isSyntheticCheck(req) {
+  const token = config.SYNTHETIC_CHECK_TOKEN;
+  const email = config.SYNTHETIC_ACCOUNT_EMAIL;
+  if (!token || !email || !syntheticAllowlist) return false;
+  if (req.path !== "/login") return false;
+  if (!isAllowlisted(syntheticAllowlist, req.ip)) return false;
+  const presented = req.get("X-Synthetic-Check") ?? "";
+  if (!timingSafeEqual(digest(presented), digest(token))) return false;
+  const body = /** @type {{ email?: unknown }} */ (req.body ?? {});
+  // Normalised the way the login schema normalises it (schemas/auth.js).
+  return typeof body.email === "string" && body.email.trim().toLowerCase() === email.toLowerCase();
 }
 
 // One shared instance — auth.js mounts THIS SAME middleware on both
@@ -183,6 +232,7 @@ export const authLimiter = createLimiter({
   // until then, an outage is a window, and that is an argument for step 54,
   // not for making login unavailable.
   failurePolicy: "open",
+  skip: isSyntheticCheck,
   buildMessage: (retryTime) =>
     `Too many sign-in attempts from this address. Try again in about ${retryTime}.`,
 });

@@ -31,3 +31,11 @@ process.env.FRONTEND_ORIGIN ??= "http://localhost:5173";
 // Tests that deliberately exercise error paths (errorHandler.test.js)
 // would otherwise flood stdout with real pino log lines on every run.
 process.env.LOG_LEVEL ??= "silent";
+// Step 67. A metrics token, so GET /metrics is live in tests, and the
+// synthetic-check trio, so the auth limiter's bypass can be exercised. The
+// allowlist is loopback plus 198.51.100.0/24 (RFC 5737, documentation-only
+// addresses) for tests that simulate a checker via X-Forwarded-For.
+process.env.METRICS_TOKEN ??= "test-metrics-token-at-least-32-bytes-ok";
+process.env.SYNTHETIC_CHECK_TOKEN ??= "test-synthetic-token-at-least-32-bytes";
+process.env.SYNTHETIC_CHECK_IPS ??= "127.0.0.1,::1,198.51.100.0/24";
+process.env.SYNTHETIC_ACCOUNT_EMAIL ??= "synthetic@example.test";

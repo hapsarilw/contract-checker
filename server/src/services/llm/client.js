@@ -84,15 +84,19 @@ export function createAnthropicProvider(
      * rejects with APIUserAbortError, which llm/index.js maps to
      * LLM_TIMEOUT.
      *
-     * @param {{ documentText: string, requestId?: string, correction?: Correction }} request
+     * @param {{ documentText: string, requestId?: string, correction?: Correction, params?: MessageParams }} request
+     *   `params`, when given, is the prompt llm/index.js already built (and
+     *   traced); a direct caller may omit it.
      * @returns {Promise<ProviderResult>}
      */
-    async analyze({ documentText, requestId, correction }) {
-      const params = buildMessageParams({
-        profile: cfg.llmParamProfile,
-        documentText,
-        correction,
-      });
+    async analyze({ documentText, requestId, correction, params: prebuilt }) {
+      const params =
+        prebuilt ??
+        buildMessageParams({
+          profile: cfg.llmParamProfile,
+          documentText,
+          correction,
+        });
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), cfg.timeouts.llm);
       const startedAt = Date.now();

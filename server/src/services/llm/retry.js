@@ -136,7 +136,7 @@ function configError(err) {
  * @param {() => Promise<T>} attempt
  * @param {{
  *   deadlineAt: number,
- *   onAttempt?: (outcome: "success" | "failure") => void | Promise<void>,
+ *   onAttempt?: (outcome: "success" | "failure", err?: unknown) => void | Promise<void>,
  *   sleep?: (ms: number) => Promise<void>,
  *   random?: () => number,
  * }} options
@@ -149,7 +149,7 @@ export async function withProviderRetries(attempt, { deadlineAt, onAttempt, slee
       await onAttempt?.("success");
       return result;
     } catch (err) {
-      await onAttempt?.("failure");
+      await onAttempt?.("failure", err);
 
       const kind = classify(err);
       if (kind === "config") throw configError(/** @type {APIError} */ (err));

@@ -147,3 +147,45 @@ describe("config.js — the email provider (step 51)", () => {
     expect(result.stderr).toContain("EMAIL_PROVIDER");
   });
 });
+
+describe("config.js — observability (step 67)", () => {
+  it("refuses to boot in production without METRICS_TOKEN, naming it", () => {
+    // Without it nothing can be scraped and no alert can fire.
+    const result = runConfig({ NODE_ENV: "production" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("METRICS_TOKEN");
+  });
+
+  it("rejects a METRICS_TOKEN shorter than 32 bytes", () => {
+    const result = runConfig({ METRICS_TOKEN: "short" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("METRICS_TOKEN");
+  });
+
+  it("is fine without METRICS_TOKEN outside production (the route is simply absent)", () => {
+    expect(runConfig({}).status).toBe(0);
+  });
+
+  const SYNTHETIC = {
+    SYNTHETIC_CHECK_TOKEN: "synthetic-token-at-least-32-bytes-long",
+    SYNTHETIC_CHECK_IPS: "203.0.113.0/24",
+    SYNTHETIC_ACCOUNT_EMAIL: "synthetic@example.test",
+  };
+
+  it("accepts the synthetic-check trio together", () => {
+    expect(runConfig(SYNTHETIC).status).toBe(0);
+  });
+
+  it.each(Object.keys(SYNTHETIC))("refuses the synthetic-check trio with %s missing", (missing) => {
+    const partial = Object.fromEntries(Object.entries(SYNTHETIC).filter(([key]) => key !== missing));
+    const result = runConfig(partial);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/set together or not at all/);
+  });
+
+  it("refuses an allowlist entry that is not an address or a range, naming it", () => {
+    const result = runConfig({ ...SYNTHETIC, SYNTHETIC_CHECK_IPS: "203.0.113.0/24, checker.example.com" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("checker.example.com");
+  });
+});

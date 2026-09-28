@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import config from "./config.js";
 import { requestIdMiddleware } from "./middleware/requestId.js";
+import { httpMetricsMiddleware, metricsHandler } from "./observability/metrics.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { csrfGuard } from "./middleware/csrf.js";
 import { generalLimiter } from "./middleware/rateLimits.js";
@@ -28,6 +29,12 @@ const app = express();
 app.set("trust proxy", 1);
 
 app.use(requestIdMiddleware);
+
+// §6.6: every request timed, including the ones refused by CORS, the CSRF
+// guard or a limiter below, which is why it sits this early. Labelled by
+// route pattern at finish, once routing has happened (observability/
+// metrics.js).
+app.use(httpMetricsMiddleware);
 
 app.use(
   helmet({
@@ -214,6 +221,10 @@ app.use("/api/v1", generalLimiter);
  */
 
 // Ops routes — outside the /api/v1 prefix (§4): health, ready, version.
+// §6.6's metrics, token-protected on the one port the platform exposes.
+// See observability/metrics.js for why this is a route and not a port.
+app.get("/metrics", metricsHandler);
+
 app.use("/api", opsRouter);
 
 // Product routes — under /api/v1 (§4).

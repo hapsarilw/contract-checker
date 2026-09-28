@@ -3,6 +3,7 @@ import { AppError } from "../lib/AppError.js";
 import { detectSourceType } from "../middleware/upload.js";
 import { normalize, countWords, hashText } from "./extraction.js";
 import { extractInWorker } from "./extractionWorker.js";
+import { withSpan } from "../observability/tracing.js";
 
 /**
  * The intake pipeline (§2.2 steps 1-4's document half; FR-2.1, FR-2.5,
@@ -43,7 +44,13 @@ export async function intakeUpload(buffer) {
   // seconds. Both parsers are synchronous CPU work on a buffer the user
   // chose; on the main thread a pathological document stops the event
   // loop for every other request, not just its own.
-  const extracted = await extractInWorker(buffer, sourceType);
+  //
+  // §6.6's extract stage, traced here because this is where it happens:
+  // once, at upload, not per analysis (observability/tracing.js).
+  const extracted = await withSpan("document.extract", () => extractInWorker(buffer, sourceType), {
+    "document.source_type": sourceType,
+    "document.bytes": buffer.length,
+  });
 
   return finalizeIntake(extracted, sourceType);
 }

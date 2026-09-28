@@ -5,6 +5,15 @@ import prisma from "../lib/prisma.js";
 import { mapPendingAnalysisConflict } from "../lib/prismaErrors.js";
 import { getRequestId } from "../middleware/requestId.js";
 import logger from "../observability/logger.js";
+import {
+  analysisDuration,
+  analysisFindingsDiscardedTotal,
+  analysisFindingsTotal,
+  analysisRiskDriftTotal,
+  analysisTotal,
+  llmTokensTotal,
+} from "../observability/metrics.js";
+import { withSpan } from "../observability/tracing.js";
 import { PROMPT_VERSION } from "../prompts/analyze.js";
 import { parseAnalysisResult } from "../schemas/analysisResult.js";
 import { getLlmProvider } from "./llm/index.js";
@@ -49,9 +58,20 @@ const CATEGORY = {
 };
 
 /**
+ * The whole sequence inside one `analysis` span (§6.6), the parent of the
+ * stage spans below.
+ *
  * @param {{ documentId: string, userId: string }} input
  */
-export async function analyzeDocument({ documentId, userId }) {
+export function analyzeDocument(input) {
+  return withSpan("analysis", (span) => analyzeDocumentInSpan(input, span));
+}
+
+/**
+ * @param {{ documentId: string, userId: string }} input
+ * @param {import("@opentelemetry/api").Span} span
+ */
+async function analyzeDocumentInSpan({ documentId, userId }, span) {
   // Step 1. requireAuth has authenticated the request and refused a
   // SUSPENDED account; ownership is checked here, 404 and never 403 (FR-1.5).
   const document = await loadOwnedDocument(documentId, userId);
@@ -101,6 +121,7 @@ export async function analyzeDocument({ documentId, userId }) {
   } catch (err) {
     throw mapPendingAnalysisConflict(err);
   }
+  span.setAttribute("analysis.id", analysis.id);
 
   const startedAt = Date.now();
   /** @type {Instrumentation} */
@@ -129,6 +150,7 @@ export async function analyzeDocument({ documentId, userId }) {
       completed.durationMs,
       completed.findings.length,
     );
+    recordAnalysisMetrics({ record, durationMs: completed.durationMs ?? 0, completed });
     return completed;
   } catch (err) {
     const errorCode = err instanceof AppError ? err.code : "INTERNAL";
@@ -153,6 +175,7 @@ export async function analyzeDocument({ documentId, userId }) {
       );
     }
     logOutcome(document, analysis.id, "FAILED", errorCode, record, durationMs, 0);
+    recordAnalysisMetrics({ record, durationMs, errorCode });
     throw err;
   } finally {
     // FR-5.2, and the reason this is a `finally`: the analysis reached a
@@ -201,7 +224,7 @@ async function runAnalysis(document, analysisId, record, startedAt) {
   // appended to the same conversation. One, not a loop.
   const first = await provider.analyze({ documentText: document.rawText, requestId, deadlineAt });
   addUsage(record, first);
-  let parsed = parseAnalysisResult(first.rawText);
+  let parsed = await withSpan("analysis.validate", () => parseAnalysisResult(first.rawText));
   if (!parsed.success) {
     record.retryCount = 1;
     const second = await provider.analyze({
@@ -211,16 +234,22 @@ async function runAnalysis(document, analysisId, record, startedAt) {
       correction: { invalidResponse: first.rawText, errorSummary: parsed.errorSummary },
     });
     addUsage(record, second);
-    parsed = parseAnalysisResult(second.rawText);
+    parsed = await withSpan("analysis.validate", () => parseAnalysisResult(second.rawText), {
+      "analysis.schema_retry": true,
+    });
     if (!parsed.success) throw new AppError("LLM_INVALID_OUTPUT");
   }
   const result = parsed.data;
 
   // Step 7. The document is normalised once, for every excerpt (§5.3).
-  const { verified, discardedCount } = verifyFindings(
-    result.findings,
-    normalizeForMatch(document.rawText),
-  );
+  const { verified, discardedCount } = await withSpan("analysis.verify", (span) => {
+    const outcome = verifyFindings(result.findings, normalizeForMatch(document.rawText));
+    span.setAttributes({
+      "analysis.findings_reported": result.findings.length,
+      "analysis.findings_discarded": outcome.discardedCount,
+    });
+    return outcome;
+  });
   record.discardedFindings = discardedCount;
 
   // Step 8. Findings reported and every one discarded is a hallucinated
@@ -238,35 +267,37 @@ async function runAnalysis(document, analysisId, record, startedAt) {
   // Step 10. COMPLETED and every finding commit together or not at all
   // (FR-3.13): a completed analysis missing its findings reads as a clean
   // contract. Step 12's ordering happens where the report is serialized.
-  return prisma.$transaction(async (tx) => {
-    await tx.analysis.update({
-      where: { id: analysisId },
-      data: {
-        status: "COMPLETED",
-        overallRisk,
-        modelRisk: RISK[result.overall_risk],
-        summary: result.summary,
-        missingClauses: result.missing_clauses,
-        ...record,
-        durationMs,
-        completedAt: new Date(),
-      },
-    });
-    await tx.finding.createMany({
-      data: verified.map((finding) => ({
-        analysisId,
-        category: CATEGORY[finding.category],
-        severity: SEVERITY[finding.severity],
-        clauseExcerpt: finding.clause_excerpt,
-        explanation: finding.explanation,
-        suggestedChange: finding.suggested_change,
-      })),
-    });
-    return tx.analysis.findUniqueOrThrow({
-      where: { id: analysisId },
-      include: { findings: true },
-    });
-  });
+  return withSpan("analysis.persist", () =>
+    prisma.$transaction(async (tx) => {
+      await tx.analysis.update({
+        where: { id: analysisId },
+        data: {
+          status: "COMPLETED",
+          overallRisk,
+          modelRisk: RISK[result.overall_risk],
+          summary: result.summary,
+          missingClauses: result.missing_clauses,
+          ...record,
+          durationMs,
+          completedAt: new Date(),
+        },
+      });
+      await tx.finding.createMany({
+        data: verified.map((finding) => ({
+          analysisId,
+          category: CATEGORY[finding.category],
+          severity: SEVERITY[finding.severity],
+          clauseExcerpt: finding.clause_excerpt,
+          explanation: finding.explanation,
+          suggestedChange: finding.suggested_change,
+        })),
+      });
+      return tx.analysis.findUniqueOrThrow({
+        where: { id: analysisId },
+        include: { findings: true },
+      });
+    }),
+  );
 }
 
 /**
@@ -276,7 +307,52 @@ async function runAnalysis(document, analysisId, record, startedAt) {
 function addUsage(record, response) {
   record.inputTokens = (record.inputTokens ?? 0) + response.inputTokens;
   record.outputTokens = (record.outputTokens ?? 0) + response.outputTokens;
+  // Labelled with the REQUESTED model, the one config and the spend meter
+  // use, so the series stays one per configured model rather than one per
+  // dated snapshot the provider reports serving.
+  const model = config.llmParamProfile.model;
+  llmTokensTotal.inc({ direction: "input", model }, response.inputTokens);
+  llmTokensTotal.inc({ direction: "output", model }, response.outputTokens);
   record.providerRequestId = response.providerRequestId;
+}
+
+/** Prisma's upper-case enums to the lower-case label values the dashboards use. */
+const lower = (/** @type {string} */ value) => value.toLowerCase();
+
+/**
+ * §6.6's analysis metrics, for one terminal outcome. Called once per
+ * analysis, on both paths, from the same places as logOutcome.
+ *
+ * @param {{
+ *   record: Instrumentation,
+ *   durationMs: number,
+ *   errorCode?: string,
+ *   completed?: { overallRisk: import("@prisma/client").Risk | null, modelRisk: import("@prisma/client").Risk | null, findings: { severity: import("@prisma/client").Severity }[] },
+ * }} input
+ */
+function recordAnalysisMetrics({ record, durationMs, errorCode, completed }) {
+  const outcome = completed ? "completed" : "failed";
+  analysisTotal.inc({ outcome, error_code: errorCode ?? "none" });
+  analysisDuration.observe({ outcome }, durationMs / 1000);
+  // Counted on failure too: ALL_FINDINGS_DISCARDED is a run where every
+  // finding was discarded, and leaving those out would hide the worst
+  // cases from the discard rate.
+  if (record.discardedFindings > 0)
+    analysisFindingsDiscardedTotal.inc(record.discardedFindings);
+  if (!completed) return;
+  for (const finding of completed.findings) {
+    analysisFindingsTotal.inc({ severity: lower(finding.severity) });
+  }
+  if (
+    completed.overallRisk &&
+    completed.modelRisk &&
+    completed.overallRisk !== completed.modelRisk
+  ) {
+    analysisRiskDriftTotal.inc({
+      rule_risk: lower(completed.overallRisk),
+      model_risk: lower(completed.modelRisk),
+    });
+  }
 }
 
 /**

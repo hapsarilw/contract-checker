@@ -37,6 +37,13 @@ import { startReaper, stopReaper } from "./jobs/reaper.js";
 import { startRetentionJob, stopRetentionJob } from "./jobs/retention.js";
 import { startQuotaResetJob, stopQuotaResetJob } from "./jobs/quotaReset.js";
 import { shouldScheduleBackupVerify, startBackupVerifyJob, stopBackupVerifyJob } from "./jobs/backupVerify.js";
+import { startTracing } from "./observability/tracing.js";
+
+// §6.6's traces. A no-op without OTEL_EXPORTER_OTLP_ENDPOINT.
+const stopTracing = startTracing({
+  endpoint: config.OTEL_EXPORTER_OTLP_ENDPOINT,
+  version: config.GIT_SHA,
+});
 
 const server = app.listen(config.PORT, () => {
   logger.info(
@@ -103,7 +110,9 @@ attachGracefulShutdown({
     // Email next, because a message one retry from delivered is worth
     // waiting for (bounded — flushEmails gives up after five seconds).
     await flushEmails();
-    await Promise.allSettled([prisma.$disconnect(), closeRedis()]);
+    // Spans still buffered in the batch processor, including the ones for
+    // the requests the drain just let finish.
+    await Promise.allSettled([prisma.$disconnect(), closeRedis(), stopTracing()]);
   },
 });
 

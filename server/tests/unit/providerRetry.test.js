@@ -157,6 +157,8 @@ describe("withProviderRetries", () => {
   it("reports the failed attempt even when it will not be retried", async () => {
     const onAttempt = vi.fn();
     await withProviderRetries(never, { deadlineAt: far(), sleep: async () => {}, onAttempt }).catch(() => {});
-    expect(onAttempt).toHaveBeenCalledWith("failure");
+    // The error travels with it since step 67, for llm_request_total's
+    // http_status label.
+    expect(onAttempt).toHaveBeenCalledWith("failure", expect.any(Error));
   });
 });

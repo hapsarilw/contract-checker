@@ -780,7 +780,7 @@ Structured JSON logs via `pino` to stdout, collected by the platform. Every requ
 
 ### 6.6 Observability **[P1.5]**
 
-**Metrics** (Prometheus-style, exported on an internal port):
+**Metrics** (Prometheus-style, exported on an internal port; as built, a bearer-token-protected `GET /metrics` on the service's one port, because the candidate platforms expose one port per service — see `server/src/observability/metrics.js`):
 
 | Metric | Type | Labels |
 |---|---|---|
@@ -1326,6 +1326,11 @@ All are validated by a Zod schema at boot (§8); a missing or malformed required
 | `EMAIL_PROVIDER_KEY` | ✓ [P1.5] | — | Transactional email |
 | `EMAIL_FROM` | ✓ [P1.5] | — | Verified sending address |
 | `SENTRY_DSN` | | — | Error tracking; absent disables it cleanly |
+| `METRICS_TOKEN` | ✓ in production [P1.5] | — | ≥ 32 bytes. Bearer token for `GET /metrics` (§6.6); unset outside production, the route is absent |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | | — | OTLP/HTTP collector for §6.6's traces; absent turns tracing off. The exporter also reads the other standard `OTEL_EXPORTER_OTLP_*` variables |
+| `SYNTHETIC_CHECK_TOKEN` | | — | ≥ 32 bytes. With the next two, lets §6.6's synthetic login check past the auth limiter; all three or none |
+| `SYNTHETIC_CHECK_IPS` | | — | Comma-separated IPs/CIDR ranges of the monitoring provider's checkers; validated at boot |
+| `SYNTHETIC_ACCOUNT_EMAIL` | | — | The one account the synthetic check signs in as |
 | `LOG_LEVEL` | | `info` | §6.5 |
 | `ANALYSIS_ENABLED` | | `true` | Feature flag behind FR-5.4 and PRD §15 rollback |
 | `GIT_SHA` | ✓ [P1.5] | — | Reported by `/api/version` |

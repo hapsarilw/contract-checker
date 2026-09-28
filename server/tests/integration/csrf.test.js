@@ -182,6 +182,12 @@ const AUDITED_SIDE_EFFECT_FREE_GET_ROUTES = [
   "GET /api/v1/documents/:id", // findFirst on the document and its latest analysis; reads only
   "GET /api/v1/documents/", // findMany, cursor-paginated; reads only (registeredRoutes concatenates the mount prefix with the route's own "/" path)
   "GET /api/v1/account/export", // FR-4.5: findUniqueOrThrow + findMany over the caller's own rows; writes nothing, not even an audit event
+  // §6.6 (step 67): renders the registry. Its scrape-time collectors only
+  // read: Redis HGETALL/GET/LRANGE (spend, circuit breaker), JobRun
+  // findMany/findUnique, pool counters, and an Analysis aggregate when
+  // Redis has no spend figure yet this month (a read, but a real query per
+  // scrape; cheap at Phase 1.5 scale).
+  "GET /metrics",
 ];
 
 describe("clause (d) — GET routes are audited as side-effect free", () => {

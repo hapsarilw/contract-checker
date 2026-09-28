@@ -5,6 +5,24 @@ import { createAnthropicProvider } from "./client.js";
 import { MockLlmProvider } from "./mockProvider.js";
 import { assertCircuitClosed, recordProviderCall } from "./circuitBreaker.js";
 import { withProviderRetries } from "./retry.js";
+import { buildMessageParams } from "./client.js";
+import { llmRequestTotal } from "../../observability/metrics.js";
+import { withSpan } from "../../observability/tracing.js";
+
+/**
+ * llm_request_total's http_status (§6.6): the provider's status when it
+ * answered, "timeout" when our own deadline or the SDK's cut the call
+ * off, and "network" when there was no answer at all.
+ *
+ * @param {"success" | "failure"} outcome
+ * @param {unknown} [err]
+ */
+export function httpStatusLabel(outcome, err) {
+  if (outcome === "success") return "200";
+  if (err instanceof APIUserAbortError || err instanceof APIConnectionTimeoutError) return "timeout";
+  const status = /** @type {{ status?: unknown }} */ (err)?.status;
+  return typeof status === "number" ? String(status) : "network";
+}
 
 /**
  * FR-3.6: a timeout is LLM_TIMEOUT (504). Two SDK shapes mean timeout:
@@ -75,18 +93,37 @@ export function createLlmProvider(cfg, deps = {}) {
     async analyze(request) {
       await breaker.assertClosed();
       const { deadlineAt, ...call } = request;
-      try {
-        return await withProviderRetries(() => backend.analyze(call), {
-          // Without a caller-supplied deadline the operation is bounded
-          // by the analyze ceiling alone. analysis.js always supplies one;
-          // this default keeps a direct caller from getting an unbounded
-          // retry loop.
-          deadlineAt: deadlineAt ?? Date.now() + cfg.timeouts.analyzeCeiling,
-          onAttempt: (outcome) => breaker.record(outcome),
-        });
-      } catch (err) {
-        throw translateProviderError(err);
-      }
+      // §6.6's prompt stage. Built once, here, and handed to the backend,
+      // so the stage is traced whichever backend runs (the mock ignores
+      // it) and the real client does not build it a second time.
+      const params = await withSpan("analysis.prompt", () =>
+        buildMessageParams({
+          profile: cfg.llmParamProfile,
+          documentText: call.documentText,
+          correction: call.correction,
+        }),
+      );
+      return withSpan("analysis.provider_call", async (span) => {
+        let attempts = 0;
+        try {
+          return await withProviderRetries(() => backend.analyze({ ...call, params }), {
+            // Without a caller-supplied deadline the operation is bounded
+            // by the analyze ceiling alone. analysis.js always supplies one;
+            // this default keeps a direct caller from getting an unbounded
+            // retry loop.
+            deadlineAt: deadlineAt ?? Date.now() + cfg.timeouts.analyzeCeiling,
+            onAttempt: (outcome, err) => {
+              attempts += 1;
+              llmRequestTotal.inc({ outcome, http_status: httpStatusLabel(outcome, err) });
+              return breaker.record(outcome);
+            },
+          });
+        } catch (err) {
+          throw translateProviderError(err);
+        } finally {
+          span.setAttribute("llm.attempts", attempts);
+        }
+      });
     },
   };
 }

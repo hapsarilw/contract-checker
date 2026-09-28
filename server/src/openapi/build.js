@@ -151,7 +151,7 @@ const jsonBody = (componentName) => ({
  *   path: string,
  *   summary: string,
  *   tag: string,
- *   auth: boolean,
+ *   auth: boolean | "metricsBearer",
  *   successStatus: number,
  *   successDescription: string,
  *   requestBody?: { content: Record<string, { schema: unknown }> },
@@ -399,6 +399,20 @@ const ROUTES = [
     successStatus: 200,
     successDescription: "The running build's git SHA and build timestamp (FR-4.8).",
   },
+  {
+    method: "get",
+    path: "/metrics",
+    summary: "Prometheus metrics (SRS §6.6), for a scraper",
+    tag: "Operations",
+    // Not the session cookie: a scraper is not a user. A bearer token
+    // (METRICS_TOKEN), because the platform exposes one port; see
+    // observability/metrics.js.
+    auth: "metricsBearer",
+    successStatus: 200,
+    successDescription:
+      "Prometheus text exposition format. 404 when METRICS_TOKEN is not configured (outside production only; production requires it).",
+    extraResponses: { 401: "Missing or wrong bearer token." },
+  },
 ];
 
 /** Express's `:id` becomes OpenAPI's `{id}`; every ROUTES path above is already written in the OpenAPI form, so this exists for the SIDE that reads the LIVE app (the contract test), not for this file. */
@@ -433,7 +447,8 @@ function buildOperation(route) {
 
   if (route.parameters) operation.parameters = route.parameters;
   if (route.requestBody) operation.requestBody = { required: true, ...route.requestBody };
-  if (route.auth) operation.security = [{ cookieAuth: [] }];
+  if (route.auth === "metricsBearer") operation.security = [{ metricsBearer: [] }];
+  else if (route.auth) operation.security = [{ cookieAuth: [] }];
 
   return operation;
 }
@@ -475,6 +490,11 @@ export function buildOpenApiDocument() {
           // worse than a wrong cookie name in a hand-maintained spec is a
           // RIGHT one that silently goes wrong the next time it's renamed.
           name: SESSION_COOKIE_NAME,
+        },
+        metricsBearer: {
+          type: "http",
+          scheme: "bearer",
+          description: "METRICS_TOKEN (Appendix B). For the metrics scraper only.",
         },
       },
     },

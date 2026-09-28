@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseIpAllowlist } from "./lib/ipAllowlist.js";
 
 /**
  * SRS §5.4 — sampling parameters are model-dependent. temperature/top_p/top_k
@@ -170,6 +171,49 @@ const envSchema = z
     EMAIL_SINK_DIR: z.string().min(1).optional(),
 
     SENTRY_DSN: z.string().min(1).optional(),
+
+    // Step 67 / §6.6. The bearer token a scraper presents to GET /metrics
+    // (observability/metrics.js explains why metrics are a token-protected
+    // route rather than a second port). Required in production, below:
+    // unset, there would be no metrics, and so no alert could ever fire.
+    METRICS_TOKEN: z
+      .string()
+      .refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
+        message: "must be at least 32 bytes",
+      })
+      .optional(),
+    // The OTLP/HTTP collector traces go to. Unset, tracing is off and
+    // costs nothing. The exporter reads this and the other standard
+    // OTEL_EXPORTER_OTLP_* variables (e.g. _HEADERS for an authenticated
+    // collector) itself; it is declared here so a malformed URL fails boot.
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+
+    // Step 67 / §6.6's synthetic login round trip. A checker signing in
+    // every minute from two regions would trip NFR-2.6's 5-per-15-minutes
+    // auth limiter within five minutes. These three together let exactly
+    // that checker through the limiter and nothing else: the request must
+    // come from an allowlisted address, carry the token, AND sign in as the
+    // synthetic account (middleware/rateLimits.js). All three or none.
+    SYNTHETIC_CHECK_TOKEN: z
+      .string()
+      .refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
+        message: "must be at least 32 bytes",
+      })
+      .optional(),
+    // Comma-separated IPs or CIDR ranges: the monitoring provider's
+    // published checker addresses.
+    SYNTHETIC_CHECK_IPS: z
+      .string()
+      .min(1)
+      .superRefine((val, ctx) => {
+        try {
+          parseIpAllowlist(val);
+        } catch (err) {
+          ctx.addIssue({ code: "custom", message: /** @type {Error} */ (err).message });
+        }
+      })
+      .optional(),
+    SYNTHETIC_ACCOUNT_EMAIL: z.string().email().optional(),
     LOG_LEVEL: z
       // "silent" is a real pino level (suppresses all output) — useful in
       // tests and CI so a deliberately-triggered error path doesn't flood
@@ -193,6 +237,34 @@ const envSchema = z
         message:
           'the "sink" provider only writes messages to disk and must not run in production; ' +
           "configure a real transactional email provider",
+      });
+    }
+
+    // §6.6: in production, metrics exist and are private, or boot stops.
+    if (env.NODE_ENV === "production" && !env.METRICS_TOKEN) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["METRICS_TOKEN"],
+        message:
+          "required in production: without it GET /metrics is disabled, nothing can be " +
+          "scraped, and no alert in Appendix C can fire",
+      });
+    }
+
+    // The synthetic-check bypass is all-or-nothing: a token with no address
+    // allowlist, or an allowlist with no account, would be a looser bypass
+    // than anyone intended.
+    const synthetic = [
+      env.SYNTHETIC_CHECK_TOKEN,
+      env.SYNTHETIC_CHECK_IPS,
+      env.SYNTHETIC_ACCOUNT_EMAIL,
+    ].filter(Boolean).length;
+    if (synthetic !== 0 && synthetic !== 3) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["SYNTHETIC_CHECK_TOKEN"],
+        message:
+          "SYNTHETIC_CHECK_TOKEN, SYNTHETIC_CHECK_IPS and SYNTHETIC_ACCOUNT_EMAIL must be set together or not at all",
       });
     }
 

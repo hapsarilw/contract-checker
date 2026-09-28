@@ -491,6 +491,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /metrics:
+    get:
+      summary: Prometheus metrics (SRS §6.6), for a scraper
+      tags:
+        - Operations
+      responses:
+        "200":
+          description: Prometheus text exposition format. 404 when METRICS_TOKEN is not
+            configured (outside production only; production requires it).
+        "401":
+          description: Missing or wrong bearer token.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - metricsBearer: []
 components:
   schemas:
     ErrorResponse:
@@ -675,3 +695,7 @@ components:
       type: apiKey
       in: cookie
       name: clausecheck_token
+    metricsBearer:
+      type: http
+      scheme: bearer
+      description: METRICS_TOKEN (Appendix B). For the metrics scraper only.
