@@ -82,6 +82,12 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
       expect(res.headers["access-control-allow-origin"]).not.toBe("https://evil.example.com");
     });
 
+    it("exposes Retry-After to the frontend, so degraded mode knows how long an outage is (FR-7.10)", async () => {
+      const res = await request(testServer()).get("/unknown").set("Origin", config.FRONTEND_ORIGIN);
+
+      expect(res.headers["access-control-expose-headers"]).toBe("Retry-After");
+    });
+
     it("never reflects an arbitrary Origin back", async () => {
       const attackerOrigin = "https://attacker.test";
       const res = await request(testServer()).get("/unknown").set("Origin", attackerOrigin);

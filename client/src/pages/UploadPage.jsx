@@ -4,6 +4,8 @@ import { apiFetch, ApiError } from "../api/client.js";
 import { checkFileBeforeUpload, resolveServerUploadError } from "./uploadErrors.js";
 import AnalyzingPanel from "./AnalyzingPanel.jsx";
 import VerifyEmailBanner from "../components/VerifyEmailBanner.jsx";
+import DegradedBanner from "../components/DegradedBanner.jsx";
+import { useDegraded } from "../api/useDegraded.js";
 import SkipLink from "../components/SkipLink.jsx";
 import Tabs from "../components/Tabs.jsx";
 import Banner from "../components/Banner.jsx";
@@ -55,6 +57,10 @@ function countWords(text) {
  */
 export default function UploadPage() {
   const navigate = useNavigate();
+  // FR-7.10: while analysis is known to be unavailable, the one action on
+  // this screen that needs it is disabled. Browsing, history and reports
+  // are untouched (PRD D13).
+  const degraded = useDegraded() !== null;
   const fileInputRef = useRef(/** @type {HTMLInputElement | null} */ (null));
 
   const [activeTab, setActiveTab] = useState(/** @type {"file" | "paste"} */ ("file"));
@@ -62,9 +68,7 @@ export default function UploadPage() {
   const [pasteText, setPasteText] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState(
-    /** @type {{ code: string, title: string, body: string, primary: string } | null} */ (
-      null
-    ),
+    /** @type {import("./uploadErrors.js").UploadErrorCopy | null} */ (null),
   );
   const [submitting, setSubmitting] = useState(false);
   // Set only once POST /api/v1/documents succeeds — its presence IS the
@@ -111,7 +115,9 @@ export default function UploadPage() {
    * already visible right below it.
    */
   function handleErrorPrimaryClick() {
-    if (uploadError?.primary === "Choose another file") {
+    if (uploadError?.action === "history") {
+      navigate("/documents");
+    } else if (uploadError?.primary === "Choose another file") {
       fileInputRef.current?.click();
     } else {
       setUploadError(null);
@@ -120,7 +126,7 @@ export default function UploadPage() {
 
   /** BUILD-PLAN step 33's upload half only — the analyze call is AnalyzingPanel's job (step 34). */
   async function handleSubmit() {
-    if (submitting) return;
+    if (submitting || degraded) return;
     setSubmitting(true);
     setUploadError(null);
     // FR-7.3: warns before navigation while a request is in flight. This
@@ -201,7 +207,8 @@ export default function UploadPage() {
       </div>
 
       <main id="main" tabIndex={-1}>
-        <div className="cc-upload-page__verify">
+        <div className="cc-upload-page__notices">
+          <DegradedBanner />
           <VerifyEmailBanner />
         </div>
         <div className="cc-upload-card">
@@ -287,7 +294,7 @@ export default function UploadPage() {
                     </div>
                     <div className="cc-dropzone__actions">
                       <Button
-                        disabled={!canSubmitFile || submitting}
+                        disabled={!canSubmitFile || submitting || degraded}
                         onClick={handleSubmit}
                       >
                         Check this contract
@@ -327,7 +334,10 @@ export default function UploadPage() {
                   onChange={(event) => setPasteText(event.target.value)}
                 />
                 <div className="cc-paste-panel__actions">
-                  <Button disabled={!canSubmitPaste || submitting} onClick={handleSubmit}>
+                  <Button
+                    disabled={!canSubmitPaste || submitting || degraded}
+                    onClick={handleSubmit}
+                  >
                     Check this contract
                   </Button>
                   <span className="cc-paste-panel__count">

@@ -1,4 +1,5 @@
 import { navigateTo } from "../lib/navigate.js";
+import { clearDegraded, DEGRADED_CODES, markDegraded } from "./degraded.js";
 
 /**
  * BUILD-PLAN step 31 — the fetch wrapper every API call in this app goes
@@ -31,13 +32,15 @@ export class ApiError extends Error {
    * @param {string} message
    * @param {string | undefined} requestId
    * @param {number} status
+   * @param {number} [retryAfter] seconds, from the Retry-After header, when the server sent one
    */
-  constructor(code, message, requestId, status) {
+  constructor(code, message, requestId, status, retryAfter) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.requestId = requestId;
     this.status = status;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -72,14 +75,51 @@ export class ApiError extends Error {
  * including /login) and show a bewildering "your session expired"
  * banner to someone who was never signed in to begin with.
  *
- * @param {string} returnPath
+ * THE REASON NAMES WHICH OF THE TWO HAPPENED (step 64). They are
+ * different events and the person deserves to know which:
+ * UNAUTHENTICATED is a session that ran out or never existed;
+ * SESSION_REVOKED is one the account deliberately ended, a password
+ * change, a reset or "sign out everywhere", possibly from another
+ * device. Being bounced after a password change with "your session
+ * expired" reads as a malfunction; "you were signed out because the
+ * password changed" reads as the security feature it is.
+ *
+ * A LATE 401 ON /login ITSELF keeps the return path it already has. A
+ * request still in flight when the app has already moved to /login
+ * (RequireAuth's own redirect) would otherwise record /login?returnTo=...
+ * as the place to return to, and signing in would land on the sign-in
+ * page again.
+ *
+ * @param {string} code
  */
-function redirectToLogin(returnPath) {
+function redirectToLogin(code) {
   window.dispatchEvent(new CustomEvent("clausecheck:session-expired"));
+  const here = new URL(window.location.href);
+  const returnPath =
+    here.pathname === "/login"
+      ? (here.searchParams.get("returnTo") ?? "/")
+      : here.pathname + here.search;
   const url = new URL("/login", window.location.origin);
-  url.searchParams.set("reason", "session_expired");
+  url.searchParams.set(
+    "reason",
+    code === "SESSION_REVOKED" ? "session_revoked" : "session_expired",
+  );
   url.searchParams.set("returnTo", returnPath);
   navigateTo(`${url.pathname}${url.search}`);
+}
+
+/**
+ * Retry-After as seconds. The server only ever sends the delta-seconds
+ * form (errorHandler.js); an HTTP-date or garbage is ignored rather than
+ * guessed at.
+ *
+ * @param {Response} response
+ * @returns {number | undefined}
+ */
+function readRetryAfter(response) {
+  const raw = response.headers?.get("Retry-After");
+  if (!raw || !/^\d+$/.test(raw.trim())) return undefined;
+  return Number(raw.trim());
 }
 
 /**
@@ -160,17 +200,25 @@ export async function apiFetch(path, options = {}) {
     const code = parsed?.error?.code ?? "UNKNOWN_ERROR";
     const message = parsed?.error?.message ?? response.statusText;
     const requestId = parsed?.error?.requestId;
+    const retryAfter = readRetryAfter(response);
+
+    // FR-7.10: see degraded.js.
+    if (DEGRADED_CODES.has(code)) markDegraded(code, message, retryAfter);
 
     if (
       response.status === 401 &&
       (code === "UNAUTHENTICATED" || code === "SESSION_REVOKED") &&
       !suppressAuthRedirect
     ) {
-      redirectToLogin(window.location.pathname + window.location.search);
+      redirectToLogin(code);
     }
 
-    throw new ApiError(code, message, requestId, response.status);
+    throw new ApiError(code, message, requestId, response.status, retryAfter);
   }
+
+  // A completed analysis is proof the service is back, whatever the
+  // Retry-After estimate said.
+  if (method === "POST" && /\/analyze$/.test(path)) clearDegraded();
 
   return parsed;
 }

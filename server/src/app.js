@@ -76,6 +76,14 @@ app.use(
      */
     origin: config.FRONTEND_ORIGIN,
     credentials: true,
+    /**
+     * FR-7.10. Retry-After is not a CORS-safelisted response header, so
+     * without this the browser hides it from the SPA (which is on another
+     * origin) and the client cannot tell a 60-second provider outage from
+     * an hour-long spend cutoff. The degraded-mode banner's lifetime is
+     * that header.
+     */
+    exposedHeaders: ["Retry-After"],
   }),
 );
 

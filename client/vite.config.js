@@ -30,5 +30,11 @@ export default defineConfig({
     environment: "jsdom",
     include: ["tests/unit/**/*.test.{js,jsx}"],
     setupFiles: ["./tests/setup.js"],
+    // A fixed zone AHEAD of UTC, so the run is the same on every machine
+    // and in CI (which is UTC), and so a date computed in local time
+    // instead of UTC differs from the right answer and a test can see it
+    // (the quota reset date, analyzeErrors.js). In UTC the two are
+    // identical and such a bug is invisible.
+    env: { TZ: "Asia/Jakarta" },
   },
 });

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { apiFetch, ApiError } from "../api/client.js";
 import { resolveAnalyzeError } from "./analyzeErrors.js";
 import Button from "../components/Button.jsx";
@@ -70,10 +71,28 @@ export default function AnalyzingPanel({ documentId, meta, onComplete, onBackToU
   const [stageIndex, setStageIndex] = useState(0);
   const [attempt, setAttempt] = useState(0);
   const [analyzeError, setAnalyzeError] = useState(
-    /** @type {{ code: string, title: string, body: string, primary: string } | null} */ (
-      null
-    ),
+    /** @type {import("./analyzeErrors.js").AnalyzeErrorCopy | null} */ (null),
   );
+  /**
+   * ONE analyze request per attempt, however many times the effect below
+   * runs. React's StrictMode (main.jsx) runs every effect, tears it down
+   * and runs it again in development, and the effect used to send a
+   * request each time: the first started the analysis, the second hit
+   * FR-3.8's one-at-a-time guard and came back 409 ANALYSIS_IN_PROGRESS,
+   * and since the first run had been cancelled, the 409 was what the
+   * screen showed. Every check in development ended on "This contract is
+   * already being checked", metered twice. Production builds do not
+   * double-run effects, which is how it went unnoticed until step 64's
+   * degraded-mode test counted requests.
+   *
+   * A ref, not module state: StrictMode keeps a component's refs across
+   * its simulated remount, so both runs see the same request, while a
+   * genuinely new panel starts clean. "Try again" bumps `attempt`, which
+   * changes the key and so makes a fresh request.
+   *
+   * @type {import("react").MutableRefObject<{ key: string, promise: Promise<unknown> } | null>}
+   */
+  const request = useRef(null);
 
   // The stage timer: advances every STAGE_DURATION_MS, clamped at the
   // last stage rather than looping or auto-completing — there is
@@ -100,7 +119,15 @@ export default function AnalyzingPanel({ documentId, meta, onComplete, onBackToU
     let cancelled = false;
     window.addEventListener("beforeunload", warnBeforeUnload);
 
-    apiFetch(`/api/v1/documents/${documentId}/analyze`, { method: "POST" }).then(
+    const key = `${documentId}:${attempt}`;
+    if (request.current?.key !== key) {
+      request.current = {
+        key,
+        promise: apiFetch(`/api/v1/documents/${documentId}/analyze`, { method: "POST" }),
+      };
+    }
+
+    request.current.promise.then(
       (body) => {
         if (cancelled) return;
         onComplete(/** @type {{ analysis: unknown }} */ (body).analysis);
@@ -129,15 +156,23 @@ export default function AnalyzingPanel({ documentId, meta, onComplete, onBackToU
               <h1 className="cc-analyzing-error__title">{analyzeError.title}</h1>
               <p className="cc-analyzing-error__body">{analyzeError.body}</p>
               <div className="cc-analyzing-error__actions">
-                <Button
-                  onClick={() => {
-                    setAnalyzeError(null);
-                    setStageIndex(0);
-                    setAttempt((n) => n + 1);
-                  }}
-                >
-                  {analyzeError.primary}
-                </Button>
+                {analyzeError.action === "reports" ? (
+                  // Retrying now cannot work (degraded mode, an exhausted
+                  // quota): the useful next step is what IS still working.
+                  <Link className="cc-button cc-button--primary" to="/documents">
+                    {analyzeError.primary}
+                  </Link>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setAnalyzeError(null);
+                      setStageIndex(0);
+                      setAttempt((n) => n + 1);
+                    }}
+                  >
+                    {analyzeError.primary}
+                  </Button>
+                )}
                 <Button variant="secondary" onClick={onBackToUpload}>
                   Back to upload
                 </Button>

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import AnalyzingPanel from "../../src/pages/AnalyzingPanel.jsx";
 import { ApiError } from "../../src/api/client.js";
 
@@ -19,6 +21,52 @@ describe("AnalyzingPanel (BUILD-PLAN step 34, FR-7.4)", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+  });
+
+  it("sends ONE analyze request under StrictMode's double-run effects, and shows its result rather than a phantom 409", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ analysis: { id: "an1" } });
+    const onComplete = vi.fn();
+    render(
+      <StrictMode>
+        <AnalyzingPanel
+          documentId="doc-strict"
+          meta={META}
+          onComplete={onComplete}
+          onBackToUpload={() => {}}
+        />
+      </StrictMode>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith({ id: "an1" });
+  });
+
+  it("a degraded-mode error offers the saved reports, not a retry", async () => {
+    vi.mocked(apiFetch).mockRejectedValue(
+      new ApiError("LLM_UNAVAILABLE", "down", "req_1", 503, 60),
+    );
+    render(
+      <MemoryRouter>
+        <AnalyzingPanel
+          documentId="doc-degraded"
+          meta={META}
+          onComplete={() => {}}
+          onBackToUpload={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("link", { name: "See your saved reports" })).toHaveAttribute(
+      "href",
+      "/documents",
+    );
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
   });
 
   it("renders one h1, the meta line, and the first stage as current with its note", () => {

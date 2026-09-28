@@ -52,6 +52,92 @@ export const ANALYZE_ERRORS = Object.freeze({
   }),
 });
 
+/**
+ * BUILD-PLAN step 64: the analyze errors with no prototype copy, written in
+ * its voice (name the problem, then the next step, NFR-4.3). They are
+ * functions rather than frozen copy because each depends on something
+ * only known at the time: the server's own words, or today's date.
+ *
+ * `action` says what the primary button does. "retry" re-runs analyze on
+ * the same document. "reports" goes to the saved reports instead, for the
+ * cases where retrying now cannot work and offering it would only send
+ * the person back into the same failure.
+ *
+ * @typedef {{ code: string, title: string, body: string, primary: string, action?: "retry" | "reports" }} AnalyzeErrorCopy
+ * @type {Record<string, (apiError: { code: string, message: string }, now: Date) => AnalyzeErrorCopy>}
+ */
+const DYNAMIC = {
+  // FR-7.10's two degraded-mode codes. The upload screen also turns them
+  // into a standing banner (degraded.js); this is the card for the attempt
+  // that discovered it.
+  LLM_UNAVAILABLE: () => ({
+    code: "LLM_UNAVAILABLE · 503",
+    title: "Checking is paused for a moment.",
+    body: "The service that reads contracts isn’t answering, so we stopped rather than keep you waiting. Your contract is saved and your earlier reports are all still here. Try this one again in a minute or two.",
+    primary: "See your saved reports",
+    action: "reports",
+  }),
+  // The server's message is used as the body, not replaced: it says
+  // different, true things for a spend ceiling and for an operator's pause
+  // (FR-5.4), and a client that flattened them would be the one lying.
+  SPEND_LIMIT_REACHED: (apiError) => ({
+    code: "SPEND_LIMIT_REACHED · 503",
+    title: "Checking is paused for now.",
+    body: `${apiError.message} Your contract is saved and your earlier reports are all still here.`,
+    primary: "See your saved reports",
+    action: "reports",
+  }),
+  QUOTA_EXCEEDED: (_apiError, now) => ({
+    code: "QUOTA_EXCEEDED · 429",
+    title: "You’ve used this month’s checks.",
+    body: `Your allowance resets on ${formatResetDate(now)}. Your contract is saved, so you can check it then, and every report you already have is still here.`,
+    primary: "See your saved reports",
+    action: "reports",
+  }),
+  // The hourly limit: the server's message carries the real number.
+  RATE_LIMITED: (apiError) => ({
+    code: "RATE_LIMITED · 429",
+    title: "That’s a lot of checks in one hour.",
+    body: `${apiError.message} Your contract is saved; come back to it once the hour has passed.`,
+    primary: "See your saved reports",
+    action: "reports",
+  }),
+  SERVER_BUSY: () => ({
+    code: "SERVER_BUSY · 503",
+    title: "We’re very busy right now.",
+    body: "Too many checks are running at once, so this one didn’t start. Nothing was lost. Wait a few seconds and try again.",
+    primary: "Try again",
+    action: "retry",
+  }),
+};
+
+/**
+ * The first day of the next UTC month, formatted exactly as the server
+ * formats it in its own QUOTA_EXCEEDED message (services/quota.js), so
+ * the two can never name different days. UTC because the quota period is
+ * a UTC month (periodOf).
+ *
+ * @param {Date} now
+ */
+export function formatResetDate(now) {
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return next.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Every code this module has copy for, the static ones and the dynamic
+ * ones. Tests walk it to check that each names a next step.
+ */
+export const MAPPED_ANALYZE_CODES = Object.freeze([
+  ...Object.keys(ANALYZE_ERRORS),
+  ...Object.keys(DYNAMIC),
+]);
+
 const FALLBACK = Object.freeze({
   title: "Something went wrong.",
   primary: "Try again",
@@ -59,18 +145,23 @@ const FALLBACK = Object.freeze({
 
 /**
  * @param {{ code: string, message: string }} apiError
- * @returns {{ code: string, title: string, body: string, primary: string }}
+ * @param {Date} [now]
+ * @returns {AnalyzeErrorCopy}
  */
-export function resolveAnalyzeError(apiError) {
+export function resolveAnalyzeError(apiError, now = new Date()) {
   const known = ANALYZE_ERRORS[apiError.code];
-  if (known) return known;
-  // Any other code — a validation error, a 500, NETWORK_ERROR from
-  // api/client.js — not one of the four this step maps, but the
-  // document already exists and the user still needs somewhere to go.
+  if (known) return { ...known, action: "retry" };
+  const dynamic = DYNAMIC[apiError.code];
+  if (dynamic) return dynamic(apiError, now);
+  // Any other code: a validation error, a 500, NETWORK_ERROR from
+  // api/client.js. The document already exists and the user still needs
+  // somewhere to go; the server's own message names the next step
+  // (NFR-4.3 applies to every entry in its error table).
   return {
     code: apiError.code,
     title: FALLBACK.title,
     body: apiError.message,
     primary: FALLBACK.primary,
+    action: "retry",
   };
 }

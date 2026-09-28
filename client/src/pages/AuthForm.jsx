@@ -49,13 +49,31 @@ const COPY = {
  * An unknown `reason` shows nothing, so a hand-edited URL cannot make the
  * page say something it never said.
  *
- * @type {Record<string, { tone: "info" | "warning", title: string, body: string }>}
+ * session_expired and session_revoked are api/client.js's FR-7.12
+ * redirect, and they are different events (see its redirectToLogin). The
+ * revoked one names both things that cause it, because the server does
+ * not say which it was, and adds the one thing a person should do if it
+ * was neither of their doing.
+ *
+ * @type {Record<string, { tone: "info" | "warning", title: string, body: import("react").ReactNode }>}
  */
 const NOTICES = {
   session_expired: {
     tone: "warning",
     title: "You were signed out",
     body: "Your session expired. Sign in again to pick up where you left off.",
+  },
+  session_revoked: {
+    tone: "warning",
+    title: "You were signed out because your password changed",
+    body: (
+      <>
+        Changing or resetting the password, or choosing “sign out everywhere”, ends every
+        session on every device, this one included. Sign in again to pick up where you
+        left off. If none of that was you,{" "}
+        <Link to="/forgot-password">reset your password</Link> now.
+      </>
+    ),
   },
   signed_out_everywhere: {
     tone: "info",

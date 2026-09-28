@@ -70,6 +70,20 @@ async function chooseFileViaKeyboard(page, trigger, file) {
 
 test.beforeEach(async ({ page }) => {
   await signIn(page);
+  // The report screen the success path lands on fetches the document on
+  // mount. Unmocked, that request reaches whatever is on :3000, and a
+  // running dev server answers 401 and bounces the page to /login, so
+  // the result depended on the machine. Answered here instead (the same
+  // fix as analyzing.spec.js).
+  await page.route("**/api/v1/documents/doc_e2e_1", (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { code: "NOT_FOUND", message: "x", requestId: "req_e2e" },
+      }),
+    }),
+  );
 });
 
 test.describe("upload screen (/, BUILD-PLAN step 33)", () => {

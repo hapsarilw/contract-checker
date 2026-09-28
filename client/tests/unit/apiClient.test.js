@@ -4,6 +4,7 @@ vi.mock("../../src/lib/navigate.js", () => ({ navigateTo: vi.fn() }));
 
 const { navigateTo } = await import("../../src/lib/navigate.js");
 const { apiFetch, ApiError } = await import("../../src/api/client.js");
+const { getDegraded, resetDegradedForTests } = await import("../../src/api/degraded.js");
 
 /**
  * A minimal stand-in for the fields apiFetch actually reads off a
@@ -13,16 +14,19 @@ const { apiFetch, ApiError } = await import("../../src/api/client.js");
  * rather than built as one; TypeScript checks apiFetch's OWN use of
  * `fetch`'s return value against the full type elsewhere, so nothing
  * here weakens that.
- * @param {{ status?: number, body?: unknown, ok?: boolean }} [init]
+ * @param {{ status?: number, body?: unknown, ok?: boolean, headers?: Record<string, string> }} [init]
  * @returns {Response}
  */
-function jsonResponse({ status = 200, body = {}, ok } = {}) {
-  return /** @type {Response} */ ({
-    ok: ok ?? (status >= 200 && status < 300),
-    status,
-    statusText: "",
-    text: async () => JSON.stringify(body),
-  });
+function jsonResponse({ status = 200, body = {}, ok, headers = {} } = {}) {
+  return /** @type {Response} */ (
+    /** @type {unknown} */ ({
+      ok: ok ?? (status >= 200 && status < 300),
+      status,
+      statusText: "",
+      headers: new Headers(headers),
+      text: async () => JSON.stringify(body),
+    })
+  );
 }
 
 /**
@@ -43,6 +47,7 @@ describe("apiFetch (BUILD-PLAN step 31, FR-7.7/7.11/7.12)", () => {
     vi.stubGlobal("fetch", vi.fn());
     localStorage.clear();
     sessionStorage.clear();
+    resetDegradedForTests();
   });
 
   afterEach(() => {
@@ -145,9 +150,12 @@ describe("apiFetch (BUILD-PLAN step 31, FR-7.7/7.11/7.12)", () => {
   });
 
   describe("session expiry (FR-7.12)", () => {
-    it.each(["UNAUTHENTICATED", "SESSION_REVOKED"])(
-      "a 401 %s redirects to /login with a reason and the current path as returnTo",
-      async (code) => {
+    it.each([
+      ["UNAUTHENTICATED", "session_expired"],
+      ["SESSION_REVOKED", "session_revoked"],
+    ])(
+      "a 401 %s redirects to /login with its own reason (%s) and the current path as returnTo",
+      async (code, reason) => {
         vi.mocked(fetch).mockResolvedValue(
           jsonResponse({
             status: 401,
@@ -165,12 +173,33 @@ describe("apiFetch (BUILD-PLAN step 31, FR-7.7/7.11/7.12)", () => {
         // a silent bounce — the login screen (step 32) turns this into
         // copy. And a return path, so signing back in doesn't strand
         // the user at /login with nowhere to go back to.
-        expect(params.get("reason")).toBe("session_expired");
+        // Step 64: the two codes are different events and say so.
+        expect(params.get("reason")).toBe(reason);
         expect(params.get("returnTo")).toBe(
           window.location.pathname + window.location.search,
         );
       },
     );
+
+    it("a late 401 arriving while already on /login keeps the ORIGINAL return path instead of nesting /login inside it", async () => {
+      window.history.pushState({}, "", "/login?returnTo=%2Fdocuments%2Fdoc1");
+      try {
+        vi.mocked(fetch).mockResolvedValue(
+          jsonResponse({
+            status: 401,
+            body: { error: { code: "UNAUTHENTICATED", message: "x", requestId: "r" } },
+          }),
+        );
+
+        await apiFetch("/api/v1/documents/doc1").catch(() => {});
+
+        const [url] = vi.mocked(navigateTo).mock.calls[0];
+        const params = new URLSearchParams(url.split("?")[1]);
+        expect(params.get("returnTo")).toBe("/documents/doc1");
+      } finally {
+        window.history.pushState({}, "", "/");
+      }
+    });
 
     it("still throws the ApiError after redirecting — the redirect doesn't swallow the failure", async () => {
       vi.mocked(fetch).mockResolvedValue(
@@ -229,6 +258,86 @@ describe("apiFetch (BUILD-PLAN step 31, FR-7.7/7.11/7.12)", () => {
 
       expect(localStorage.length).toBe(0);
       expect(sessionStorage.length).toBe(0);
+    });
+  });
+
+  describe("degraded mode (FR-7.10, BUILD-PLAN step 64)", () => {
+    const degradedResponse = (code, retryAfter, message = "server words") =>
+      jsonResponse({
+        status: 503,
+        body: { error: { code, message, requestId: "r" } },
+        headers: retryAfter === undefined ? {} : { "Retry-After": String(retryAfter) },
+      });
+
+    it.each(["LLM_UNAVAILABLE", "SPEND_LIMIT_REACHED"])(
+      "a %s response marks analysis unavailable for exactly Retry-After seconds",
+      async (code) => {
+        vi.mocked(fetch).mockResolvedValue(degradedResponse(code, 120));
+        const before = Date.now();
+
+        const err = await apiFetch("/api/v1/documents/d/analyze", {
+          method: "POST",
+        }).catch((e) => e);
+
+        expect(/** @type {InstanceType<typeof ApiError>} */ (err).retryAfter).toBe(120);
+        const state = getDegraded();
+        expect(state?.code).toBe(code);
+        expect(state?.message).toBe("server words");
+        expect(state?.until).toBeGreaterThanOrEqual(before + 120_000);
+        expect(state?.until).toBeLessThanOrEqual(Date.now() + 120_000);
+        // And it ends: read a moment past the window, it is gone.
+        expect(getDegraded(/** @type {number} */ (state?.until) + 1)).toBeNull();
+      },
+    );
+
+    it("falls back to the code's own default when Retry-After is missing", async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        degradedResponse("SPEND_LIMIT_REACHED", undefined),
+      );
+      const before = Date.now();
+      await apiFetch("/api/v1/documents/d/analyze", { method: "POST" }).catch(() => {});
+      expect(getDegraded()?.until).toBeGreaterThanOrEqual(before + 3_600_000);
+    });
+
+    it("other errors, including other 503s, do not", async () => {
+      vi.mocked(fetch).mockResolvedValue(degradedResponse("SERVER_BUSY", 5));
+      await apiFetch("/api/v1/documents", { method: "POST", body: {} }).catch(() => {});
+      expect(getDegraded()).toBeNull();
+    });
+
+    it("a successful analyze clears it at once, whatever Retry-After said", async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(degradedResponse("LLM_UNAVAILABLE", 600))
+        .mockResolvedValueOnce(jsonResponse({ body: { analysis: {} } }));
+      await apiFetch("/api/v1/documents/d/analyze", { method: "POST" }).catch(() => {});
+      expect(getDegraded()).not.toBeNull();
+
+      await apiFetch("/api/v1/documents/d/analyze", { method: "POST" });
+
+      expect(getDegraded()).toBeNull();
+    });
+
+    it("a successful READ does not clear it: the reads were never down (PRD D13)", async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(degradedResponse("LLM_UNAVAILABLE", 600))
+        .mockResolvedValueOnce(jsonResponse({ body: { documents: [] } }));
+      await apiFetch("/api/v1/documents/d/analyze", { method: "POST" }).catch(() => {});
+
+      await apiFetch("/api/v1/documents");
+
+      expect(getDegraded()).not.toBeNull();
+    });
+
+    it("the one thing it keeps in sessionStorage is the outage itself, nothing about the account", async () => {
+      vi.mocked(fetch).mockResolvedValue(degradedResponse("LLM_UNAVAILABLE", 60));
+      await apiFetch("/api/v1/documents/d/analyze", { method: "POST" }).catch(() => {});
+
+      expect(localStorage.length).toBe(0);
+      expect(sessionStorage.length).toBe(1);
+      const stored = JSON.parse(
+        /** @type {string} */ (sessionStorage.getItem("clausecheck:degraded")),
+      );
+      expect(Object.keys(stored).sort()).toEqual(["code", "message", "seconds", "until"]);
     });
   });
 });

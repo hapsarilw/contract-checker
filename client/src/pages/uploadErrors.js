@@ -15,6 +15,30 @@
  * image with no selectable text"), a too-short paste always does.
  */
 
+/**
+ * `action` is set only where the primary button does something other
+ * than pick a file or dismiss: "history" takes the person to their
+ * contracts, where deleting one frees space.
+ *
+ * @typedef {{ code: string, title: string, body: string, primary: string, action?: "history" }} UploadErrorCopy
+ */
+
+/**
+ * Every server code this module has specific copy for. Tests walk it to
+ * check that each names a next step.
+ */
+export const MAPPED_UPLOAD_CODES = Object.freeze([
+  "FILE_TOO_LARGE",
+  "UNSUPPORTED_FILE_TYPE",
+  "DOCUMENT_TOO_SHORT",
+  "DOCUMENT_TOO_LONG",
+  "RATE_LIMITED",
+  "ENCRYPTED_DOCUMENT",
+  "MALFORMED_DOCUMENT",
+  "STORAGE_QUOTA_EXCEEDED",
+  "SERVER_BUSY",
+]);
+
 /** en-US grouping, matching server/src/services/intake.js's own formatCount exactly. */
 const formatCount = (n) => n.toLocaleString("en-US");
 
@@ -84,7 +108,7 @@ export function checkFileBeforeUpload(file, { maxBytes }) {
  *
  * @param {{ code: string, message: string }} apiError
  * @param {{ intakeMode: "file" | "paste", file?: File | null }} context
- * @returns {{ code: string, title: string, body: string, primary: string }}
+ * @returns {UploadErrorCopy}
  */
 export function resolveServerUploadError(apiError, { intakeMode, file }) {
   switch (apiError.code) {
@@ -153,6 +177,40 @@ export function resolveServerUploadError(apiError, { intakeMode, file }) {
         primary: "Got it",
       };
 
+    // BUILD-PLAN step 64: the four upload errors the prototype had no copy
+    // for, in its voice: what went wrong, then what to do about it.
+    case "ENCRYPTED_DOCUMENT":
+      return {
+        code: "ENCRYPTED_DOCUMENT · 422",
+        title: "This PDF is locked with a password.",
+        body: "We can’t open a password-protected file. Save an unlocked copy (in most PDF viewers, Print and then Save as PDF does it) and upload that, or paste the text of the contract.",
+        primary: "Choose another file",
+      };
+    case "MALFORMED_DOCUMENT":
+      return {
+        code: "MALFORMED_DOCUMENT · 422",
+        title: "We couldn’t open this file.",
+        body: "It may be damaged or only partly downloaded. Download it again and choose the new copy, or paste the text of the contract instead.",
+        primary: "Choose another file",
+      };
+    case "STORAGE_QUOTA_EXCEEDED":
+      // The server's message carries the real limits (from config), so it
+      // is the body; the title and the button point at the fix, which is
+      // deleting something (FR-2.13).
+      return {
+        code: "STORAGE_QUOTA_EXCEEDED · 422",
+        title: "Your storage is full.",
+        body: apiError.message,
+        primary: "Go to your contracts",
+        action: "history",
+      };
+    case "SERVER_BUSY":
+      return {
+        code: "SERVER_BUSY · 503",
+        title: "We’re very busy right now.",
+        body: "Too many uploads are being processed at once, so this one didn’t go through and nothing was saved. Wait a few seconds and send it again.",
+        primary: "Got it",
+      };
     default:
       // Any other code (a validation error, a 500, NETWORK_ERROR from
       // api/client.js) — not one of the five this step maps, but still

@@ -313,9 +313,11 @@
   }
 }
 
-/* The unverified-email notice sits above the card, and takes no space at
-   all when it renders nothing (an empty block with margin would leave a
-   gap for every verified user). */
-.cc-upload-page__verify:not(:empty) {
+/* Standing notices (degraded mode, unverified email) sit above the card
+   and take no space at all when none renders: an empty block with a
+   margin would leave a gap for every verified user on a healthy day. */
+.cc-upload-page__notices:not(:empty) {
+  display: grid;
+  gap: var(--cc-space-3);
   margin-bottom: var(--cc-space-5);
 }
