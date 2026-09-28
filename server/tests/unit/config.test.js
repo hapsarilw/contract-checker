@@ -193,12 +193,17 @@ describe("config.js — observability (step 67)", () => {
     expect(runConfig(SYNTHETIC).status).toBe(0);
   });
 
-  it.each(Object.keys(SYNTHETIC))("refuses the synthetic-check trio with %s missing", (missing) => {
-    const partial = Object.fromEntries(Object.entries(SYNTHETIC).filter(([key]) => key !== missing));
-    const result = runConfig(partial);
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toMatch(/set together or not at all/);
-  });
+  it.each(Object.keys(SYNTHETIC))(
+    "refuses the synthetic-check trio with %s missing",
+    (missing) => {
+      const partial = Object.fromEntries(
+        Object.entries(SYNTHETIC).filter(([key]) => key !== missing),
+      );
+      const result = runConfig(partial);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toMatch(/set together or not at all/);
+    },
+  );
 
   it("refuses to boot in production without MEMORY_LIMIT_BYTES, naming it", () => {
     // Appendix C's memory_high is "RSS > 80% of limit". With no limit the
@@ -236,7 +241,10 @@ describe("config.js — observability (step 67)", () => {
   });
 
   it("refuses an allowlist entry that is not an address or a range, naming it", () => {
-    const result = runConfig({ ...SYNTHETIC, SYNTHETIC_CHECK_IPS: "203.0.113.0/24, checker.example.com" });
+    const result = runConfig({
+      ...SYNTHETIC,
+      SYNTHETIC_CHECK_IPS: "203.0.113.0/24, checker.example.com",
+    });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("checker.example.com");
   });

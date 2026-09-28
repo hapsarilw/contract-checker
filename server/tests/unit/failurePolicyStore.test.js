@@ -36,16 +36,19 @@ const brokenStore = (err = new Error("Connection is closed.")) => ({
 });
 
 describe("FailurePolicyStore — when the store works", () => {
-  it.each(/** @type {const} */ (["open", "closed"]))("passes %s-policy results through untouched", async (policy) => {
-    const inner = workingStore();
-    const store = new FailurePolicyStore({ store: inner, policy });
+  it.each(/** @type {const} */ (["open", "closed"]))(
+    "passes %s-policy results through untouched",
+    async (policy) => {
+      const inner = workingStore();
+      const store = new FailurePolicyStore({ store: inner, policy });
 
-    await expect(store.increment("k")).resolves.toEqual({
-      totalHits: 3,
-      resetTime: new Date(1_000),
-    });
-    expect(inner.increment).toHaveBeenCalledWith("k");
-  });
+      await expect(store.increment("k")).resolves.toEqual({
+        totalHits: 3,
+        resetTime: new Date(1_000),
+      });
+      expect(inner.increment).toHaveBeenCalledWith("k");
+    },
+  );
 
   it("forwards init to the wrapped store, so the real one is configured", () => {
     const inner = workingStore();
@@ -55,7 +58,11 @@ describe("FailurePolicyStore — when the store works", () => {
 
   it("never reports a failure when there was none", async () => {
     const onFailure = vi.fn();
-    const store = new FailurePolicyStore({ store: workingStore(), policy: "closed", onFailure });
+    const store = new FailurePolicyStore({
+      store: workingStore(),
+      policy: "closed",
+      onFailure,
+    });
     await store.increment("k");
     expect(onFailure).not.toHaveBeenCalled();
   });
@@ -83,7 +90,11 @@ describe("FailurePolicyStore — fail CLOSED (the analyze path)", () => {
   it("reports the failure with the policy that produced it", async () => {
     const onFailure = vi.fn();
     const cause = new Error("ECONNREFUSED");
-    const store = new FailurePolicyStore({ store: brokenStore(cause), policy: "closed", onFailure });
+    const store = new FailurePolicyStore({
+      store: brokenStore(cause),
+      policy: "closed",
+      onFailure,
+    });
 
     await store.increment("user:a").catch(() => {});
     expect(onFailure).toHaveBeenCalledWith(cause, "closed");
@@ -138,10 +149,13 @@ describe("FailurePolicyStore — the bookkeeping methods", () => {
     },
   );
 
-  it.each(/** @type {const} */ (["open", "closed"]))("swallows a failing resetKey under the %s policy", async (policy) => {
-    const store = new FailurePolicyStore({ store: brokenStore(), policy });
-    await expect(store.resetKey("k")).resolves.toBeUndefined();
-  });
+  it.each(/** @type {const} */ (["open", "closed"]))(
+    "swallows a failing resetKey under the %s policy",
+    async (policy) => {
+      const store = new FailurePolicyStore({ store: brokenStore(), policy });
+      await expect(store.resetKey("k")).resolves.toBeUndefined();
+    },
+  );
 
   it("does NOT swallow a failing resetAll — a test that silently fails to reset is worse", async () => {
     const store = new FailurePolicyStore({ store: brokenStore(), policy: "open" });

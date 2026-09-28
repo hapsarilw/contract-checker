@@ -33,7 +33,11 @@ export async function sendVerificationEmail(user) {
     return sendEmail("verification", user.email, { token });
   } catch (err) {
     logger.error(
-      { alert: "email_send_failed", email: { type: "verification" }, err: { name: /** @type {Error} */ (err)?.name } },
+      {
+        alert: "email_send_failed",
+        email: { type: "verification" },
+        err: { name: /** @type {Error} */ (err)?.name },
+      },
       "could not issue a verification token",
     );
     return { queued: false };

@@ -47,10 +47,14 @@ export async function intakeUpload(buffer) {
   //
   // §6.6's extract stage, traced here because this is where it happens:
   // once, at upload, not per analysis (observability/tracing.js).
-  const extracted = await withSpan("document.extract", () => extractInWorker(buffer, sourceType), {
-    "document.source_type": sourceType,
-    "document.bytes": buffer.length,
-  });
+  const extracted = await withSpan(
+    "document.extract",
+    () => extractInWorker(buffer, sourceType),
+    {
+      "document.source_type": sourceType,
+      "document.bytes": buffer.length,
+    },
+  );
 
   return finalizeIntake(extracted, sourceType);
 }

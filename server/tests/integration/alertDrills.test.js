@@ -22,13 +22,16 @@ const CONTRACT = [
   "2. Payment. Invoices are payable within ninety (90) days of receipt.",
 ].join("\n\n");
 const REAL_EXCERPT = "Invoices are payable within ninety (90) days of receipt.";
-const NOT_IN_CONTRACT = "The Designer shall surrender all rights in perpetuity to any third party.";
+const NOT_IN_CONTRACT =
+  "The Designer shall surrender all rights in perpetuity to any third party.";
 
 const DRILL_TOKEN = /** @type {string} */ (config.ALERT_DRILL_TOKEN);
 
 /** @param {string} name @param {Record<string, string>} [labels] */
 async function counterValue(name, labels = {}) {
-  const metric = /** @type {import("prom-client").Metric} */ (register.getSingleMetric(name));
+  const metric = /** @type {import("prom-client").Metric} */ (
+    register.getSingleMetric(name)
+  );
   const { values } = await metric.get();
   return values
     .filter((v) => Object.entries(labels).every(([key, want]) => v.labels[key] === want))
@@ -92,7 +95,9 @@ describe("unverified_excerpt_displayed — the detection on the ordinary read pa
         suggestedChange: "Nothing to ask for; this clause does not exist.",
       },
     });
-    const before = await counterValue("unverified_excerpt_displayed_total", { path: "report" });
+    const before = await counterValue("unverified_excerpt_displayed_total", {
+      path: "report",
+    });
 
     const res = await readReport(document.id, cookie);
 
@@ -103,14 +108,17 @@ describe("unverified_excerpt_displayed — the detection on the ordinary read pa
     expect(JSON.stringify(res.body)).not.toContain("perpetuity");
     expect(res.body.error.code).toBe("INTERNAL");
     expect(res.body.error.requestId).toBeTruthy();
-    expect(await counterValue("unverified_excerpt_displayed_total", { path: "report" })).toBe(
-      before + 1,
-    );
+    expect(
+      await counterValue("unverified_excerpt_displayed_total", { path: "report" }),
+    ).toBe(before + 1);
   });
 
   it("counts one per unverifiable finding, not one per request", async () => {
     const { document, analysis, cookie } = await reportReadyUser();
-    for (const excerpt of [NOT_IN_CONTRACT, "Another sentence that is nowhere in the contract."]) {
+    for (const excerpt of [
+      NOT_IN_CONTRACT,
+      "Another sentence that is nowhere in the contract.",
+    ]) {
       await prisma.finding.create({
         data: {
           analysisId: analysis.id,
@@ -122,13 +130,15 @@ describe("unverified_excerpt_displayed — the detection on the ordinary read pa
         },
       });
     }
-    const before = await counterValue("unverified_excerpt_displayed_total", { path: "report" });
+    const before = await counterValue("unverified_excerpt_displayed_total", {
+      path: "report",
+    });
 
     await readReport(document.id, cookie);
 
-    expect(await counterValue("unverified_excerpt_displayed_total", { path: "report" })).toBe(
-      before + 2,
-    );
+    expect(
+      await counterValue("unverified_excerpt_displayed_total", { path: "report" }),
+    ).toBe(before + 2);
   });
 });
 
@@ -151,7 +161,9 @@ describe("cross_user_access — the detection", () => {
 describe("the staging-only drill routes (step 68, item 3)", () => {
   /** @param {string} path @param {object} body @param {string} [token] */
   const drill = (path, body, token = DRILL_TOKEN) => {
-    const req = request(testServer()).post(`/api/v1/drills/${path}`).set("Content-Type", "application/json");
+    const req = request(testServer())
+      .post(`/api/v1/drills/${path}`)
+      .set("Content-Type", "application/json");
     if (token) req.set("X-Alert-Drill", token);
     return req.send(body);
   };
@@ -182,7 +194,9 @@ describe("the staging-only drill routes (step 68, item 3)", () => {
     expect(await counterValue("unverified_excerpt_displayed_total")).toBe(before + 1);
 
     // And it cleaned up after itself, so the report reads normally again.
-    const findings = await prisma.finding.findMany({ where: { analysisId: analysis.id } });
+    const findings = await prisma.finding.findMany({
+      where: { analysisId: analysis.id },
+    });
     expect(findings).toHaveLength(1);
     expect(findings[0].clauseExcerpt).toBe(REAL_EXCERPT);
   });
@@ -208,7 +222,10 @@ describe("the staging-only drill routes (step 68, item 3)", () => {
     const { document, user } = await reportReadyUser();
     const before = await counterValue("cross_user_access_total");
 
-    const res = await drill("cross-user-access", { documentId: document.id, subjectId: user.id });
+    const res = await drill("cross-user-access", {
+      documentId: document.id,
+      subjectId: user.id,
+    });
 
     // 500 with `fired: false` is the drill reporting that the detection did
     // NOT fire, which for this input is correct.

@@ -145,15 +145,20 @@ describe("the limit holds across instances (step 44, §2's second critical const
       limit: 5,
       prefix: "rl:test:instances:",
       failurePolicy: /** @type {const} */ ("open"),
-      buildMessage: (/** @type {string} */ retryTime) => `Too many. Try again in ${retryTime}.`,
+      buildMessage: (/** @type {string} */ retryTime) =>
+        `Too many. Try again in ${retryTime}.`,
     };
 
     const instanceA = express().set("trust proxy", 1);
-    instanceA.post("/x", createLimiter(options), (req, res) => res.status(200).json({ ok: true }));
+    instanceA.post("/x", createLimiter(options), (req, res) =>
+      res.status(200).json({ ok: true }),
+    );
     instanceA.use(errorHandler);
 
     const instanceB = express().set("trust proxy", 1);
-    instanceB.post("/x", createLimiter(options), (req, res) => res.status(200).json({ ok: true }));
+    instanceB.post("/x", createLimiter(options), (req, res) =>
+      res.status(200).json({ ok: true }),
+    );
     instanceB.use(errorHandler);
 
     const ip = "203.0.113.44";
@@ -175,20 +180,28 @@ describe("the limit holds across instances (step 44, §2's second critical const
     // become the limit for everything.
     const ip = "203.0.113.55";
     for (let i = 0; i < 5; i++) {
-      await request(testServer()).post("/api/v1/auth/login").set("X-Forwarded-For", ip).send({
-        email: `nobody-${i}@example.com`,
-        password: "not-the-right-password",
-      });
+      await request(testServer())
+        .post("/api/v1/auth/login")
+        .set("X-Forwarded-For", ip)
+        .send({
+          email: `nobody-${i}@example.com`,
+          password: "not-the-right-password",
+        });
     }
     // Auth is now at its cap for this IP.
-    const capped = await request(testServer()).post("/api/v1/auth/login").set("X-Forwarded-For", ip).send({
-      email: "nobody@example.com",
-      password: "not-the-right-password",
-    });
+    const capped = await request(testServer())
+      .post("/api/v1/auth/login")
+      .set("X-Forwarded-For", ip)
+      .send({
+        email: "nobody@example.com",
+        password: "not-the-right-password",
+      });
     expect(capped.status).toBe(429);
 
     // A read path from the same IP is untouched: different bucket.
-    const read = await request(testServer()).get("/api/v1/documents").set("X-Forwarded-For", ip);
+    const read = await request(testServer())
+      .get("/api/v1/documents")
+      .set("X-Forwarded-For", ip);
     expect(read.status).not.toBe(429);
   });
 });
@@ -208,7 +221,9 @@ describe("FR-5.6 — when Redis is unavailable", () => {
     try {
       await body();
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
   }
 
@@ -232,7 +247,9 @@ describe("FR-5.6 — when Redis is unavailable", () => {
     const { cookie } = await ownedDocument();
 
     await withRedisDown(async () => {
-      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer())
+        .get("/api/v1/documents")
+        .set("Cookie", cookie);
       expect(res.status).toBe(200);
       expect(res.body.documents).toEqual(expect.any(Array));
     });
@@ -278,7 +295,10 @@ describe("FR-5.6 — when Redis is unavailable", () => {
       // The per-dependency breakdown (FR-4.7) is what distinguishes
       // "degraded" from "down" — Postgres is fine and reads still work.
       expect(ready.body.checks.postgres.ok).toBe(true);
-      expect((await request(testServer()).get("/api/v1/documents").set("Cookie", cookie)).status).toBe(200);
+      expect(
+        (await request(testServer()).get("/api/v1/documents").set("Cookie", cookie))
+          .status,
+      ).toBe(200);
     });
   });
 });

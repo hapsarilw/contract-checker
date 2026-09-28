@@ -30,7 +30,8 @@
 export const ERROR_CODES = Object.freeze({
   VALIDATION_ERROR: Object.freeze({
     status: 400,
-    message: "Some of the information you sent couldn't be processed. Check your request and try again.",
+    message:
+      "Some of the information you sent couldn't be processed. Check your request and try again.",
   }),
   UNAUTHENTICATED: Object.freeze({
     status: 401,
@@ -41,11 +42,13 @@ export const ERROR_CODES = Object.freeze({
     // Deliberately identical for "no such account" and "wrong password"
     // (§4.2) — a message that distinguishes the two confirms which
     // emails are registered.
-    message: "The email or password you entered is incorrect. Check your details and try again.",
+    message:
+      "The email or password you entered is incorrect. Check your details and try again.",
   }),
   SESSION_REVOKED: Object.freeze({
     status: 401,
-    message: "Your session is no longer valid — this can happen after a password change or signing out everywhere. Please log in again.",
+    message:
+      "Your session is no longer valid — this can happen after a password change or signing out everywhere. Please log in again.",
   }),
   EMAIL_NOT_VERIFIED: Object.freeze({
     status: 403,
@@ -54,7 +57,8 @@ export const ERROR_CODES = Object.freeze({
   }),
   ACCOUNT_SUSPENDED: Object.freeze({
     status: 403,
-    message: "Your account has been suspended. Contact support if you believe this is a mistake.",
+    message:
+      "Your account has been suspended. Contact support if you believe this is a mistake.",
   }),
   CSRF_CHECK_FAILED: Object.freeze({
     status: 403,
@@ -66,27 +70,33 @@ export const ERROR_CODES = Object.freeze({
   }),
   NOT_FOUND: Object.freeze({
     status: 404,
-    message: "We couldn't find that. It may have been deleted, or it doesn't belong to your account.",
+    message:
+      "We couldn't find that. It may have been deleted, or it doesn't belong to your account.",
   }),
   EMAIL_TAKEN: Object.freeze({
     status: 409,
-    message: "An account with that email already exists. Try logging in, or reset your password if you've forgotten it.",
+    message:
+      "An account with that email already exists. Try logging in, or reset your password if you've forgotten it.",
   }),
   ANALYSIS_IN_PROGRESS: Object.freeze({
     status: 409,
-    message: "An analysis for this document is already running. Wait for it to finish before starting another.",
+    message:
+      "An analysis for this document is already running. Wait for it to finish before starting another.",
   }),
   FILE_TOO_LARGE: Object.freeze({
     status: 413,
-    message: "That file is over the 5 MB limit. Try a smaller file, or paste the text directly.",
+    message:
+      "That file is over the 5 MB limit. Try a smaller file, or paste the text directly.",
   }),
   UNSUPPORTED_FILE_TYPE: Object.freeze({
     status: 422,
-    message: "That file isn't a supported format. Upload a PDF or DOCX file, or paste the text directly.",
+    message:
+      "That file isn't a supported format. Upload a PDF or DOCX file, or paste the text directly.",
   }),
   MALFORMED_DOCUMENT: Object.freeze({
     status: 422,
-    message: "We couldn't read that document. Make sure the file isn't corrupted, then try again.",
+    message:
+      "We couldn't read that document. Make sure the file isn't corrupted, then try again.",
   }),
   ENCRYPTED_DOCUMENT: Object.freeze({
     status: 422,
@@ -95,7 +105,8 @@ export const ERROR_CODES = Object.freeze({
   }),
   DOCUMENT_TOO_SHORT: Object.freeze({
     status: 422,
-    message: "This document is too short to analyze — it may be a scanned image with no selectable text. Try a version with real text, or paste the text directly.",
+    message:
+      "This document is too short to analyze — it may be a scanned image with no selectable text. Try a version with real text, or paste the text directly.",
   }),
   DOCUMENT_TOO_LONG: Object.freeze({
     status: 422,
@@ -103,14 +114,16 @@ export const ERROR_CODES = Object.freeze({
     // 4,000." — services/intake.js (step 17) passes the actual word
     // count as an explicit message following that template. This is the
     // fallback for a DOCUMENT_TOO_LONG thrown anywhere else.
-    message: "This document is too long for Phase 1's 4,000-word limit. Try a shorter document, or split it into sections.",
+    message:
+      "This document is too long for Phase 1's 4,000-word limit. Try a shorter document, or split it into sections.",
   }),
   STORAGE_QUOTA_EXCEEDED: Object.freeze({
     status: 422,
     // FR-2.13: "a message pointing at deletion." The live message is built
     // from config in services/storageQuota.js so it tracks the limits;
     // this is the fallback for any other caller.
-    message: "You've reached your storage limit. Delete an old document to make room for a new one.",
+    message:
+      "You've reached your storage limit. Delete an old document to make room for a new one.",
   }),
   RATE_LIMITED: Object.freeze({
     status: 429,
@@ -118,7 +131,8 @@ export const ERROR_CODES = Object.freeze({
   }),
   QUOTA_EXCEEDED: Object.freeze({
     status: 429,
-    message: "You've reached your monthly analysis limit. It resets at the start of next month.",
+    message:
+      "You've reached your monthly analysis limit. It resets at the start of next month.",
   }),
   ACCOUNT_LOCKED: Object.freeze({
     status: 429,
@@ -127,26 +141,31 @@ export const ERROR_CODES = Object.freeze({
   }),
   INTERNAL: Object.freeze({
     status: 500,
-    message: "Something went wrong on our end. Please try again, and contact support with the request ID below if it keeps happening.",
+    message:
+      "Something went wrong on our end. Please try again, and contact support with the request ID below if it keeps happening.",
   }),
   LLM_INVALID_OUTPUT: Object.freeze({
     status: 502,
     // Verbatim from the §4.3 example.
-    message: "The analysis service returned an unusable response twice. Your document was not affected — try again in a minute.",
+    message:
+      "The analysis service returned an unusable response twice. Your document was not affected — try again in a minute.",
   }),
   ALL_FINDINGS_DISCARDED: Object.freeze({
     status: 502,
-    message: "The analysis service returned results that couldn't be verified against your document. Your document was not affected — try again in a minute.",
+    message:
+      "The analysis service returned results that couldn't be verified against your document. Your document was not affected — try again in a minute.",
   }),
   LLM_UNAVAILABLE: Object.freeze({
     status: 503,
     // Verbatim from the §4.3 example, which also shows Retry-After: 60.
-    message: "The analysis service is temporarily unavailable. Your document is saved — try again in about a minute.",
+    message:
+      "The analysis service is temporarily unavailable. Your document is saved — try again in about a minute.",
     retryAfter: 60,
   }),
   SPEND_LIMIT_REACHED: Object.freeze({
     status: 503,
-    message: "Analysis is temporarily unavailable while we're above our monthly usage limit. Please try again later.",
+    message:
+      "Analysis is temporarily unavailable while we're above our monthly usage limit. Please try again later.",
     retryAfter: 3600,
   }),
   SERVER_BUSY: Object.freeze({
@@ -156,7 +175,8 @@ export const ERROR_CODES = Object.freeze({
   }),
   LLM_TIMEOUT: Object.freeze({
     status: 504,
-    message: "The analysis service took too long to respond. Your document was not affected — try again in a minute.",
+    message:
+      "The analysis service took too long to respond. Your document was not affected — try again in a minute.",
   }),
 });
 

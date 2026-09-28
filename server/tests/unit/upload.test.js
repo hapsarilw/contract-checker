@@ -36,7 +36,9 @@ async function buildDocx(compression) {
 
 describe("detectSourceType — magic bytes only (FR-2.3)", () => {
   it("accepts a real PDF from the fixture corpus", () => {
-    expect(detectSourceType(readFixture("01-design-services-hostile.pdf"))).toBe("UPLOAD_PDF");
+    expect(detectSourceType(readFixture("01-design-services-hostile.pdf"))).toBe(
+      "UPLOAD_PDF",
+    );
   });
 
   it("types a scanned PDF as a PDF — a valid type with no text layer fails later, not here", () => {
@@ -44,7 +46,9 @@ describe("detectSourceType — magic bytes only (FR-2.3)", () => {
     // precedence puts word-count bounds after typing, so this file passes
     // step 2 and is rejected at step 5 with DOCUMENT_TOO_SHORT. Typing it
     // as "not a PDF" would report the wrong cause to the user.
-    expect(detectSourceType(readFixture("06-scanned-no-text-layer.pdf"))).toBe("UPLOAD_PDF");
+    expect(detectSourceType(readFixture("06-scanned-no-text-layer.pdf"))).toBe(
+      "UPLOAD_PDF",
+    );
   });
 
   it("accepts a DOCX whose [Content_Types].xml is DEFLATED", async () => {
@@ -119,7 +123,9 @@ describe("rejectOversizeByContentLength (FR-2.2)", () => {
   });
 
   it("allows a declared length at exactly the limit — the bound is inclusive", () => {
-    expect(run({ "content-length": String(MAX_UPLOAD_BYTES) }).mock.calls[0][0]).toBeUndefined();
+    expect(
+      run({ "content-length": String(MAX_UPLOAD_BYTES) }).mock.calls[0][0],
+    ).toBeUndefined();
   });
 
   it("allows a request with no Content-Length — chunked encoding omits it legitimately", () => {
@@ -265,7 +271,9 @@ describe("sanitizeFilename (FR-2.14)", () => {
   });
 
   it("keeps an ordinary filename unchanged", () => {
-    expect(sanitizeFilename("Design Services Agreement.pdf")).toBe("Design Services Agreement.pdf");
+    expect(sanitizeFilename("Design Services Agreement.pdf")).toBe(
+      "Design Services Agreement.pdf",
+    );
   });
 
   it("returns null for a name that sanitises away to nothing", () => {

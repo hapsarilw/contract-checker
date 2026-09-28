@@ -53,7 +53,9 @@ export async function stopTestServer() {
 /** The listening server, for `request(testServer())`. */
 export function testServer() {
   if (!server) {
-    throw new Error("test server not started — tests/integration/setup.js should have done it");
+    throw new Error(
+      "test server not started — tests/integration/setup.js should have done it",
+    );
   }
   return server;
 }

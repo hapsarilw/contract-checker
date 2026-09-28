@@ -6,7 +6,8 @@ import { createUser, createDocument, createAnalysis } from "./factories.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
 
 const cookieFor = (token) => [`${SESSION_COOKIE_NAME}=${token}`];
-const tokenFor = (user) => signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion });
+const tokenFor = (user) =>
+  signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion });
 
 async function loggedInCookie(overrides = {}) {
   const user = await createUser(overrides);
@@ -21,7 +22,11 @@ async function loggedInCookie(overrides = {}) {
  * tests read as "compare the response to this list" rather than having
  * to reverse anything themselves.
  */
-async function createDocumentSeries(userId, count, { stepMs = 1000, baseTime = Date.now() - 1_000_000 } = {}) {
+async function createDocumentSeries(
+  userId,
+  count,
+  { stepMs = 1000, baseTime = Date.now() - 1_000_000 } = {},
+) {
   const created = [];
   for (let i = 0; i < count; i++) {
     created.push(
@@ -43,17 +48,24 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
 
   it("returns an empty page for a user with no documents", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer())
+      .get("/api/v1/documents")
+      .set("Cookie", cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ documents: [], page: { nextCursor: null, hasMore: false } });
+    expect(res.body).toEqual({
+      documents: [],
+      page: { nextCursor: null, hasMore: false },
+    });
   });
 
   it("matches the §4.4 response shape and FR-4.1's row shape exactly", async () => {
     const { cookie, user } = await loggedInCookie();
     await createDocument({ userId: user.id, filename: "contract.pdf" });
 
-    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer())
+      .get("/api/v1/documents")
+      .set("Cookie", cookie);
 
     expect(Object.keys(res.body).sort()).toEqual(["documents", "page"]);
     expect(Object.keys(res.body.page).sort()).toEqual(["hasMore", "nextCursor"]);
@@ -62,11 +74,13 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
     );
   });
 
-  it("substitutes \"Pasted text\" for a null filename", async () => {
+  it('substitutes "Pasted text" for a null filename', async () => {
     const { cookie, user } = await loggedInCookie();
     await createDocument({ userId: user.id, filename: null, sourceType: "PASTE" });
 
-    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer())
+      .get("/api/v1/documents")
+      .set("Cookie", cookie);
     expect(res.body.documents[0].filename).toBe("Pasted text");
   });
 
@@ -74,7 +88,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
     const { cookie, user } = await loggedInCookie();
     const series = await createDocumentSeries(user.id, 5);
 
-    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer())
+      .get("/api/v1/documents")
+      .set("Cookie", cookie);
     expect(res.body.documents.map((d) => d.id)).toEqual(series.map((d) => d.id));
   });
 
@@ -84,7 +100,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
     await createDocument({ userId: user.id });
     await createDocument({ userId: otherUser.id });
 
-    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer())
+      .get("/api/v1/documents")
+      .set("Cookie", cookie);
     expect(res.body.documents).toHaveLength(1);
   });
 
@@ -93,7 +111,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       const { cookie, user } = await loggedInCookie();
       await createDocument({ userId: user.id });
 
-      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer())
+        .get("/api/v1/documents")
+        .set("Cookie", cookie);
       expect(res.body.documents[0].overallRisk).toBeNull();
       expect(res.body.documents[0].findingCount).toBe(0);
     });
@@ -116,7 +136,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
         createdAt: new Date(), // newer than the COMPLETED one above
       });
 
-      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer())
+        .get("/api/v1/documents")
+        .set("Cookie", cookie);
       // The PENDING analysis is newer but must not be picked — FR-4.1
       // says "latest COMPLETED analysis", and step 18's GET /:id
       // deliberately uses a different rule (latest of any status) for a
@@ -145,7 +167,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
         createdAt: new Date(),
       });
 
-      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer())
+        .get("/api/v1/documents")
+        .set("Cookie", cookie);
       expect(res.body.documents[0].overallRisk).toBe("HIGH");
       expect(res.body.documents[0].findingCount).toBe(2);
     });
@@ -168,7 +192,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
         findings: [{ severity: "HIGH" }, { severity: "MEDIUM" }],
       });
 
-      const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+      const res = await request(testServer())
+        .get("/api/v1/documents")
+        .set("Cookie", cookie);
       expect(res.body.documents[0].overallRisk).toBe("HIGH");
       expect(res.body.documents[0].findingCount).toBe(2);
     });
@@ -189,7 +215,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
 
     it("returns 400 for a cursor that is valid base64 of the wrong JSON shape", async () => {
       const { cookie } = await loggedInCookie();
-      const tampered = Buffer.from(JSON.stringify({ wrong: "shape" }), "utf8").toString("base64url");
+      const tampered = Buffer.from(JSON.stringify({ wrong: "shape" }), "utf8").toString(
+        "base64url",
+      );
 
       const res = await request(testServer())
         .get("/api/v1/documents")
@@ -238,7 +266,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       const { cookie, user } = await loggedInCookie();
       const series = await createDocumentSeries(user.id, 25);
 
-      const page1 = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+      const page1 = await request(testServer())
+        .get("/api/v1/documents")
+        .set("Cookie", cookie);
       expect(page1.body.documents).toHaveLength(20);
       expect(page1.body.page.hasMore).toBe(true);
       expect(page1.body.page.nextCursor).toBeTypeOf("string");
@@ -251,7 +281,9 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       expect(page2.body.page.hasMore).toBe(false);
       expect(page2.body.page.nextCursor).toBeNull();
 
-      const combinedIds = [...page1.body.documents, ...page2.body.documents].map((d) => d.id);
+      const combinedIds = [...page1.body.documents, ...page2.body.documents].map(
+        (d) => d.id,
+      );
       expect(combinedIds).toEqual(series.map((d) => d.id));
       expect(new Set(combinedIds).size).toBe(25);
     });
@@ -276,7 +308,10 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       // "skip 5" second fetch silently skips whatever used to be row 6.
       // Keyset pagination has no "row 6" concept to shift.
       const deletedId = page1Ids[2];
-      await request(testServer()).delete(`/api/v1/documents/${deletedId}`).set("Cookie", cookie).set("Content-Type", "application/json");
+      await request(testServer())
+        .delete(`/api/v1/documents/${deletedId}`)
+        .set("Cookie", cookie)
+        .set("Content-Type", "application/json");
 
       const page2 = await request(testServer())
         .get("/api/v1/documents")
@@ -313,7 +348,10 @@ describe("GET /api/v1/documents — FR-4.1, §4.4", () => {
       // row on the next fetch instead of skipping one.
       const notYetSeenIds = series.slice(5, 10).map((d) => d.id);
       const deletedId = notYetSeenIds[1];
-      await request(testServer()).delete(`/api/v1/documents/${deletedId}`).set("Cookie", cookie).set("Content-Type", "application/json");
+      await request(testServer())
+        .delete(`/api/v1/documents/${deletedId}`)
+        .set("Cookie", cookie)
+        .set("Content-Type", "application/json");
 
       const page2 = await request(testServer())
         .get("/api/v1/documents")

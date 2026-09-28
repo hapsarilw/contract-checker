@@ -61,16 +61,22 @@ describe("isDue — nightly, as a due-check rather than a timer", () => {
 
 describe("subtractMonthsUTC — what '13 months ago' means", () => {
   it("subtracts calendar months, not a fixed number of days", () => {
-    expect(subtractMonthsUTC(at("2026-06-15T03:00:00Z"), 13)).toEqual(at("2025-05-15T03:00:00Z"));
+    expect(subtractMonthsUTC(at("2026-06-15T03:00:00Z"), 13)).toEqual(
+      at("2025-05-15T03:00:00Z"),
+    );
   });
 
   it("clamps to the end of a shorter month instead of spilling into the next", () => {
     // 31 March minus 13 months is 28 February, not 3 March.
-    expect(subtractMonthsUTC(at("2026-03-31T00:00:00Z"), 13)).toEqual(at("2025-02-28T00:00:00Z"));
+    expect(subtractMonthsUTC(at("2026-03-31T00:00:00Z"), 13)).toEqual(
+      at("2025-02-28T00:00:00Z"),
+    );
   });
 
   it("handles a leap day", () => {
-    expect(subtractMonthsUTC(at("2025-03-29T00:00:00Z"), 13)).toEqual(at("2024-02-29T00:00:00Z"));
+    expect(subtractMonthsUTC(at("2025-03-29T00:00:00Z"), 13)).toEqual(
+      at("2024-02-29T00:00:00Z"),
+    );
   });
 });
 

@@ -163,8 +163,9 @@ export function createJobLastSuccessGauge({ registers } = {}) {
  * name twice and throw.
  */
 export const jobLastSuccessGauge =
-  /** @type {Gauge<"job"> | undefined} */ (register.getSingleMetric(LAST_SUCCESS_METRIC)) ??
-  createJobLastSuccessGauge();
+  /** @type {Gauge<"job"> | undefined} */ (
+    register.getSingleMetric(LAST_SUCCESS_METRIC)
+  ) ?? createJobLastSuccessGauge();
 
 /**
  * `backup_verify_failed`, read from the same shared table for the same
@@ -205,5 +206,6 @@ export function createBackupVerifyFailedGauge({ registers } = {}) {
 }
 
 export const backupVerifyFailedGauge =
-  /** @type {Gauge | undefined} */ (register.getSingleMetric(BACKUP_VERIFY_FAILED_METRIC)) ??
-  createBackupVerifyFailedGauge();
+  /** @type {Gauge | undefined} */ (
+    register.getSingleMetric(BACKUP_VERIFY_FAILED_METRIC)
+  ) ?? createBackupVerifyFailedGauge();

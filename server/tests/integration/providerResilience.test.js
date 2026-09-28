@@ -37,7 +37,8 @@ const CONTRACT = [
 
 function mockProvider() {
   const backend = getLlmProvider().backend;
-  if (!(backend instanceof MockLlmProvider)) throw new Error("expected the mock provider");
+  if (!(backend instanceof MockLlmProvider))
+    throw new Error("expected the mock provider");
   return backend;
 }
 
@@ -76,7 +77,13 @@ describe("TR-17 — transient failures are retried, then give up honestly (FR-3.
     expect(mockProvider().calls).toHaveLength(3);
     // FR-3.5: even an exhausted analysis leaves a record.
     expect(
-      await prisma.analysis.count({ where: { documentId: document.id, status: "FAILED", errorCode: "LLM_UNAVAILABLE" } }),
+      await prisma.analysis.count({
+        where: {
+          documentId: document.id,
+          status: "FAILED",
+          errorCode: "LLM_UNAVAILABLE",
+        },
+      }),
     ).toBe(1);
   }, 30_000);
 
@@ -89,7 +96,11 @@ describe("TR-17 — transient failures are retried, then give up honestly (FR-3.
 
     expect(res.status).toBe(200);
     expect(mockProvider().calls).toHaveLength(2);
-    expect(await prisma.analysis.count({ where: { documentId: document.id, status: "COMPLETED" } })).toBe(1);
+    expect(
+      await prisma.analysis.count({
+        where: { documentId: document.id, status: "COMPLETED" },
+      }),
+    ).toBe(1);
   }, 30_000);
 });
 
@@ -118,7 +129,8 @@ describe("TR-17 — a 401 is a configuration defect, not a transient failure (FR
     await analyze(document.id, cookie);
 
     const alerted = spy.mock.calls.some(
-      ([fields]) => /** @type {{ alert?: string }} */ (fields)?.alert === "llm_config_error",
+      ([fields]) =>
+        /** @type {{ alert?: string }} */ (fields)?.alert === "llm_config_error",
     );
     expect(alerted).toBe(true);
     spy.mockRestore();
@@ -137,9 +149,14 @@ describe("TR-17 — a 401 is a configuration defect, not a transient failure (FR
 describe("TR-17 — the circuit breaker (FR-3.12)", () => {
   it("opens at 50% failures over 20 calls, and then refuses without a provider call", async () => {
     const { document, cookie } = await ownedDocument();
-    for (let i = 0; i < MIN_CALLS; i++) await recordProviderCall(i % 2 === 0 ? "failure" : "success");
+    for (let i = 0; i < MIN_CALLS; i++)
+      await recordProviderCall(i % 2 === 0 ? "failure" : "success");
 
-    await expect(getCircuitState()).resolves.toMatchObject({ open: true, calls: MIN_CALLS, failures: 10 });
+    await expect(getCircuitState()).resolves.toMatchObject({
+      open: true,
+      calls: MIN_CALLS,
+      failures: 10,
+    });
 
     mockProvider().scriptValidResponse({ overall_risk: "low", findings: [] });
     const res = await analyze(document.id, cookie);
@@ -160,7 +177,8 @@ describe("TR-17 — the circuit breaker (FR-3.12)", () => {
   });
 
   it("does not open below the failure ratio, however many calls", async () => {
-    for (let i = 0; i < 40; i++) await recordProviderCall(i % 4 === 0 ? "failure" : "success");
+    for (let i = 0; i < 40; i++)
+      await recordProviderCall(i % 4 === 0 ? "failure" : "success");
     await expect(getCircuitState()).resolves.toMatchObject({ open: false });
   });
 
@@ -173,7 +191,9 @@ describe("TR-17 — the circuit breaker (FR-3.12)", () => {
     // A "second instance": its own module state, the same Redis.
     vi.resetModules();
     const fresh = await import("../../src/services/llm/circuitBreaker.js");
-    await expect(fresh.assertCircuitClosed()).rejects.toMatchObject({ code: "LLM_UNAVAILABLE" });
+    await expect(fresh.assertCircuitClosed()).rejects.toMatchObject({
+      code: "LLM_UNAVAILABLE",
+    });
     vi.resetModules();
   });
 
@@ -186,7 +206,9 @@ describe("TR-17 — the circuit breaker (FR-3.12)", () => {
     // Every other caller is still refused — "a single trial" means one
     // across the fleet, or a recovering provider gets one trial per
     // instance at once, which is the storm the breaker prevents.
-    await expect(assertCircuitClosed(after)).rejects.toMatchObject({ code: "LLM_UNAVAILABLE" });
+    await expect(assertCircuitClosed(after)).rejects.toMatchObject({
+      code: "LLM_UNAVAILABLE",
+    });
   });
 
   it("closes on a successful trial, and clears the failures that opened it", async () => {
@@ -213,7 +235,9 @@ describe("TR-17 — the circuit breaker (FR-3.12)", () => {
       await expect(assertCircuitClosed()).resolves.toBeUndefined();
       await expect(recordProviderCall("failure")).resolves.toBeUndefined();
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
   });
 });

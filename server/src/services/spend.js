@@ -81,7 +81,15 @@ export async function getSpendState(now = new Date()) {
   }
 
   if (!tokens) {
-    return { period, source, inputTokens: null, outputTokens: null, usd: null, ceiling, ratio: null };
+    return {
+      period,
+      source,
+      inputTokens: null,
+      outputTokens: null,
+      usd: null,
+      ceiling,
+      ratio: null,
+    };
   }
 
   const usd = usdFor(tokens.inputTokens, tokens.outputTokens);
@@ -103,7 +111,10 @@ async function tokensFromRedis(period) {
   try {
     const hash = await getRedis().hgetall(tokensKey(period));
     if (!hash || Object.keys(hash).length === 0) return null;
-    return { inputTokens: Number(hash.input ?? 0), outputTokens: Number(hash.output ?? 0) };
+    return {
+      inputTokens: Number(hash.input ?? 0),
+      outputTokens: Number(hash.output ?? 0),
+    };
   } catch (err) {
     logger.warn(
       { err: { message: err instanceof Error ? err.message : String(err) } },
@@ -228,7 +239,13 @@ async function raiseThresholdAlerts(period, now) {
 
   for (const threshold of ALERT_THRESHOLDS) {
     if (state.ratio < threshold) continue;
-    const first = await getRedis().set(alertKey(period, threshold), "1", "EX", 62 * 24 * 60 * 60, "NX");
+    const first = await getRedis().set(
+      alertKey(period, threshold),
+      "1",
+      "EX",
+      62 * 24 * 60 * 60,
+      "NX",
+    );
     if (first !== "OK") continue;
 
     const detail = {
@@ -239,9 +256,15 @@ async function raiseThresholdAlerts(period, now) {
       model: config.ANTHROPIC_MODEL,
     };
     if (threshold >= 1) {
-      logger.error(detail, "FR-5.4: monthly LLM spend ceiling reached — new analyses now refused");
+      logger.error(
+        detail,
+        "FR-5.4: monthly LLM spend ceiling reached — new analyses now refused",
+      );
     } else {
-      logger.warn(detail, `FR-5.4: monthly LLM spend passed ${threshold * 100}% of the ceiling`);
+      logger.warn(
+        detail,
+        `FR-5.4: monthly LLM spend passed ${threshold * 100}% of the ceiling`,
+      );
     }
   }
 }

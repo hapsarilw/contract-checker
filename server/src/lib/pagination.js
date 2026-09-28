@@ -71,7 +71,8 @@ export function decodeCursor(raw) {
   }
 
   if (typeof parsed !== "object" || parsed === null) return null;
-  if (typeof parsed.c !== "string" || typeof parsed.i !== "string" || parsed.i === "") return null;
+  if (typeof parsed.c !== "string" || typeof parsed.i !== "string" || parsed.i === "")
+    return null;
 
   const createdAt = new Date(parsed.c);
   if (Number.isNaN(createdAt.getTime())) return null;

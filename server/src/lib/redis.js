@@ -80,7 +80,10 @@ export function getRedis() {
   // policy below it, and the limiter's own decision is what deserves an
   // error line.
   client.on("error", (err) => {
-    logger.warn({ err: { type: err.name, message: err.message } }, "redis connection error");
+    logger.warn(
+      { err: { type: err.name, message: err.message } },
+      "redis connection error",
+    );
   });
 
   return client;
@@ -107,7 +110,10 @@ export async function closeRedis() {
   try {
     await client.quit();
   } catch (err) {
-    logger.warn({ err: { message: /** @type {Error} */ (err).message } }, "redis quit failed, forcing disconnect");
+    logger.warn(
+      { err: { message: /** @type {Error} */ (err).message } },
+      "redis quit failed, forcing disconnect",
+    );
     client.disconnect();
   }
   client = undefined;

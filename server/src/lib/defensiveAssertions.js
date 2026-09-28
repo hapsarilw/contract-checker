@@ -1,4 +1,7 @@
-import { crossUserAccessTotal, unverifiedExcerptDisplayedTotal } from "../observability/metrics.js";
+import {
+  crossUserAccessTotal,
+  unverifiedExcerptDisplayedTotal,
+} from "../observability/metrics.js";
 import logger from "../observability/logger.js";
 import { normalizeForMatch, verifyFindings } from "../services/verify.js";
 import { AppError } from "./AppError.js";

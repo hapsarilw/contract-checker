@@ -26,7 +26,9 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
   });
 
   it("echoes back an inbound X-Request-Id instead of generating a new one", async () => {
-    const res = await request(testServer()).get("/unknown").set("X-Request-Id", "client-supplied-abc");
+    const res = await request(testServer())
+      .get("/unknown")
+      .set("X-Request-Id", "client-supplied-abc");
     expect(res.headers["x-request-id"]).toBe("client-supplied-abc");
     expect(res.body.error.requestId).toBe("client-supplied-abc");
   });
@@ -62,7 +64,9 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
 
   describe("CORS (NFR-2.4, FR-1.12(b))", () => {
     it("allows exactly config.FRONTEND_ORIGIN, with credentials", async () => {
-      const res = await request(testServer()).get("/unknown").set("Origin", config.FRONTEND_ORIGIN);
+      const res = await request(testServer())
+        .get("/unknown")
+        .set("Origin", config.FRONTEND_ORIGIN);
 
       expect(res.headers["access-control-allow-origin"]).toBe(config.FRONTEND_ORIGIN);
       expect(res.headers["access-control-allow-credentials"]).toBe("true");
@@ -76,21 +80,29 @@ describe("app.js — Express wiring (SRS §2 diagram)", () => {
       // does NOT match its own origin, so the browser still refuses to
       // let its script read the response, even though the header is
       // technically present on the wire.
-      const res = await request(testServer()).get("/unknown").set("Origin", "https://evil.example.com");
+      const res = await request(testServer())
+        .get("/unknown")
+        .set("Origin", "https://evil.example.com");
 
       expect(res.headers["access-control-allow-origin"]).toBe(config.FRONTEND_ORIGIN);
-      expect(res.headers["access-control-allow-origin"]).not.toBe("https://evil.example.com");
+      expect(res.headers["access-control-allow-origin"]).not.toBe(
+        "https://evil.example.com",
+      );
     });
 
     it("exposes Retry-After to the frontend, so degraded mode knows how long an outage is (FR-7.10)", async () => {
-      const res = await request(testServer()).get("/unknown").set("Origin", config.FRONTEND_ORIGIN);
+      const res = await request(testServer())
+        .get("/unknown")
+        .set("Origin", config.FRONTEND_ORIGIN);
 
       expect(res.headers["access-control-expose-headers"]).toBe("Retry-After");
     });
 
     it("never reflects an arbitrary Origin back", async () => {
       const attackerOrigin = "https://attacker.test";
-      const res = await request(testServer()).get("/unknown").set("Origin", attackerOrigin);
+      const res = await request(testServer())
+        .get("/unknown")
+        .set("Origin", attackerOrigin);
 
       expect(res.headers["access-control-allow-origin"]).not.toBe(attackerOrigin);
     });

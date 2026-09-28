@@ -51,7 +51,7 @@ export const REDACTED_PATHS = [
   "token",
   "req.headers.authorization",
   "req.headers.cookie",
-  "res.headers[\"set-cookie\"]",
+  'res.headers["set-cookie"]',
 
   // Auth middleware attaches the authenticated user to the request
   // (step 13). That object is built with passwordHash omitted at the

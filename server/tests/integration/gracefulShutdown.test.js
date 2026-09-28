@@ -30,7 +30,10 @@ function startServer(slowMs, drainMs) {
   });
 
   const listening = new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`server never listened. stderr: ${stderr}`)), 10_000);
+    const timer = setTimeout(
+      () => reject(new Error(`server never listened. stderr: ${stderr}`)),
+      10_000,
+    );
     const check = setInterval(() => {
       const match = stdout.match(/LISTENING:(\d+)/);
       if (match) {

@@ -2,7 +2,16 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { Prisma, UserState, AuthTokenType, SourceType, Status, Risk, Severity, Category } from "@prisma/client";
+import {
+  Prisma,
+  UserState,
+  AuthTokenType,
+  SourceType,
+  Status,
+  Risk,
+  Severity,
+  Category,
+} from "@prisma/client";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const serverRoot = join(__dirname, "..", "..");
@@ -23,7 +32,9 @@ const migrationSql = readdirSync(migrationsDir)
  * FOREIGN KEY statement several tables later.
  */
 function tableBody(table) {
-  const match = migrationSql.match(new RegExp(`CREATE TABLE "${table}" \\(([\\s\\S]*?)\\n\\);`));
+  const match = migrationSql.match(
+    new RegExp(`CREATE TABLE "${table}" \\(([\\s\\S]*?)\\n\\);`),
+  );
   if (!match) throw new Error(`no CREATE TABLE statement found for ${table}`);
   return match[1];
 }
@@ -49,7 +60,12 @@ describe("Prisma schema conformance with SRS §5.1", () => {
     // is gone." Adding it here would convert a hard delete into a soft one
     // and break FR-4.6.
     it("UserState has four states, without DELETED", () => {
-      expect(Object.values(UserState)).toEqual(["UNVERIFIED", "ACTIVE", "LOCKED", "SUSPENDED"]);
+      expect(Object.values(UserState)).toEqual([
+        "UNVERIFIED",
+        "ACTIVE",
+        "LOCKED",
+        "SUSPENDED",
+      ]);
     });
 
     it("AuthTokenType", () => {
@@ -92,8 +108,17 @@ describe("Prisma schema conformance with SRS §5.1", () => {
 
   describe("the initial migration", () => {
     it("creates every table", () => {
-      for (const table of ["User", "AuthToken", "Document", "Analysis", "Finding", "AuditEvent"]) {
-        expect(migrationSql, `missing table ${table}`).toContain(`CREATE TABLE "${table}"`);
+      for (const table of [
+        "User",
+        "AuthToken",
+        "Document",
+        "Analysis",
+        "Finding",
+        "AuditEvent",
+      ]) {
+        expect(migrationSql, `missing table ${table}`).toContain(
+          `CREATE TABLE "${table}"`,
+        );
       }
     });
 
@@ -131,12 +156,22 @@ describe("Prisma schema conformance with SRS §5.1", () => {
     });
 
     it("has exactly four foreign keys, all of them cascading from their parent", () => {
-      const foreignKeys = migrationSql.match(/ALTER TABLE "(\w+)" ADD CONSTRAINT "(\w+)" FOREIGN KEY/g) ?? [];
+      const foreignKeys =
+        migrationSql.match(/ALTER TABLE "(\w+)" ADD CONSTRAINT "(\w+)" FOREIGN KEY/g) ??
+        [];
       expect(foreignKeys).toHaveLength(4);
-      expect(migrationSql).toContain('ALTER TABLE "AuthToken" ADD CONSTRAINT "AuthToken_userId_fkey"');
-      expect(migrationSql).toContain('ALTER TABLE "Document" ADD CONSTRAINT "Document_userId_fkey"');
-      expect(migrationSql).toContain('ALTER TABLE "Analysis" ADD CONSTRAINT "Analysis_documentId_fkey"');
-      expect(migrationSql).toContain('ALTER TABLE "Finding" ADD CONSTRAINT "Finding_analysisId_fkey"');
+      expect(migrationSql).toContain(
+        'ALTER TABLE "AuthToken" ADD CONSTRAINT "AuthToken_userId_fkey"',
+      );
+      expect(migrationSql).toContain(
+        'ALTER TABLE "Document" ADD CONSTRAINT "Document_userId_fkey"',
+      );
+      expect(migrationSql).toContain(
+        'ALTER TABLE "Analysis" ADD CONSTRAINT "Analysis_documentId_fkey"',
+      );
+      expect(migrationSql).toContain(
+        'ALTER TABLE "Finding" ADD CONSTRAINT "Finding_analysisId_fkey"',
+      );
       expect(migrationSql.match(/ON DELETE CASCADE/g) ?? []).toHaveLength(4);
     });
 
@@ -165,7 +200,10 @@ describe("Analysis.promptVersion (Appendix A)", () => {
 
   it("is added by its own expand-only migration: a nullable column, no default", () => {
     expect(promptVersionMigration).toBeDefined();
-    const sql = readFileSync(join(migrationsDir, String(promptVersionMigration), "migration.sql"), "utf8");
+    const sql = readFileSync(
+      join(migrationsDir, String(promptVersionMigration), "migration.sql"),
+      "utf8",
+    );
     expect(sql).toContain('ALTER TABLE "Analysis" ADD COLUMN "promptVersion" TEXT;');
     expect(sql).not.toMatch(/NOT NULL|DEFAULT/);
   });

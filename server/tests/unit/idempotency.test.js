@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { IDEMPOTENCY_KEY_HEADER, MAX_KEY_LENGTH, readIdempotencyKey } from "../../src/lib/idempotency.js";
+import {
+  IDEMPOTENCY_KEY_HEADER,
+  MAX_KEY_LENGTH,
+  readIdempotencyKey,
+} from "../../src/lib/idempotency.js";
 
 /**
  * FR-3.15's header-reading rule, tested directly rather than only through
@@ -18,7 +22,9 @@ import { IDEMPOTENCY_KEY_HEADER, MAX_KEY_LENGTH, readIdempotencyKey } from "../.
  * test green.
  */
 
-const req = (value) => ({ headers: value === undefined ? {} : { [IDEMPOTENCY_KEY_HEADER]: value } });
+const req = (value) => ({
+  headers: value === undefined ? {} : { [IDEMPOTENCY_KEY_HEADER]: value },
+});
 
 describe("readIdempotencyKey (FR-3.15)", () => {
   it("returns null when the header is absent", () => {

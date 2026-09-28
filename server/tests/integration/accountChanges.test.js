@@ -82,17 +82,27 @@ describe("FR-1.11 — change password keeps THIS session and kills the others", 
 
   it("the OLD cookie stops working even though the request carried it", async () => {
     const { here } = await userWithTwoSessions();
-    await post("change-password", here).send({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD });
+    await post("change-password", here).send({
+      currentPassword: PASSWORD,
+      newPassword: NEW_PASSWORD,
+    });
 
     expect((await me(here)).status).toBe(401);
   }, 60_000);
 
   it("actually changes the password", async () => {
     const { user, here } = await userWithTwoSessions();
-    await post("change-password", here).send({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD });
+    await post("change-password", here).send({
+      currentPassword: PASSWORD,
+      newPassword: NEW_PASSWORD,
+    });
 
-    expect((await post("login").send({ email: user.email, password: NEW_PASSWORD })).status).toBe(200);
-    expect((await post("login").send({ email: user.email, password: PASSWORD })).status).toBe(401);
+    expect(
+      (await post("login").send({ email: user.email, password: NEW_PASSWORD })).status,
+    ).toBe(200);
+    expect(
+      (await post("login").send({ email: user.email, password: PASSWORD })).status,
+    ).toBe(401);
   }, 60_000);
 
   it("refuses a wrong current password, and changes nothing", async () => {
@@ -108,7 +118,9 @@ describe("FR-1.11 — change password keeps THIS session and kills the others", 
     // A 401 would invite a client to sign the user out over a typo.
     expect(res.status).not.toBe(401);
     expect((await me(elsewhere)).status).toBe(200);
-    expect((await post("login").send({ email: user.email, password: PASSWORD })).status).toBe(200);
+    expect(
+      (await post("login").send({ email: user.email, password: PASSWORD })).status,
+    ).toBe(200);
   }, 60_000);
 
   it("refuses a breached new password — FR-1.2 applies wherever a password is set", async () => {
@@ -125,7 +137,10 @@ describe("FR-1.11 — change password keeps THIS session and kills the others", 
 
   it("notifies the account by email, with no link to act on", async () => {
     const { user, here } = await userWithTwoSessions();
-    await post("change-password", here).send({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD });
+    await post("change-password", here).send({
+      currentPassword: PASSWORD,
+      newPassword: NEW_PASSWORD,
+    });
     await getEmailService().flush();
 
     const notice = sink().latestTo(user.email);
@@ -137,10 +152,17 @@ describe("FR-1.11 — change password keeps THIS session and kills the others", 
     const { user, here } = await userWithTwoSessions();
     await prisma.user.update({
       where: { id: user.id },
-      data: { failedLoginCount: 7, firstFailedLoginAt: new Date(), lockedUntil: new Date(Date.now() + 60_000) },
+      data: {
+        failedLoginCount: 7,
+        firstFailedLoginAt: new Date(),
+        lockedUntil: new Date(Date.now() + 60_000),
+      },
     });
 
-    await post("change-password", here).send({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD });
+    await post("change-password", here).send({
+      currentPassword: PASSWORD,
+      newPassword: NEW_PASSWORD,
+    });
 
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     expect(after.failedLoginCount).toBe(0);
@@ -178,7 +200,9 @@ describe("FR-1.9 — logout-all kills EVERY session, this one included", () => {
     const { user, here } = await userWithTwoSessions();
     await post("logout-all", here).send({});
 
-    expect((await post("login").send({ email: user.email, password: PASSWORD })).status).toBe(200);
+    expect(
+      (await post("login").send({ email: user.email, password: PASSWORD })).status,
+    ).toBe(200);
   }, 60_000);
 
   it("requires a session of its own", async () => {
@@ -192,7 +216,10 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
   it("does NOT change the address on request — it is held as pending", async () => {
     const { user, here } = await userWithTwoSessions();
 
-    const res = await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    const res = await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     expect(res.status).toBe(202);
 
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
@@ -205,10 +232,17 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
 
   it("still signs in with the OLD address while the change is pending", async () => {
     const { user, here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
 
-    expect((await post("login").send({ email: user.email, password: PASSWORD })).status).toBe(200);
-    expect((await post("login").send({ email: NEW_EMAIL, password: PASSWORD })).status).toBe(401);
+    expect(
+      (await post("login").send({ email: user.email, password: PASSWORD })).status,
+    ).toBe(200);
+    expect(
+      (await post("login").send({ email: NEW_EMAIL, password: PASSWORD })).status,
+    ).toBe(401);
   }, 60_000);
 
   it("notifies the OLD address, masking the new one", async () => {
@@ -216,7 +250,10 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
     // attacker's, and the person holding the old one is the only one who
     // can object.
     const { user, here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     await getEmailService().flush();
 
     const notice = sink().latestTo(user.email);
@@ -227,7 +264,10 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
 
   it("emails the NEW address a confirmation link that is not the signup welcome", async () => {
     const { here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     await getEmailService().flush();
 
     const message = sink().latestTo(NEW_EMAIL);
@@ -240,10 +280,15 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
 
   it("completes the change only when the link is opened", async () => {
     const { user, here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     await getEmailService().flush();
 
-    const res = await post("confirm-email-change").send({ token: tokenSentTo(NEW_EMAIL) });
+    const res = await post("confirm-email-change").send({
+      token: tokenSentTo(NEW_EMAIL),
+    });
     expect(res.status).toBe(200);
 
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
@@ -252,13 +297,20 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
     expect(after.state).toBe("ACTIVE");
     expect(after.emailVerifiedAt).not.toBeNull();
 
-    expect((await post("login").send({ email: NEW_EMAIL, password: PASSWORD })).status).toBe(200);
-    expect((await post("login").send({ email: user.email, password: PASSWORD })).status).toBe(401);
+    expect(
+      (await post("login").send({ email: NEW_EMAIL, password: PASSWORD })).status,
+    ).toBe(200);
+    expect(
+      (await post("login").send({ email: user.email, password: PASSWORD })).status,
+    ).toBe(401);
   }, 60_000);
 
   it("the confirmation token is single-use", async () => {
     const { here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     await getEmailService().flush();
     const token = tokenSentTo(NEW_EMAIL);
 
@@ -270,10 +322,15 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
     // The reason EMAIL_CHANGE is its own token type: one shared type
     // would let a link issued for one purpose finish the other.
     const { user, here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     const wrongType = await issueAuthToken(user.id, "EMAIL_VERIFICATION");
 
-    expect((await post("confirm-email-change").send({ token: wrongType })).status).toBe(400);
+    expect((await post("confirm-email-change").send({ token: wrongType })).status).toBe(
+      400,
+    );
 
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     expect(after.email).toBe(user.email);
@@ -281,15 +338,23 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
 
   it("a change-email token cannot verify a signup", async () => {
     const { here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     await getEmailService().flush();
 
-    expect((await post("verify-email").send({ token: tokenSentTo(NEW_EMAIL) })).status).toBe(400);
+    expect(
+      (await post("verify-email").send({ token: tokenSentTo(NEW_EMAIL) })).status,
+    ).toBe(400);
   }, 60_000);
 
   it("asking again voids the first link, so two addresses cannot both claim the account", async () => {
     const { here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     await getEmailService().flush();
     const firstToken = tokenSentTo(NEW_EMAIL);
 
@@ -297,37 +362,55 @@ describe("FR-1.13 — an email change takes effect only when the new address is 
     await post("change-email", here).send({ email: second, currentPassword: PASSWORD });
     await getEmailService().flush();
 
-    expect((await post("confirm-email-change").send({ token: firstToken })).status).toBe(400);
-    expect((await post("confirm-email-change").send({ token: tokenSentTo(second) })).status).toBe(200);
+    expect((await post("confirm-email-change").send({ token: firstToken })).status).toBe(
+      400,
+    );
+    expect(
+      (await post("confirm-email-change").send({ token: tokenSentTo(second) })).status,
+    ).toBe(200);
   }, 60_000);
 
   it("refuses a wrong current password, and records no pending address", async () => {
     const { user, here } = await userWithTwoSessions();
 
-    const res = await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: "wrong" });
+    const res = await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: "wrong",
+    });
 
     expect(res.status).toBe(400);
-    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).pendingEmail).toBeNull();
+    expect(
+      (await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).pendingEmail,
+    ).toBeNull();
   }, 60_000);
 
   it("refuses an address that already belongs to someone", async () => {
     const { here } = await userWithTwoSessions();
     const other = await createUser({ password: PASSWORD });
 
-    const res = await post("change-email", here).send({ email: other.email, currentPassword: PASSWORD });
+    const res = await post("change-email", here).send({
+      email: other.email,
+      currentPassword: PASSWORD,
+    });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("EMAIL_TAKEN");
   }, 60_000);
 
   it("refuses a change to the address already in use by this account", async () => {
     const { user, here } = await userWithTwoSessions();
-    const res = await post("change-email", here).send({ email: user.email, currentPassword: PASSWORD });
+    const res = await post("change-email", here).send({
+      email: user.email,
+      currentPassword: PASSWORD,
+    });
     expect(res.status).toBe(400);
   }, 60_000);
 
   it("loses the race gracefully when the address is claimed before confirmation", async () => {
     const { here } = await userWithTwoSessions();
-    await post("change-email", here).send({ email: NEW_EMAIL, currentPassword: PASSWORD });
+    await post("change-email", here).send({
+      email: NEW_EMAIL,
+      currentPassword: PASSWORD,
+    });
     await getEmailService().flush();
     const token = tokenSentTo(NEW_EMAIL);
 

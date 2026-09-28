@@ -16,7 +16,9 @@ describe("startReaper / stopReaper", () => {
 
   it("ticks once immediately, then every REAP_INTERVAL_MS, until stopped", async () => {
     vi.useFakeTimers();
-    const tick = vi.fn().mockResolvedValue({ lockAcquired: true, staleCountAtStart: 0, reaped: 0 });
+    const tick = vi
+      .fn()
+      .mockResolvedValue({ lockAcquired: true, staleCountAtStart: 0, reaped: 0 });
 
     const handle = startReaper({ tick });
     // The immediate call is fired synchronously but not awaited inside
@@ -60,7 +62,9 @@ describe("startReaper / stopReaper", () => {
 
   it("uses REAP_INTERVAL_MS by default — no call for anything shorter", async () => {
     vi.useFakeTimers();
-    const tick = vi.fn().mockResolvedValue({ lockAcquired: true, staleCountAtStart: 0, reaped: 0 });
+    const tick = vi
+      .fn()
+      .mockResolvedValue({ lockAcquired: true, staleCountAtStart: 0, reaped: 0 });
 
     const handle = startReaper({ tick });
     await vi.advanceTimersByTimeAsync(0);

@@ -23,8 +23,7 @@ const domSafetySelectors = [
   },
   {
     selector: "MemberExpression[property.name='innerHTML']",
-    message:
-      "FR-7.8: assign textContent, or use the framework's text rendering.",
+    message: "FR-7.8: assign textContent, or use the framework's text rendering.",
   },
 ];
 
@@ -40,8 +39,7 @@ const noDangerousHtml = {
  */
 const processEnvSelector = {
   selector: "MemberExpression[object.name='process'][property.name='env']",
-  message:
-    "SRS §8: read configuration from src/config.js, not process.env directly.",
+  message: "SRS §8: read configuration from src/config.js, not process.env directly.",
 };
 
 const noProcessEnv = {

@@ -50,7 +50,9 @@ describe("loadOwnedDocument (FR-1.5, TR-4)", () => {
     const documentOfB = await createDocument({ userId: userB.id });
 
     const wrongOwner = await loadOwnedDocument(documentOfB.id, userA.id).catch((e) => e);
-    const noSuchDocument = await loadOwnedDocument(randomUUID(), userA.id).catch((e) => e);
+    const noSuchDocument = await loadOwnedDocument(randomUUID(), userA.id).catch(
+      (e) => e,
+    );
 
     // Indistinguishable on purpose: telling the two apart turns document
     // ids into an enumerable namespace.

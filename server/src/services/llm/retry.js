@@ -1,4 +1,8 @@
-import { APIError, APIUserAbortError, APIConnectionTimeoutError } from "@anthropic-ai/sdk";
+import {
+  APIError,
+  APIUserAbortError,
+  APIConnectionTimeoutError,
+} from "@anthropic-ai/sdk";
 import { AppError } from "../../lib/AppError.js";
 import logger from "../../observability/logger.js";
 
@@ -47,7 +51,8 @@ export function classify(err) {
   // provider verdict. Retrying it would spend another 60 seconds of a
   // 90-second budget on the same request, so it is not retryable here —
   // llm/index.js maps it to LLM_TIMEOUT.
-  if (err instanceof APIUserAbortError || err instanceof APIConnectionTimeoutError) return "timeout";
+  if (err instanceof APIUserAbortError || err instanceof APIConnectionTimeoutError)
+    return "timeout";
 
   if (err instanceof APIError && typeof err.status === "number") {
     if (CONFIG_ERROR_STATUS.has(err.status)) return "config";
@@ -82,7 +87,11 @@ export function classify(err) {
  * @param {() => number} [random] injectable for tests
  */
 export function backoffMs(attempt, retryAfterSeconds, random = Math.random) {
-  if (typeof retryAfterSeconds === "number" && Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0) {
+  if (
+    typeof retryAfterSeconds === "number" &&
+    Number.isFinite(retryAfterSeconds) &&
+    retryAfterSeconds >= 0
+  ) {
     return Math.min(retryAfterSeconds * 1_000, MAX_DELAY_MS);
   }
   const ceiling = Math.min(BASE_DELAY_MS * 2 ** attempt, MAX_DELAY_MS);
@@ -91,7 +100,8 @@ export function backoffMs(attempt, retryAfterSeconds, random = Math.random) {
 
 /** The provider's Retry-After, in seconds, when it sent one. */
 export function retryAfterOf(err) {
-  const headers = /** @type {{ headers?: Headers | Record<string, string> }} */ (err)?.headers;
+  const headers = /** @type {{ headers?: Headers | Record<string, string> }} */ (err)
+    ?.headers;
   if (!headers) return null;
   const raw =
     typeof (/** @type {Headers} */ (headers).get) === "function"
@@ -121,7 +131,9 @@ function configError(err) {
       provider: {
         status: err.status,
         requestId: /** @type {{ request_id?: string }} */ (err).request_id ?? null,
-        type: /** @type {{ error?: { error?: { type?: string } } }} */ (err)?.error?.error?.type ?? null,
+        type:
+          /** @type {{ error?: { error?: { type?: string } } }} */ (err)?.error?.error
+            ?.type ?? null,
       },
     },
     "FR-3.11: non-retryable provider error — this is a configuration defect, not a transient failure",
@@ -142,7 +154,10 @@ function configError(err) {
  * }} options
  * @returns {Promise<T>}
  */
-export async function withProviderRetries(attempt, { deadlineAt, onAttempt, sleep = defaultSleep, random }) {
+export async function withProviderRetries(
+  attempt,
+  { deadlineAt, onAttempt, sleep = defaultSleep, random },
+) {
   for (let tries = 0; ; tries += 1) {
     try {
       const result = await attempt();

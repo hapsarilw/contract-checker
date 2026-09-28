@@ -6,7 +6,11 @@ import { parse as parseYaml } from "yaml";
 import app from "../../src/app.js";
 import config from "../../src/config.js";
 import { ERROR_CODES } from "../../src/lib/errorCodes.js";
-import { buildOpenApiDocument, expressPathToOpenApiPath, ROUTES } from "../../src/openapi/build.js";
+import {
+  buildOpenApiDocument,
+  expressPathToOpenApiPath,
+  ROUTES,
+} from "../../src/openapi/build.js";
 import { registeredRoutes } from "../helpers/registeredRoutes.js";
 
 /**
@@ -25,9 +29,22 @@ import { registeredRoutes } from "../helpers/registeredRoutes.js";
  */
 
 const SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "src");
-const OPENAPI_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "docs", "openapi.yaml");
+const OPENAPI_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "docs",
+  "openapi.yaml",
+);
 
-const HTTP_METHODS_WITH_A_ROUTE_TABLE_ENTRY = new Set(["get", "post", "delete", "put", "patch"]);
+const HTTP_METHODS_WITH_A_ROUTE_TABLE_ENTRY = new Set([
+  "get",
+  "post",
+  "delete",
+  "put",
+  "patch",
+]);
 
 /**
  * registeredRoutes() reports a sub-router's OWN root route
@@ -79,7 +96,8 @@ describe("OpenAPI contract (SRS §4, step 59)", () => {
     const documented = [];
     for (const [path, methods] of Object.entries(doc.paths)) {
       for (const method of Object.keys(methods)) {
-        if (HTTP_METHODS_WITH_A_ROUTE_TABLE_ENTRY.has(method)) documented.push(`${method.toUpperCase()} ${path}`);
+        if (HTTP_METHODS_WITH_A_ROUTE_TABLE_ENTRY.has(method))
+          documented.push(`${method.toUpperCase()} ${path}`);
       }
     }
     documented.sort();
@@ -88,7 +106,10 @@ describe("OpenAPI contract (SRS §4, step 59)", () => {
     // undocumented route fails the contract test." A route the live app
     // serves but this file's ROUTES table never mentions shows up here.
     const undocumented = live.filter((route) => !documented.includes(route));
-    expect(undocumented, "a route exists on the live app with no OpenAPI entry — add it to ROUTES in src/openapi/build.js").toEqual([]);
+    expect(
+      undocumented,
+      "a route exists on the live app with no OpenAPI entry — add it to ROUTES in src/openapi/build.js",
+    ).toEqual([]);
   });
 
   it("does not document a path+method the live app no longer serves", () => {
@@ -111,7 +132,10 @@ describe("OpenAPI contract (SRS §4, step 59)", () => {
         if (!live.has(key)) stale.push(key);
       }
     }
-    expect(stale, "an OpenAPI path describes a route the live app no longer registers").toEqual([]);
+    expect(
+      stale,
+      "an OpenAPI path describes a route the live app no longer registers",
+    ).toEqual([]);
   });
 
   it("ROUTES has exactly one entry per live route — no duplicates, nothing missing", () => {
@@ -157,7 +181,8 @@ describe("OpenAPI contract (SRS §4, step 59)", () => {
 
   it("the error schema's code enum is exactly ERROR_CODES — nothing added, nothing missing", () => {
     const doc = buildOpenApiDocument();
-    const documentedCodes = doc.components.schemas.ErrorResponse.properties.error.properties.code.enum;
+    const documentedCodes =
+      doc.components.schemas.ErrorResponse.properties.error.properties.code.enum;
     expect(new Set(documentedCodes)).toEqual(new Set(Object.keys(ERROR_CODES)));
   });
 
@@ -211,7 +236,11 @@ describe("every ERROR_CODES entry is reachable from the live app (step 59's own 
       const full = join(dir, entry.name);
       if (entry.isDirectory()) {
         out.push(...listSourceFiles(full));
-      } else if (entry.isFile() && entry.name.endsWith(".js") && !entry.name.endsWith(".test.js")) {
+      } else if (
+        entry.isFile() &&
+        entry.name.endsWith(".js") &&
+        !entry.name.endsWith(".test.js")
+      ) {
         out.push(full);
       }
     }
@@ -225,7 +254,9 @@ describe("every ERROR_CODES entry is reachable from the live app (step 59's own 
     let match;
     while ((match = IMPORT_SPECIFIER_RE.exec(text))) specifiers.push(match[1]);
     while ((match = WORKER_URL_RE.exec(text))) specifiers.push(match[1]);
-    return specifiers.filter((s) => s.startsWith(".")).map((s) => resolve(dirname(file), s));
+    return specifiers
+      .filter((s) => s.startsWith("."))
+      .map((s) => resolve(dirname(file), s));
   }
 
   function filesReachableFrom(entryFile) {
@@ -257,9 +288,14 @@ describe("every ERROR_CODES entry is reachable from the live app (step 59's own 
   for (const code of Object.keys(ERROR_CODES)) {
     it(`${code}`, () => {
       const pattern = new RegExp(`new AppError\\(\\s*["']${code}["']`);
-      const callSites = sourceFiles.filter((file) => pattern.test(readFileSync(file, "utf8")));
+      const callSites = sourceFiles.filter((file) =>
+        pattern.test(readFileSync(file, "utf8")),
+      );
 
-      expect(callSites.length, `${code} is defined in errorCodes.js but no new AppError('${code}'...) call exists anywhere under server/src`).toBeGreaterThan(0);
+      expect(
+        callSites.length,
+        `${code} is defined in errorCodes.js but no new AppError('${code}'...) call exists anywhere under server/src`,
+      ).toBeGreaterThan(0);
 
       const reachableCallSites = callSites.filter((file) => reachableFromApp.has(file));
       expect(

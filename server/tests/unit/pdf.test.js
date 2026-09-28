@@ -42,7 +42,9 @@ describe("extractPdfText (FR-2.10)", () => {
   });
 
   it("throws MALFORMED_DOCUMENT for bytes that are not a PDF at all", async () => {
-    const err = await extractPdfText(Buffer.from("not a pdf, just text", "utf8")).catch((e) => e);
+    const err = await extractPdfText(Buffer.from("not a pdf, just text", "utf8")).catch(
+      (e) => e,
+    );
     expect(err).toBeInstanceOf(AppError);
     expect(err.code).toBe("MALFORMED_DOCUMENT");
   });

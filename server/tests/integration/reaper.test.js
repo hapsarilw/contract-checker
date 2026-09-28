@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import prisma from "../../src/lib/prisma.js";
-import { reapStaleAnalyses, stalePendingAnalysesGauge, STALE_THRESHOLD_MS } from "../../src/jobs/reaper.js";
+import {
+  reapStaleAnalyses,
+  stalePendingAnalysesGauge,
+  STALE_THRESHOLD_MS,
+} from "../../src/jobs/reaper.js";
 import { createAnalysis, createDocument } from "./factories.js";
 
 /**
@@ -44,12 +48,16 @@ describe("reapStaleAnalyses (FR-3.8, §12.3)", () => {
 
     expect(result).toEqual({ lockAcquired: true, staleCountAtStart: 1, reaped: 1 });
 
-    const reapedRow = await prisma.analysis.findUniqueOrThrow({ where: { id: stale.id } });
+    const reapedRow = await prisma.analysis.findUniqueOrThrow({
+      where: { id: stale.id },
+    });
     expect(reapedRow.status).toBe("FAILED");
     expect(reapedRow.errorCode).toBe("STALE_ANALYSIS");
     expect(reapedRow.completedAt).toEqual(NOW);
 
-    const untouchedRow = await prisma.analysis.findUniqueOrThrow({ where: { id: fresh.id } });
+    const untouchedRow = await prisma.analysis.findUniqueOrThrow({
+      where: { id: fresh.id },
+    });
     expect(untouchedRow.status).toBe("PENDING");
     expect(untouchedRow.errorCode).toBeNull();
     expect(untouchedRow.completedAt).toBeNull();
@@ -77,10 +85,12 @@ describe("reapStaleAnalyses (FR-3.8, §12.3)", () => {
     expect(result.staleCountAtStart).toBe(0);
     expect(result.reaped).toBe(0);
 
-    expect((await prisma.analysis.findUniqueOrThrow({ where: { id: completed.id } })).status).toBe(
-      "COMPLETED",
-    );
-    const stillFailed = await prisma.analysis.findUniqueOrThrow({ where: { id: alreadyFailed.id } });
+    expect(
+      (await prisma.analysis.findUniqueOrThrow({ where: { id: completed.id } })).status,
+    ).toBe("COMPLETED");
+    const stillFailed = await prisma.analysis.findUniqueOrThrow({
+      where: { id: alreadyFailed.id },
+    });
     expect(stillFailed.status).toBe("FAILED");
     // Its ORIGINAL error code, not overwritten by the reaper's.
     expect(stillFailed.errorCode).toBe("LLM_TIMEOUT");
@@ -136,7 +146,11 @@ describe("reapStaleAnalyses (FR-3.8, §12.3)", () => {
     expect(winners[0].reaped).toBe(3);
 
     const failedCount = await prisma.analysis.count({
-      where: { id: { in: rows.map((r) => r.id) }, status: "FAILED", errorCode: "STALE_ANALYSIS" },
+      where: {
+        id: { in: rows.map((r) => r.id) },
+        status: "FAILED",
+        errorCode: "STALE_ANALYSIS",
+      },
     });
     expect(failedCount).toBe(3);
   }, 30_000);

@@ -4,7 +4,11 @@ import { validateBody } from "../middleware/validate.js";
 import { accountExportLimiter } from "../middleware/rateLimits.js";
 import { deleteAccountSchema } from "../schemas/account.js";
 import { recordAuditEvent, AUDIT_ACTIONS } from "../lib/audit.js";
-import { deleteAccount, exportAccount, sendAccountDeletedNotice } from "../services/account.js";
+import {
+  deleteAccount,
+  exportAccount,
+  sendAccountDeletedNotice,
+} from "../services/account.js";
 import { SESSION_COOKIE_NAME, clearSessionCookieOptions } from "../services/auth.js";
 
 const router = Router();
@@ -36,7 +40,10 @@ router.get("/export", requireAuth, accountExportLimiter, async (req, res, next) 
     // carries the date because a user who exports twice should not have
     // to guess which file is which.
     const stamp = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Disposition", `attachment; filename="clausecheck-export-${stamp}.json"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="clausecheck-export-${stamp}.json"`,
+    );
     res.status(200).json(data);
   } catch (err) {
     next(err);
@@ -59,45 +66,50 @@ router.get("/export", requireAuth, accountExportLimiter, async (req, res, next) 
 // the attempt. FR-1.10's lockout deliberately counts LOGINS, not
 // confirmations — making a confirmation failure lock the account would
 // hand anyone with a stolen cookie a way to lock the real owner out.
-router.delete("/", requireAuth, validateBody(deleteAccountSchema), async (req, res, next) => {
-  try {
-    const userId = req.auth.userId;
-    const { email } = await deleteAccount(userId, req.body.password);
+router.delete(
+  "/",
+  requireAuth,
+  validateBody(deleteAccountSchema),
+  async (req, res, next) => {
+    try {
+      const userId = req.auth.userId;
+      const { email } = await deleteAccount(userId, req.body.password);
 
-    // AFTER the transaction commits, and deliberately OUTSIDE it.
-    //
-    // Inside would look stronger — the deletion and its evidence
-    // committing together — but it inverts the failure. recordAuditEvent
-    // swallows its errors by design (lib/audit.js), and Postgres aborts a
-    // whole transaction on any failed statement, so an audit insert that
-    // failed inside this transaction would either refuse a deletion the
-    // user asked for, or roll it back silently while this handler
-    // answered 200. Both are worse than the risk of writing it here:
-    // losing one row if the process dies in the milliseconds between the
-    // commit and this line.
-    //
-    // The row survives the user it is about because AuditEvent has no
-    // foreign key to User — see lib/audit.js, and the test that proves it
-    // with a real DELETE rather than by reading the schema.
-    await recordAuditEvent(AUDIT_ACTIONS.ACCOUNT_DELETED, { userId, ip: req.ip });
+      // AFTER the transaction commits, and deliberately OUTSIDE it.
+      //
+      // Inside would look stronger — the deletion and its evidence
+      // committing together — but it inverts the failure. recordAuditEvent
+      // swallows its errors by design (lib/audit.js), and Postgres aborts a
+      // whole transaction on any failed statement, so an audit insert that
+      // failed inside this transaction would either refuse a deletion the
+      // user asked for, or roll it back silently while this handler
+      // answered 200. Both are worse than the risk of writing it here:
+      // losing one row if the process dies in the milliseconds between the
+      // commit and this line.
+      //
+      // The row survives the user it is about because AuditEvent has no
+      // foreign key to User — see lib/audit.js, and the test that proves it
+      // with a real DELETE rather than by reading the schema.
+      await recordAuditEvent(AUDIT_ACTIONS.ACCOUNT_DELETED, { userId, ip: req.ip });
 
-    // Every outstanding cookie for this account already fails FR-1.9's
-    // check by absence of the user row. Clearing this one is still worth
-    // doing: it stops the browser that asked from holding a credential
-    // that now produces a 401 on every request.
-    res.clearCookie(SESSION_COOKIE_NAME, clearSessionCookieOptions());
+      // Every outstanding cookie for this account already fails FR-1.9's
+      // check by absence of the user row. Clearing this one is still worth
+      // doing: it stops the browser that asked from holding a credential
+      // that now produces a 401 on every request.
+      res.clearCookie(SESSION_COOKIE_NAME, clearSessionCookieOptions());
 
-    sendAccountDeletedNotice(email);
+      sendAccountDeletedNotice(email);
 
-    res.status(200).json({
-      deleted: true,
-      message:
-        "Your account, your documents and every report have been permanently deleted. " +
-        "There is no undo. Backups are retained for up to 30 days before they age out.",
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+      res.status(200).json({
+        deleted: true,
+        message:
+          "Your account, your documents and every report have been permanently deleted. " +
+          "There is no undo. Backups are retained for up to 30 days before they age out.",
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;

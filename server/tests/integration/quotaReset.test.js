@@ -58,7 +58,9 @@ describe("runQuotaReset (SRS §12.3)", () => {
     const result = await runQuotaReset(NOW);
 
     expect(result.reset).toBe(3);
-    expect(await prisma.user.count({ where: { quotaPeriodStart: { lt: PERIOD_START } } })).toBe(0);
+    expect(
+      await prisma.user.count({ where: { quotaPeriodStart: { lt: PERIOD_START } } }),
+    ).toBe(0);
     expect(await prisma.user.count({ where: { monthlyAnalyses: { gt: 0 } } })).toBe(0);
   }, 30_000);
 
@@ -111,7 +113,9 @@ describe("the due-check, the lock and the metric", () => {
     await quotaResetTick(NOW);
     const late = await userInPeriod(LAST_MONTH_START, 8);
 
-    const second = await quotaResetTick(new Date(NOW.getTime() + 3 * 24 * 60 * 60 * 1000));
+    const second = await quotaResetTick(
+      new Date(NOW.getTime() + 3 * 24 * 60 * 60 * 1000),
+    );
 
     expect(second).toEqual({ lockAcquired: true, ran: false });
     expect((await reload(late.id)).monthlyAnalyses).toBe(8);

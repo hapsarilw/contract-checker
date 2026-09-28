@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { register } from "prom-client";
 import { AppError } from "../../src/lib/AppError.js";
-import { assertExcerptsVerified, assertOwnDocument } from "../../src/lib/defensiveAssertions.js";
+import {
+  assertExcerptsVerified,
+  assertOwnDocument,
+} from "../../src/lib/defensiveAssertions.js";
 import logger from "../../src/observability/logger.js";
 
 /**
@@ -19,7 +22,9 @@ const FABRICATED = "The Designer surrenders all rights in perpetuity to any thir
 
 /** @param {string} name @param {Record<string, string>} [labels] */
 async function counterValue(name, labels = {}) {
-  const metric = /** @type {import("prom-client").Metric} */ (register.getSingleMetric(name));
+  const metric = /** @type {import("prom-client").Metric} */ (
+    register.getSingleMetric(name)
+  );
   const { values } = await metric.get();
   return values
     .filter((v) => Object.entries(labels).every(([key, want]) => v.labels[key] === want))
@@ -53,13 +58,21 @@ describe("assertExcerptsVerified", () => {
   it("matches the way §5.3 matches: whitespace and case differences are not fabrication", () => {
     // normalizeForMatch is the same function that admitted the finding, so a
     // quote that differs only in spacing or case must not be read as invented.
-    const findings = [{ clauseExcerpt: "invoices   are PAYABLE within ninety (90) days of receipt." }];
+    const findings = [
+      { clauseExcerpt: "invoices   are PAYABLE within ninety (90) days of receipt." },
+    ];
     expect(() => assertExcerptsVerified(findings, CONTRACT, context)).not.toThrow();
   });
 
   it("throws INTERNAL and counts one per unverifiable finding", async () => {
-    const findings = [{ clauseExcerpt: REAL }, { clauseExcerpt: FABRICATED }, { clauseExcerpt: "Also absent." }];
-    const before = await counterValue("unverified_excerpt_displayed_total", { path: "report" });
+    const findings = [
+      { clauseExcerpt: REAL },
+      { clauseExcerpt: FABRICATED },
+      { clauseExcerpt: "Also absent." },
+    ];
+    const before = await counterValue("unverified_excerpt_displayed_total", {
+      path: "report",
+    });
 
     const err = /** @type {AppError} */ (
       (() => {
@@ -74,11 +87,15 @@ describe("assertExcerptsVerified", () => {
 
     expect(err).toBeInstanceOf(AppError);
     expect(err.code).toBe("INTERNAL");
-    expect(await counterValue("unverified_excerpt_displayed_total", { path: "report" })).toBe(before + 2);
+    expect(
+      await counterValue("unverified_excerpt_displayed_total", { path: "report" }),
+    ).toBe(before + 2);
   });
 
   it("logs the alert name, the severity and counts — and never the excerpt", () => {
-    expect(() => assertExcerptsVerified([{ clauseExcerpt: FABRICATED }], CONTRACT, context)).toThrow();
+    expect(() =>
+      assertExcerptsVerified([{ clauseExcerpt: FABRICATED }], CONTRACT, context),
+    ).toThrow();
 
     const [fields, message] = errorSpy.mock.calls[0];
     expect(fields).toMatchObject({
@@ -96,11 +113,18 @@ describe("assertExcerptsVerified", () => {
   });
 
   it("labels the path it was called from, so the metric says which surface served it", async () => {
-    const before = await counterValue("unverified_excerpt_displayed_total", { path: "analyze" });
+    const before = await counterValue("unverified_excerpt_displayed_total", {
+      path: "analyze",
+    });
     expect(() =>
-      assertExcerptsVerified([{ clauseExcerpt: FABRICATED }], CONTRACT, { ...context, path: "analyze" }),
+      assertExcerptsVerified([{ clauseExcerpt: FABRICATED }], CONTRACT, {
+        ...context,
+        path: "analyze",
+      }),
     ).toThrow();
-    expect(await counterValue("unverified_excerpt_displayed_total", { path: "analyze" })).toBe(before + 1);
+    expect(
+      await counterValue("unverified_excerpt_displayed_total", { path: "analyze" }),
+    ).toBe(before + 1);
   });
 });
 
@@ -117,12 +141,16 @@ describe("assertOwnDocument", () => {
   it("throws INTERNAL and counts when it does not", async () => {
     const before = await counterValue("cross_user_access_total");
 
-    expect(() => assertOwnDocument({ id: "doc_1", userId: "owner" }, "someone-else")).toThrow(AppError);
+    expect(() =>
+      assertOwnDocument({ id: "doc_1", userId: "owner" }, "someone-else"),
+    ).toThrow(AppError);
     expect(await counterValue("cross_user_access_total")).toBe(before + 1);
   });
 
   it("logs ids and no email address", () => {
-    expect(() => assertOwnDocument({ id: "doc_1", userId: "owner" }, "someone-else")).toThrow();
+    expect(() =>
+      assertOwnDocument({ id: "doc_1", userId: "owner" }, "someone-else"),
+    ).toThrow();
 
     const [fields] = errorSpy.mock.calls[0];
     expect(fields).toMatchObject({

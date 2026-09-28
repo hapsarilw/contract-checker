@@ -32,7 +32,14 @@ import { parse, stringify } from "yaml";
  */
 
 const ALERTMANAGER_IMAGE = "prom/alertmanager:v0.28.1";
-const ALERTS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "ops", "alerts");
+const ALERTS_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "ops",
+  "alerts",
+);
 const COMMITTED = readFileSync(join(ALERTS_DIR, "alertmanager.yml"), "utf8");
 
 /** Long enough for a container to start on a cold CI runner. */
@@ -128,7 +135,8 @@ async function waitForReady(url) {
     } catch {
       // Not up yet.
     }
-    if (Date.now() > deadline) throw new Error(`alertmanager never became ready at ${url}`);
+    if (Date.now() > deadline)
+      throw new Error(`alertmanager never became ready at ${url}`);
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 }
@@ -190,7 +198,8 @@ async function fireAndCollect(alerts) {
   for (;;) {
     for (const notification of receiver?.notifications ?? []) {
       for (const alert of notification.alerts) {
-        if (alert.status === "firing") seen.set(alert.labels.alertname, notification.receiver);
+        if (alert.status === "firing")
+          seen.set(alert.labels.alertname, notification.receiver);
       }
     }
     if ([...expected].every((name) => seen.has(name))) return seen;
@@ -210,7 +219,10 @@ function catalogue() {
     ...rules.groups.flatMap((/** @type {{ rules: any[] }} */ group) =>
       group.rules.map((rule) => ({ alertname: rule.alert, ...rule.labels })),
     ),
-    ...ci.alerts.map((/** @type {any} */ alert) => ({ alertname: alert.alert, ...alert.labels })),
+    ...ci.alerts.map((/** @type {any} */ alert) => ({
+      alertname: alert.alert,
+      ...alert.labels,
+    })),
   ];
 }
 
@@ -238,7 +250,8 @@ async function notificationsFor(domain) {
     );
   const deadline = Date.now() + WEBHOOK_TIMEOUT_MS;
   while (all().length === 0) {
-    if (Date.now() > deadline) throw new Error(`no notification for domain=${domain} arrived`);
+    if (Date.now() > deadline)
+      throw new Error(`no notification for domain=${domain} arrived`);
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
   // group_interval is 1s in the rehearsal, so 3 s is three chances for a
@@ -249,144 +262,187 @@ async function notificationsFor(domain) {
 
 const dockerAvailable = spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0;
 
-describe.skipIf(!dockerAvailable)("Appendix C's alerts, routed by a real Alertmanager", () => {
-  beforeAll(async () => {
-    receiver = await startReceiver();
-    workDir = await mkdtemp(join(tmpdir(), "clausecheck-alertmanager-"));
-    await writeFile(join(workDir, "alertmanager.yml"), rehearsalConfig(receiver.baseUrl));
+describe.skipIf(!dockerAvailable)(
+  "Appendix C's alerts, routed by a real Alertmanager",
+  () => {
+    beforeAll(async () => {
+      receiver = await startReceiver();
+      workDir = await mkdtemp(join(tmpdir(), "clausecheck-alertmanager-"));
+      await writeFile(
+        join(workDir, "alertmanager.yml"),
+        rehearsalConfig(receiver.baseUrl),
+      );
 
-    containerId = execFileSync(
-      "docker",
-      [
-        "run",
-        "--rm",
-        "-d",
-        // Published on an ephemeral host port so a second run, or anything
-        // else already on 9093, cannot collide.
-        "-p",
-        "127.0.0.1:0:9093",
-        // Docker Desktop provides host.docker.internal; on Linux it has to
-        // be asked for.
-        "--add-host",
-        "host.docker.internal:host-gateway",
-        "-v",
-        `${workDir}:/etc/alertmanager`,
-        ALERTMANAGER_IMAGE,
-        "--config.file=/etc/alertmanager/alertmanager.yml",
-        "--storage.path=/tmp/alertmanager",
-      ],
-      { encoding: "utf8" },
-    ).trim();
-    const mapped = execFileSync("docker", ["port", containerId, "9093/tcp"], { encoding: "utf8" })
-      .trim()
-      .split("\n")[0];
-    alertmanagerUrl = `http://127.0.0.1:${mapped.split(":").pop()}`;
-    await waitForReady(alertmanagerUrl);
-  }, 90_000);
+      containerId = execFileSync(
+        "docker",
+        [
+          "run",
+          "--rm",
+          "-d",
+          // Published on an ephemeral host port so a second run, or anything
+          // else already on 9093, cannot collide.
+          "-p",
+          "127.0.0.1:0:9093",
+          // Docker Desktop provides host.docker.internal; on Linux it has to
+          // be asked for.
+          "--add-host",
+          "host.docker.internal:host-gateway",
+          "-v",
+          `${workDir}:/etc/alertmanager`,
+          ALERTMANAGER_IMAGE,
+          "--config.file=/etc/alertmanager/alertmanager.yml",
+          "--storage.path=/tmp/alertmanager",
+        ],
+        { encoding: "utf8" },
+      ).trim();
+      const mapped = execFileSync("docker", ["port", containerId, "9093/tcp"], {
+        encoding: "utf8",
+      })
+        .trim()
+        .split("\n")[0];
+      alertmanagerUrl = `http://127.0.0.1:${mapped.split(":").pop()}`;
+      await waitForReady(alertmanagerUrl);
+    }, 90_000);
 
-  afterAll(async () => {
-    if (containerId) spawnSync("docker", ["rm", "-f", containerId], { stdio: "ignore" });
-    await receiver?.stop();
-    if (workDir) await rm(workDir, { recursive: true, force: true });
-  });
+    afterAll(async () => {
+      if (containerId)
+        spawnSync("docker", ["rm", "-f", containerId], { stdio: "ignore" });
+      await receiver?.stop();
+      if (workDir) await rm(workDir, { recursive: true, force: true });
+    });
 
-  it("is drilling the committed config: only the URLs and the timings differ", () => {
-    expect(withoutSubstitutedFields(rehearsalConfig("http://example.invalid"))).toEqual(
-      withoutSubstitutedFields(COMMITTED),
-    );
-  });
+    it("is drilling the committed config: only the URLs and the timings differ", () => {
+      expect(withoutSubstitutedFields(rehearsalConfig("http://example.invalid"))).toEqual(
+        withoutSubstitutedFields(COMMITTED),
+      );
+    });
 
-  it("every alert in the catalogue reaches its destination (PRD §9 DoD 5)", async () => {
-    // Appendix C's nineteen, fired deliberately and observed to arrive. In
-    // two batches, because five of them are suppressed whenever their cause
-    // is also firing, and a drill that never delivered them would be proving
-    // the inhibitions rather than the routing.
-    const all = catalogue();
-    expect(all).toHaveLength(19);
+    it("every alert in the catalogue reaches its destination (PRD §9 DoD 5)", async () => {
+      // Appendix C's nineteen, fired deliberately and observed to arrive. In
+      // two batches, because five of them are suppressed whenever their cause
+      // is also firing, and a drill that never delivered them would be proving
+      // the inhibitions rather than the routing.
+      const all = catalogue();
+      expect(all).toHaveLength(19);
 
-    await resolveEverything();
-    const suppressible = await fireAndCollect(all.filter((a) => INHIBITED.has(a.alertname)));
+      await resolveEverything();
+      const suppressible = await fireAndCollect(
+        all.filter((a) => INHIBITED.has(a.alertname)),
+      );
 
-    await resolveEverything();
-    const rest = await fireAndCollect(all.filter((a) => !INHIBITED.has(a.alertname)));
+      await resolveEverything();
+      const rest = await fireAndCollect(all.filter((a) => !INHIBITED.has(a.alertname)));
 
-    const delivered = new Map([...suppressible, ...rest]);
-    expect([...delivered.keys()].sort()).toEqual(all.map((a) => a.alertname).sort());
-    // And each to the destination Appendix C names, not merely somewhere.
-    for (const alert of all) {
-      expect(delivered.get(alert.alertname), alert.alertname).toBe(alert.route);
-    }
-  }, 90_000);
+      const delivered = new Map([...suppressible, ...rest]);
+      expect([...delivered.keys()].sort()).toEqual(all.map((a) => a.alertname).sort());
+      // And each to the destination Appendix C names, not merely somewhere.
+      for (const alert of all) {
+        expect(delivered.get(alert.alertname), alert.alertname).toBe(alert.route);
+      }
+    }, 90_000);
 
-  it("a five-minute provider outage produces ONE page, naming the cause (PRD §9 DoD 3)", async () => {
-    await resolveEverything();
-    // Everything a provider outage sets off at once: the breaker (the cause),
-    // analyses failing, the 5xx rate (analyze answers 503), and latency.
-    await fire([
-      { alertname: "circuit_open", severity: "2", route: "page", domain: "provider" },
-      { alertname: "analysis_failure_rate", severity: "2", route: "page", domain: "provider" },
-      { alertname: "api_5xx_rate", severity: "2", route: "page", domain: "platform" },
-      { alertname: "analysis_latency_p95", severity: "3", route: "digest", domain: "quality" },
-    ]);
+    it("a five-minute provider outage produces ONE page, naming the cause (PRD §9 DoD 3)", async () => {
+      await resolveEverything();
+      // Everything a provider outage sets off at once: the breaker (the cause),
+      // analyses failing, the 5xx rate (analyze answers 503), and latency.
+      await fire([
+        { alertname: "circuit_open", severity: "2", route: "page", domain: "provider" },
+        {
+          alertname: "analysis_failure_rate",
+          severity: "2",
+          route: "page",
+          domain: "provider",
+        },
+        { alertname: "api_5xx_rate", severity: "2", route: "page", domain: "platform" },
+        {
+          alertname: "analysis_latency_p95",
+          severity: "3",
+          route: "digest",
+          domain: "quality",
+        },
+      ]);
 
-    const pages = await notificationsFor("provider");
-    expect(pages).toHaveLength(1);
-    expect(pages[0].receiver).toBe("page");
-    // And it says which thing broke, not four things.
-    expect(pages[0].alerts.map((a) => a.labels.alertname)).toEqual(["circuit_open"]);
+      const pages = await notificationsFor("provider");
+      expect(pages).toHaveLength(1);
+      expect(pages[0].receiver).toBe("page");
+      // And it says which thing broke, not four things.
+      expect(pages[0].alerts.map((a) => a.labels.alertname)).toEqual(["circuit_open"]);
 
-    // The symptoms in other domains are suppressed entirely, so there is no
-    // second page and no digest to read past in the morning either.
-    const others = /** @type {Notification[]} */ (receiver?.notifications ?? []).filter(
-      (n) => n.groupLabels.domain !== "provider",
-    );
-    expect(others).toEqual([]);
-  }, 60_000);
+      // The symptoms in other domains are suppressed entirely, so there is no
+      // second page and no digest to read past in the morning either.
+      const others = /** @type {Notification[]} */ (receiver?.notifications ?? []).filter(
+        (n) => n.groupLabels.domain !== "provider",
+      );
+      expect(others).toEqual([]);
+    }, 60_000);
 
-  it("a Sev-1 is never suppressed, however much else is firing", async () => {
-    await resolveEverything();
-    await fire([
-      { alertname: "unverified_excerpt_displayed", severity: "1", route: "page", domain: "safety" },
-      { alertname: "cross_user_access", severity: "1", route: "page", domain: "safety" },
-    ]);
+    it("a Sev-1 is never suppressed, however much else is firing", async () => {
+      await resolveEverything();
+      await fire([
+        {
+          alertname: "unverified_excerpt_displayed",
+          severity: "1",
+          route: "page",
+          domain: "safety",
+        },
+        {
+          alertname: "cross_user_access",
+          severity: "1",
+          route: "page",
+          domain: "safety",
+        },
+      ]);
 
-    const pages = await notificationsFor("safety");
-    expect(pages).toHaveLength(1);
-    expect(pages[0].receiver).toBe("page");
-    // Both, in one notification: they share a destination and a cause, and an
-    // operator woken for one should see the other immediately.
-    expect(pages[0].alerts.map((a) => a.labels.alertname).sort()).toEqual([
-      "cross_user_access",
-      "unverified_excerpt_displayed",
-    ]);
-  }, 60_000);
+      const pages = await notificationsFor("safety");
+      expect(pages).toHaveLength(1);
+      expect(pages[0].receiver).toBe("page");
+      // Both, in one notification: they share a destination and a cause, and an
+      // operator woken for one should see the other immediately.
+      expect(pages[0].alerts.map((a) => a.labels.alertname).sort()).toEqual([
+        "cross_user_access",
+        "unverified_excerpt_displayed",
+      ]);
+    }, 60_000);
 
-  it("at the spend ceiling, the 80% digest is suppressed and only the page arrives", async () => {
-    await resolveEverything();
-    await fire([
-      { alertname: "spend_ceiling_100", severity: "2", route: "page", domain: "cost" },
-      { alertname: "spend_ceiling_80", severity: "3", route: "digest", domain: "cost" },
-    ]);
+    it("at the spend ceiling, the 80% digest is suppressed and only the page arrives", async () => {
+      await resolveEverything();
+      await fire([
+        { alertname: "spend_ceiling_100", severity: "2", route: "page", domain: "cost" },
+        { alertname: "spend_ceiling_80", severity: "3", route: "digest", domain: "cost" },
+      ]);
 
-    const notifications = await notificationsFor("cost");
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0].receiver).toBe("page");
-    expect(notifications[0].alerts.map((a) => a.labels.alertname)).toEqual(["spend_ceiling_100"]);
-  }, 60_000);
+      const notifications = await notificationsFor("cost");
+      expect(notifications).toHaveLength(1);
+      expect(notifications[0].receiver).toBe("page");
+      expect(notifications[0].alerts.map((a) => a.labels.alertname)).toEqual([
+        "spend_ceiling_100",
+      ]);
+    }, 60_000);
 
-  it("a Sev-3 on its own goes to the digest and never to the pager", async () => {
-    await resolveEverything();
-    await fire([
-      { alertname: "stale_pending_analyses", severity: "3", route: "digest", domain: "jobs" },
-      { alertname: "retention_job_stale", severity: "3", route: "digest", domain: "jobs" },
-    ]);
+    it("a Sev-3 on its own goes to the digest and never to the pager", async () => {
+      await resolveEverything();
+      await fire([
+        {
+          alertname: "stale_pending_analyses",
+          severity: "3",
+          route: "digest",
+          domain: "jobs",
+        },
+        {
+          alertname: "retention_job_stale",
+          severity: "3",
+          route: "digest",
+          domain: "jobs",
+        },
+      ]);
 
-    const notifications = await notificationsFor("jobs");
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0].receiver).toBe("digest");
-    expect(notifications[0].alerts.map((a) => a.labels.alertname).sort()).toEqual([
-      "retention_job_stale",
-      "stale_pending_analyses",
-    ]);
-  }, 60_000);
-});
+      const notifications = await notificationsFor("jobs");
+      expect(notifications).toHaveLength(1);
+      expect(notifications[0].receiver).toBe("digest");
+      expect(notifications[0].alerts.map((a) => a.labels.alertname).sort()).toEqual([
+        "retention_job_stale",
+        "stale_pending_analyses",
+      ]);
+    }, 60_000);
+  },
+);

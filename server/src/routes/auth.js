@@ -21,7 +21,11 @@ import {
   verifyEmailSchema,
 } from "../schemas/auth.js";
 import { recordAuditEvent, AUDIT_ACTIONS } from "../lib/audit.js";
-import { resendVerification, sendVerificationEmail, verifyEmail } from "../services/emailVerification.js";
+import {
+  resendVerification,
+  sendVerificationEmail,
+  verifyEmail,
+} from "../services/emailVerification.js";
 import {
   changePassword,
   confirmEmailChange,
@@ -90,7 +94,10 @@ router.post(
 router.post("/login", authLimiter, validateBody(loginSchema), async (req, res, next) => {
   try {
     const user = await authenticate(req.body, { ip: req.ip });
-    await recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, { userId: user.id, ip: req.ip });
+    await recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, {
+      userId: user.id,
+      ip: req.ip,
+    });
     issueSession(res, user);
     res.status(200).json({ user: toPublicUser(user) });
   } catch (err) {
@@ -209,19 +216,23 @@ router.post(
 // mailbox, not that this browser is that person — and issuing a cookie
 // here would mean minting one in the same breath as invalidating every
 // other one. They sign in with the new password.
-router.post("/reset-password", validateBody(resetPasswordSchema), async (req, res, next) => {
-  try {
-    const { userId, email } = await resetPassword(req.body.token, req.body.password);
-    // After the transaction committed, never before: a notice or an audit
-    // row for a reset that then rolled back would invite the reader to
-    // believe a change that never happened.
-    await recordAuditEvent(AUDIT_ACTIONS.PASSWORD_RESET, { userId, ip: req.ip });
-    sendPasswordChangedNotice(email);
-    res.status(200).json({ reset: true });
-  } catch (err) {
-    next(err);
-  }
-});
+router.post(
+  "/reset-password",
+  validateBody(resetPasswordSchema),
+  async (req, res, next) => {
+    try {
+      const { userId, email } = await resetPassword(req.body.token, req.body.password);
+      // After the transaction committed, never before: a notice or an audit
+      // row for a reset that then rolled back would invite the reader to
+      // believe a change that never happened.
+      await recordAuditEvent(AUDIT_ACTIONS.PASSWORD_RESET, { userId, ip: req.ip });
+      sendPasswordChangedNotice(email);
+      res.status(200).json({ reset: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // POST /api/v1/auth/change-password — FR-1.11.
 //
@@ -237,7 +248,10 @@ router.post(
   async (req, res, next) => {
     try {
       const user = await changePassword(req.auth.userId, req.body);
-      await recordAuditEvent(AUDIT_ACTIONS.PASSWORD_CHANGED, { userId: user.id, ip: req.ip });
+      await recordAuditEvent(AUDIT_ACTIONS.PASSWORD_CHANGED, {
+        userId: user.id,
+        ip: req.ip,
+      });
       issueSession(res, user);
       res.status(200).json({ changed: true });
     } catch (err) {
@@ -254,7 +268,10 @@ router.post(
 router.post("/logout-all", requireAuth, async (req, res, next) => {
   try {
     await logoutEverywhere(req.auth.userId);
-    await recordAuditEvent(AUDIT_ACTIONS.SIGNED_OUT_EVERYWHERE, { userId: req.auth.userId, ip: req.ip });
+    await recordAuditEvent(AUDIT_ACTIONS.SIGNED_OUT_EVERYWHERE, {
+      userId: req.auth.userId,
+      ip: req.ip,
+    });
     res.clearCookie(SESSION_COOKIE_NAME, clearSessionCookieOptions());
     res.status(200).json({ signedOutEverywhere: true });
   } catch (err) {
@@ -268,20 +285,26 @@ router.post("/logout-all", requireAuth, async (req, res, next) => {
 // its current address until that link is opened. The old address is
 // notified in the same breath, because the new one may be an attacker's
 // and the person holding the old one is the only one who can object.
-router.post("/change-email", requireAuth, validateBody(changeEmailSchema), async (req, res, next) => {
-  try {
-    await requestEmailChange(req.auth.userId, {
-      newEmail: req.body.email,
-      currentPassword: req.body.currentPassword,
-    });
-    res.status(202).json({
-      pending: true,
-      message: "Check the new address for a confirmation link. Until you open it, nothing changes.",
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+router.post(
+  "/change-email",
+  requireAuth,
+  validateBody(changeEmailSchema),
+  async (req, res, next) => {
+    try {
+      await requestEmailChange(req.auth.userId, {
+        newEmail: req.body.email,
+        currentPassword: req.body.currentPassword,
+      });
+      res.status(202).json({
+        pending: true,
+        message:
+          "Check the new address for a confirmation link. Until you open it, nothing changes.",
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // POST /api/v1/auth/confirm-email-change — FR-1.13, where the change
 // actually happens. Unauthenticated for the same reason verify-email is:

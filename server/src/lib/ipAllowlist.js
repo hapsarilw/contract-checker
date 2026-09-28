@@ -19,7 +19,8 @@ export function parseIpAllowlist(spec) {
     if (entry === "") continue;
     const [address, prefixText, extra] = entry.split("/");
     const family = isIP(address);
-    if (family === 0 || extra !== undefined) throw new Error(`not an IP or CIDR range: "${entry}"`);
+    if (family === 0 || extra !== undefined)
+      throw new Error(`not an IP or CIDR range: "${entry}"`);
     const type = family === 4 ? "ipv4" : "ipv6";
     if (prefixText === undefined) {
       list.addAddress(address, type);

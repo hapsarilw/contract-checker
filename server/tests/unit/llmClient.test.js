@@ -332,9 +332,10 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
   const cfg = parseConfig(env());
 
   it("selects the mock for LLM_PROVIDER=mock and the SDK client otherwise", () => {
-    expect(createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER }).backend).toBeInstanceOf(
-      MockLlmProvider,
-    );
+    expect(
+      createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER })
+        .backend,
+    ).toBeInstanceOf(MockLlmProvider);
     expect(
       createLlmProvider(
         { ...cfg, LLM_PROVIDER: "anthropic" },
@@ -349,7 +350,10 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
   });
 
   it("returns every instrumentation field from a successful mock call", async () => {
-    const result = await createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER }).analyze({
+    const result = await createLlmProvider(
+      { ...cfg, LLM_PROVIDER: "mock" },
+      { breaker: CLOSED_BREAKER },
+    ).analyze({
       documentText: DOCUMENT,
       requestId: "r1",
     });
@@ -364,7 +368,10 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
   });
 
   it("turns a scripted mock timeout into LLM_TIMEOUT (504)", async () => {
-    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER });
+    const provider = createLlmProvider(
+      { ...cfg, LLM_PROVIDER: "mock" },
+      { breaker: CLOSED_BREAKER },
+    );
     /** @type {MockLlmProvider} */ (provider.backend).scriptTimeout();
 
     const err = await provider
@@ -386,7 +393,10 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
     // through, "for the FR-3.10/FR-3.11 policy to handle". That policy now
     // exists, so the same input has a different and correct answer: one
     // 429 followed by a healthy response is a successful analysis.
-    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER });
+    const provider = createLlmProvider(
+      { ...cfg, LLM_PROVIDER: "mock" },
+      { breaker: CLOSED_BREAKER },
+    );
     /** @type {MockLlmProvider} */ (provider.backend).scriptHttpError(429);
 
     const result = await provider.analyze({ documentText: DOCUMENT });
@@ -397,7 +407,10 @@ describe("provider selection and error translation (§2.3, FR-3.6)", () => {
   });
 
   it("records the retry correction on the mock, so the orchestrator's retry can be asserted", async () => {
-    const provider = createLlmProvider({ ...cfg, LLM_PROVIDER: "mock" }, { breaker: CLOSED_BREAKER });
+    const provider = createLlmProvider(
+      { ...cfg, LLM_PROVIDER: "mock" },
+      { breaker: CLOSED_BREAKER },
+    );
     const correction = { invalidResponse: "{", errorSummary: "not valid JSON" };
     await provider.analyze({ documentText: DOCUMENT, requestId: "r2", correction });
     expect(/** @type {MockLlmProvider} */ (provider.backend).calls[0].correction).toEqual(

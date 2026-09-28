@@ -107,11 +107,16 @@ describe("Appendix C is defined as code, completely and without drift", () => {
     expect(DEFINED).toHaveLength(19);
   });
 
-  it.each(Object.entries(SPEC))("%s carries the table's severity and destination", (name, spec) => {
-    const alert = /** @type {NonNullable<ReturnType<typeof BY_NAME.get>>} */ (BY_NAME.get(name));
-    expect(alert.labels.severity).toBe(spec.severity);
-    expect(alert.labels.route).toBe(spec.route);
-  });
+  it.each(Object.entries(SPEC))(
+    "%s carries the table's severity and destination",
+    (name, spec) => {
+      const alert = /** @type {NonNullable<ReturnType<typeof BY_NAME.get>>} */ (
+        BY_NAME.get(name)
+      );
+      expect(alert.labels.severity).toBe(spec.severity);
+      expect(alert.labels.route).toBe(spec.route);
+    },
+  );
 
   it("routes every Sev-1 and Sev-2 to a page and every Sev-3 to the digest", () => {
     // Appendix C's closing note: alerts that page are deliberately few,
@@ -124,26 +129,40 @@ describe("Appendix C is defined as code, completely and without drift", () => {
     }
   });
 
-  it.each(DEFINED.map((alert) => [alert.name]))("%s names an owner and a domain", (name) => {
-    const alert = /** @type {NonNullable<ReturnType<typeof BY_NAME.get>>} */ (BY_NAME.get(name));
-    expect(alert.labels.owner).toBeTruthy();
-    expect(alert.labels.domain).toBeTruthy();
-  });
+  it.each(DEFINED.map((alert) => [alert.name]))(
+    "%s names an owner and a domain",
+    (name) => {
+      const alert = /** @type {NonNullable<ReturnType<typeof BY_NAME.get>>} */ (
+        BY_NAME.get(name)
+      );
+      expect(alert.labels.owner).toBeTruthy();
+      expect(alert.labels.domain).toBeTruthy();
+    },
+  );
 
-  it.each(DEFINED.map((alert) => [alert.name]))("%s says what happened and what to read", (name) => {
-    const alert = /** @type {NonNullable<ReturnType<typeof BY_NAME.get>>} */ (BY_NAME.get(name));
-    expect(alert.annotations.summary).toBeTruthy();
-    // Long enough to be a sentence about consequences rather than a restated
-    // metric name: what an operator reads at 3am is this.
-    expect(alert.annotations.description.length).toBeGreaterThan(80);
-    expect(alert.annotations.runbook).toBeTruthy();
-    expect(alert.annotations.runbook_url).toBe(`docs/runbooks/${alert.annotations.runbook}.md`);
-  });
+  it.each(DEFINED.map((alert) => [alert.name]))(
+    "%s says what happened and what to read",
+    (name) => {
+      const alert = /** @type {NonNullable<ReturnType<typeof BY_NAME.get>>} */ (
+        BY_NAME.get(name)
+      );
+      expect(alert.annotations.summary).toBeTruthy();
+      // Long enough to be a sentence about consequences rather than a restated
+      // metric name: what an operator reads at 3am is this.
+      expect(alert.annotations.description.length).toBeGreaterThan(80);
+      expect(alert.annotations.runbook).toBeTruthy();
+      expect(alert.annotations.runbook_url).toBe(
+        `docs/runbooks/${alert.annotations.runbook}.md`,
+      );
+    },
+  );
 
   it("uses the runbook the table names, wherever the table names one", () => {
     for (const [name, spec] of Object.entries(SPEC)) {
       if (!spec.runbook) continue;
-      const alert = /** @type {NonNullable<ReturnType<typeof BY_NAME.get>>} */ (BY_NAME.get(name));
+      const alert = /** @type {NonNullable<ReturnType<typeof BY_NAME.get>>} */ (
+        BY_NAME.get(name)
+      );
       expect(alert.annotations.runbook, name).toBe(spec.runbook);
     }
   });
@@ -151,16 +170,26 @@ describe("Appendix C is defined as code, completely and without drift", () => {
   it("no alert is left marked as missing a runbook", () => {
     // Step 68 marked five; step 69 wrote them. A marker left behind, or a
     // new one, means an alert whose procedure is not written.
-    expect(DEFINED.filter((alert) => alert.annotations.runbook_state).map((a) => a.name)).toEqual([]);
+    expect(
+      DEFINED.filter((alert) => alert.annotations.runbook_state).map((a) => a.name),
+    ).toEqual([]);
   });
 
   it("every runbook an alert links to exists — including the ones Appendix C left blank", () => {
     for (const alert of DEFINED) {
       const file = join(ROOT, alert.annotations.runbook_url);
-      expect(existsSync(file), `${alert.name} links to ${alert.annotations.runbook_url}, which does not exist`).toBe(true);
+      expect(
+        existsSync(file),
+        `${alert.name} links to ${alert.annotations.runbook_url}, which does not exist`,
+      ).toBe(true);
     }
     for (const name of APPENDIX_C_GAPS) {
-      expect(existsSync(join(ROOT, /** @type {any} */ (BY_NAME.get(name)).annotations.runbook_url)), name).toBe(true);
+      expect(
+        existsSync(
+          join(ROOT, /** @type {any} */ (BY_NAME.get(name)).annotations.runbook_url),
+        ),
+        name,
+      ).toBe(true);
     }
   });
 });
@@ -173,26 +202,48 @@ describe("the rules only read metrics this server publishes", () => {
     "process_resident_memory_bytes",
   ]);
   const FUNCTIONS = new Set([
-    "sum", "max", "min", "avg", "count", "rate", "increase", "irate", "time",
-    "histogram_quantile", "by", "without", "on", "ignoring", "group_left",
-    "group_right", "and", "or", "unless", "vector", "absent", "scalar",
+    "sum",
+    "max",
+    "min",
+    "avg",
+    "count",
+    "rate",
+    "increase",
+    "irate",
+    "time",
+    "histogram_quantile",
+    "by",
+    "without",
+    "on",
+    "ignoring",
+    "group_left",
+    "group_right",
+    "and",
+    "or",
+    "unless",
+    "vector",
+    "absent",
+    "scalar",
   ]);
   const SUFFIXES = ["_bucket", "_sum", "_count"];
 
   /** @param {string} name */
   const resolve = (name) =>
     KNOWN.has(name) ||
-    SUFFIXES.some((suffix) => name.endsWith(suffix) && KNOWN.has(name.slice(0, -suffix.length)));
+    SUFFIXES.some(
+      (suffix) => name.endsWith(suffix) && KNOWN.has(name.slice(0, -suffix.length)),
+    );
 
   it.each(DEFINED.filter((alert) => alert.expr).map((alert) => [alert.name, alert.expr]))(
     "%s",
     (name, expr) => {
-      const identifiers = /** @type {string} */ (expr)
-        .replace(/"[^"]*"/g, '""')
-        .replace(/\{[^}]*\}/g, "")
-        .replace(/\b(?:by|without)\s*\([^)]*\)/g, "")
-        .replace(/\[[^\]]*\]/g, "")
-        .match(/\b([a-z_][a-z0-9_]*)\b/g) ?? [];
+      const identifiers =
+        /** @type {string} */ (expr)
+          .replace(/"[^"]*"/g, '""')
+          .replace(/\{[^}]*\}/g, "")
+          .replace(/\b(?:by|without)\s*\([^)]*\)/g, "")
+          .replace(/\[[^\]]*\]/g, "")
+          .match(/\b([a-z_][a-z0-9_]*)\b/g) ?? [];
       const metrics = identifiers.filter((id) => !FUNCTIONS.has(id));
       expect(metrics.length, `${name} reads no metric`).toBeGreaterThan(0);
       for (const metric of metrics) {
@@ -202,7 +253,10 @@ describe("the rules only read metrics this server publishes", () => {
           metric,
         );
         // And registered for real, not merely listed in a constant.
-        expect(register.getSingleMetric(base), `${metric} is not registered`).toBeDefined();
+        expect(
+          register.getSingleMetric(base),
+          `${metric} is not registered`,
+        ).toBeDefined();
       }
     },
   );
@@ -238,10 +292,9 @@ describe("alertmanager.yml sends them where Appendix C says", () => {
   const config = parse(readFileSync(join(ALERTS_DIR, "alertmanager.yml"), "utf8"));
 
   it("has a receiver for each destination, and defaults to the quiet one", () => {
-    expect(config.receivers.map((/** @type {{ name: string }} */ r) => r.name).sort()).toEqual([
-      "digest",
-      "page",
-    ]);
+    expect(
+      config.receivers.map((/** @type {{ name: string }} */ r) => r.name).sort(),
+    ).toEqual(["digest", "page"]);
     // An alert that arrives without a route label is a mistake in a rule,
     // and a mistake must not wake anyone.
     expect(config.route.receiver).toBe("digest");
@@ -268,8 +321,12 @@ describe("alertmanager.yml sends them where Appendix C says", () => {
   });
 
   it("digests wait longer than pages before saying anything", () => {
-    const page = config.route.routes.find((/** @type {{ receiver: string }} */ r) => r.receiver === "page");
-    const digest = config.route.routes.find((/** @type {{ receiver: string }} */ r) => r.receiver === "digest");
+    const page = config.route.routes.find(
+      (/** @type {{ receiver: string }} */ r) => r.receiver === "page",
+    );
+    const digest = config.route.routes.find(
+      (/** @type {{ receiver: string }} */ r) => r.receiver === "digest",
+    );
     expect(page.group_wait).toBe("30s");
     expect(digest.group_wait).toBe("15m");
     expect(digest.repeat_interval).toBe("24h");
@@ -279,7 +336,9 @@ describe("alertmanager.yml sends them where Appendix C says", () => {
     // The two Sev-1s are the reason the rest of the catalogue exists. No
     // inhibition may target them, however much noise is happening around
     // them.
-    const sev1 = DEFINED.filter((alert) => alert.labels.severity === "1").map((a) => a.name);
+    const sev1 = DEFINED.filter((alert) => alert.labels.severity === "1").map(
+      (a) => a.name,
+    );
     expect(sev1).toHaveLength(2);
     for (const rule of config.inhibit_rules) {
       for (const matcher of rule.target_matchers) {
@@ -291,11 +350,16 @@ describe("alertmanager.yml sends them where Appendix C says", () => {
   });
 
   it("suppresses the symptoms of a provider outage so it pages once", () => {
-    const provider = config.inhibit_rules.find((/** @type {{ source_matchers: string[] }} */ r) =>
-      r.source_matchers.includes("alertname = circuit_open"),
+    const provider = config.inhibit_rules.find(
+      (/** @type {{ source_matchers: string[] }} */ r) =>
+        r.source_matchers.includes("alertname = circuit_open"),
     );
     expect(provider).toBeDefined();
-    for (const symptom of ["analysis_failure_rate", "api_5xx_rate", "analysis_latency_p95"]) {
+    for (const symptom of [
+      "analysis_failure_rate",
+      "api_5xx_rate",
+      "analysis_latency_p95",
+    ]) {
       expect(provider.target_matchers.join(" ")).toContain(symptom);
     }
   });

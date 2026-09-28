@@ -31,7 +31,8 @@ const SESSION_TTL_SECONDS = SESSION_TTL_DAYS * 24 * 60 * 60;
  * against cost-12 real hashes would reopen the same timing gap, four
  * times narrower and just as real.
  */
-const DUMMY_PASSWORD_HASH = "$2b$12$l8KF20JDuICRPPS/khm.6.p93J6XaCAKZXDDP1fcIdsUDX75DrP52";
+const DUMMY_PASSWORD_HASH =
+  "$2b$12$l8KF20JDuICRPPS/khm.6.p93J6XaCAKZXDDP1fcIdsUDX75DrP52";
 
 /** FR-1.1 — plaintext is hashed here and never stored or logged anywhere. */
 export function hashPassword(plaintext) {
@@ -71,7 +72,11 @@ export function signSessionToken({ userId, tokenVersion }) {
 export function verifySessionToken(token) {
   try {
     const claims = jwt.verify(token, config.JWT_SECRET, { algorithms: ["HS256"] });
-    if (typeof claims === "string" || typeof claims.sub !== "string" || typeof claims.tv !== "number") {
+    if (
+      typeof claims === "string" ||
+      typeof claims.sub !== "string" ||
+      typeof claims.tv !== "number"
+    ) {
       throw new AppError("UNAUTHENTICATED");
     }
     return { userId: claims.sub, tokenVersion: claims.tv };
@@ -157,7 +162,10 @@ export async function registerUser({ email, password }) {
  * unknown-email path burns the same bcrypt work as a wrong password
  * (see DUMMY_PASSWORD_HASH).
  */
-export async function authenticate({ email, password }, { ip } = /** @type {{ ip?: string }} */ ({})) {
+export async function authenticate(
+  { email, password },
+  { ip } = /** @type {{ ip?: string }} */ ({}),
+) {
   const user = await prisma.user.findUnique({ where: { email } });
 
   // FR-1.10, before the bcrypt work — there is nothing to check a password
@@ -186,7 +194,8 @@ export async function authenticate({ email, password }, { ip } = /** @type {{ ip
     // response is identical to the unknown-email path either way.
     const { locked } = await recordFailedLogin(user.id);
     await recordAuditEvent(AUDIT_ACTIONS.LOGIN_FAILED, { userId: user.id, ip });
-    if (locked) await recordAuditEvent(AUDIT_ACTIONS.ACCOUNT_LOCKED, { userId: user.id, ip });
+    if (locked)
+      await recordAuditEvent(AUDIT_ACTIONS.ACCOUNT_LOCKED, { userId: user.id, ip });
     throw new AppError("INVALID_CREDENTIALS");
   }
 

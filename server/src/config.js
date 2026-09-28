@@ -95,7 +95,10 @@ const envSchema = z
     DATABASE_POOL_SIZE: z.coerce
       .number()
       .int()
-      .min(5, "must be at least 5: each of the 4 scheduled jobs holds a lock connection and needs a second to work (jobs/lock.js)")
+      .min(
+        5,
+        "must be at least 5: each of the 4 scheduled jobs holds a lock connection and needs a second to work (jobs/lock.js)",
+      )
       .default(10),
 
     // Required since step 44: rate limits are counted here, so an
@@ -103,16 +106,19 @@ const envSchema = z
     REDIS_URL: z.string().min(1, "required"),
 
     ANTHROPIC_API_KEY: z.string().min(1, "required"),
-    ANTHROPIC_MODEL: z.string().min(1, "required").superRefine((val, ctx) => {
-      if (!(val in MODEL_PARAM_PROFILES)) {
-        ctx.addIssue({
-          code: "custom",
-          message: `unknown model "${val}" — no §5.4 parameter profile. Known models: ${Object.keys(
-            MODEL_PARAM_PROFILES,
-          ).join(", ")}`,
-        });
-      }
-    }),
+    ANTHROPIC_MODEL: z
+      .string()
+      .min(1, "required")
+      .superRefine((val, ctx) => {
+        if (!(val in MODEL_PARAM_PROFILES)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `unknown model "${val}" — no §5.4 parameter profile. Known models: ${Object.keys(
+              MODEL_PARAM_PROFILES,
+            ).join(", ")}`,
+          });
+        }
+      }),
     // §2.3: ci uses the mock provider only — no network calls to the
     // real provider from CI. `anthropic` calls the real API; `mock`
     // selects server/src/services/llm/mockProvider.js.
@@ -154,23 +160,22 @@ const envSchema = z
     // backup older than this means they have stopped.
     BACKUP_MAX_AGE_HOURS: positiveInt(36),
 
-    JWT_SECRET: z
-      .string()
-      .refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
-        message: "must be at least 32 bytes",
-      }),
+    JWT_SECRET: z.string().refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
+      message: "must be at least 32 bytes",
+    }),
     // Required since step 56: audit rows are hmac'd with this, and rotating
     // it silently breaks correlation across every historical row — see
     // lib/audit.js.
-    AUDIT_SALT: z
-      .string()
-      .refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
-        message: "must be at least 32 bytes",
-      }),
+    AUDIT_SALT: z.string().refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
+      message: "must be at least 32 bytes",
+    }),
 
     FRONTEND_ORIGIN: z
       .string()
-      .regex(/^https?:\/\/[^*\s/]+(:\d+)?$/, "must be an exact origin, no wildcard, no path"),
+      .regex(
+        /^https?:\/\/[^*\s/]+(:\d+)?$/,
+        "must be an exact origin, no wildcard, no path",
+      ),
 
     // Which transport sends transactional email (step 51). Only "sink" exists
     // today: it writes each message to a local directory instead of sending
@@ -294,7 +299,7 @@ const envSchema = z
         code: "custom",
         path: ["MEMORY_LIMIT_BYTES"],
         message:
-          "required in production: Appendix C's memory_high alert is \"RSS > 80% of limit\", " +
+          'required in production: Appendix C\'s memory_high alert is "RSS > 80% of limit", ' +
           "and with no limit it can never fire",
       });
     }

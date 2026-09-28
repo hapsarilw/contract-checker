@@ -24,8 +24,18 @@ const key = {
       intake: "accept",
       overall_risk: "high",
       findings: [
-        { severity: "high", category: "ip", excerpt: "shall become the sole property of Client", why: "pre-existing work" },
-        { severity: "medium", category: "payment", excerpt: "within ninety (90) days", why: "net-90" },
+        {
+          severity: "high",
+          category: "ip",
+          excerpt: "shall become the sole property of Client",
+          why: "pre-existing work",
+        },
+        {
+          severity: "medium",
+          category: "payment",
+          excerpt: "within ninety (90) days",
+          why: "net-90",
+        },
       ],
       missing_protections: ["a kill fee"],
     },
@@ -33,15 +43,38 @@ const key = {
       file: "mixed",
       intake: "accept",
       overall_risk: "medium",
-      findings: [{ severity: "high", category: "scope", excerpt: "unlimited revisions", why: "no cap" }],
-      also_acceptable: [{ severity: "low", category: "dispute", excerpt: "courts of Delaware", why: "forum" }],
+      findings: [
+        {
+          severity: "high",
+          category: "scope",
+          excerpt: "unlimited revisions",
+          why: "no cap",
+        },
+      ],
+      also_acceptable: [
+        {
+          severity: "low",
+          category: "dispute",
+          excerpt: "courts of Delaware",
+          why: "forum",
+        },
+      ],
       fair_clauses_do_not_flag: [
-        { excerpt: "Fifty percent (50%) is due upon execution", why: "deposit, favourable" },
+        {
+          excerpt: "Fifty percent (50%) is due upon execution",
+          why: "deposit, favourable",
+        },
         { excerpt: "two (2) rounds of revisions", why: "revision limit, favourable" },
       ],
       missing_protections: [],
     },
-    { file: "clean", intake: "accept", overall_risk: "low", findings: [], missing_protections: [] },
+    {
+      file: "clean",
+      intake: "accept",
+      overall_risk: "low",
+      findings: [],
+      missing_protections: [],
+    },
     { file: "rejected", intake: "reject", expect_error: "DOCUMENT_TOO_SHORT" },
   ],
 };
@@ -52,8 +85,16 @@ const perfect = () => [
     file: "hostile",
     overallRisk: "HIGH",
     findings: [
-      { clauseExcerpt: "shall become the sole property of Client", severity: "HIGH", category: "IP" },
-      { clauseExcerpt: "within ninety (90) days", severity: "MEDIUM", category: "PAYMENT" },
+      {
+        clauseExcerpt: "shall become the sole property of Client",
+        severity: "HIGH",
+        category: "IP",
+      },
+      {
+        clauseExcerpt: "within ninety (90) days",
+        severity: "MEDIUM",
+        category: "PAYMENT",
+      },
     ],
     missingClauses: ["No kill fee."],
     discardedFindings: 0,
@@ -61,11 +102,19 @@ const perfect = () => [
   {
     file: "mixed",
     overallRisk: "MEDIUM",
-    findings: [{ clauseExcerpt: "unlimited revisions", severity: "HIGH", category: "SCOPE" }],
+    findings: [
+      { clauseExcerpt: "unlimited revisions", severity: "HIGH", category: "SCOPE" },
+    ],
     missingClauses: [],
     discardedFindings: 0,
   },
-  { file: "clean", overallRisk: "LOW", findings: [], missingClauses: [], discardedFindings: 0 },
+  {
+    file: "clean",
+    overallRisk: "LOW",
+    findings: [],
+    missingClauses: [],
+    discardedFindings: 0,
+  },
 ];
 
 describe("excerptsMatch (PRD §11.1's comparison rule)", () => {
@@ -82,12 +131,24 @@ describe("excerptsMatch (PRD §11.1's comparison rule)", () => {
   });
 
   it("matches when either side contains the other, in either direction", () => {
-    expect(excerptsMatch("the balance is due within thirty (30) days", "within thirty (30) days")).toBe(true);
-    expect(excerptsMatch("within thirty (30) days", "the balance is due within thirty (30) days")).toBe(true);
+    expect(
+      excerptsMatch(
+        "the balance is due within thirty (30) days",
+        "within thirty (30) days",
+      ),
+    ).toBe(true);
+    expect(
+      excerptsMatch(
+        "within thirty (30) days",
+        "the balance is due within thirty (30) days",
+      ),
+    ).toBe(true);
   });
 
   it("does not match a paraphrase", () => {
-    expect(excerptsMatch("payment falls due in ninety days", "within ninety (90) days")).toBe(false);
+    expect(
+      excerptsMatch("payment falls due in ninety days", "within ninety (90) days"),
+    ).toBe(false);
   });
 
   it("is false for an empty side rather than trivially true", () => {
@@ -100,7 +161,11 @@ describe("excerptsMatch (PRD §11.1's comparison rule)", () => {
 
 describe("corpus selection", () => {
   it("scores only the documents the key marks accepted", () => {
-    expect(acceptedDocuments(key).map((d) => d.file)).toEqual(["hostile", "mixed", "clean"]);
+    expect(acceptedDocuments(key).map((d) => d.file)).toEqual([
+      "hostile",
+      "mixed",
+      "clean",
+    ]);
   });
 
   it("finds the clean fixture by what the key says, not by its number", () => {
@@ -111,7 +176,15 @@ describe("corpus selection", () => {
     // "hostile" has no findings-free entry but does expect missing
     // protections; the PRD gate is zero of BOTH.
     const onlyMissing = {
-      documents: [{ file: "x", intake: "accept", overall_risk: "low", findings: [], missing_protections: ["a deposit"] }],
+      documents: [
+        {
+          file: "x",
+          intake: "accept",
+          overall_risk: "low",
+          findings: [],
+          missing_protections: ["a deposit"],
+        },
+      ],
     };
     expect(cleanDocuments(onlyMissing)).toEqual([]);
   });
@@ -146,7 +219,11 @@ describe("scoreRepeat", () => {
 
   it("counts a flagged fair clause against precision, naming it", () => {
     const results = perfect();
-    results[1].findings.push({ clauseExcerpt: "Fifty percent (50%) is due upon execution", severity: "LOW", category: "PAYMENT" });
+    results[1].findings.push({
+      clauseExcerpt: "Fifty percent (50%) is due upon execution",
+      severity: "LOW",
+      category: "PAYMENT",
+    });
     const s = scoreRepeat(results, key);
     expect(s.precisionCounts).toEqual([1, 2]);
     expect(s.flaggedFair).toEqual([{ file: "mixed", why: "deposit, favourable" }]);
@@ -156,13 +233,23 @@ describe("scoreRepeat", () => {
     // The real failure this models: the model quoted half a clause, and
     // the half it quoted inverted the clause's meaning.
     const results = perfect();
-    results[1].findings.push({ clauseExcerpt: "due upon execution", severity: "LOW", category: "PAYMENT" });
+    results[1].findings.push({
+      clauseExcerpt: "due upon execution",
+      severity: "LOW",
+      category: "PAYMENT",
+    });
     expect(scoreRepeat(results, key).precisionCounts).toEqual([1, 2]);
   });
 
   it("fails the clean gate on BOTH halves, not findings alone", () => {
     const withFinding = perfect();
-    withFinding[2].findings = [{ clauseExcerpt: "fourteen (14) days written notice", severity: "LOW", category: "TERMINATION" }];
+    withFinding[2].findings = [
+      {
+        clauseExcerpt: "fourteen (14) days written notice",
+        severity: "LOW",
+        category: "TERMINATION",
+      },
+    ];
     expect(scoreRepeat(withFinding, key).cleanViolations).toBe(1);
 
     const withMissing = perfect();
@@ -177,7 +264,11 @@ describe("scoreRepeat", () => {
 
   it("accepts an also_acceptable finding without counting it a false positive", () => {
     const results = perfect();
-    results[1].findings.push({ clauseExcerpt: "courts of Delaware", severity: "LOW", category: "DISPUTE" });
+    results[1].findings.push({
+      clauseExcerpt: "courts of Delaware",
+      severity: "LOW",
+      category: "DISPUTE",
+    });
     const s = scoreRepeat(results, key);
     expect(s.precision).toBe(1);
     expect(s.broadPrecision).toBe(1);
@@ -198,7 +289,13 @@ describe("scoreRepeat", () => {
 
 describe("spread", () => {
   it("reports a stable metric as stable", () => {
-    expect(spread([1, 1, 1])).toMatchObject({ mean: 1, lo: 1, hi: 1, stable: true, n: 3 });
+    expect(spread([1, 1, 1])).toMatchObject({
+      mean: 1,
+      lo: 1,
+      hi: 1,
+      stable: true,
+      n: 3,
+    });
   });
 
   it("reports the range, which is the reason repeats exist", () => {
@@ -215,7 +312,10 @@ describe("evaluateGates (PRD §11.1)", () => {
   const gate = (gates, fragment) => gates.find((g) => g.name.includes(fragment));
 
   it("passes every gate on repeated perfect runs", () => {
-    const gates = evaluateGates([scoreRepeat(perfect(), key), scoreRepeat(perfect(), key)]);
+    const gates = evaluateGates([
+      scoreRepeat(perfect(), key),
+      scoreRepeat(perfect(), key),
+    ]);
     expect(gates.every((g) => g.verdict === "PASS")).toBe(true);
   });
 
@@ -223,7 +323,9 @@ describe("evaluateGates (PRD §11.1)", () => {
     // This is the whole point: a gate that flaps one run in three is not
     // passing, and a mean over three runs rounds that away.
     const bad = perfect();
-    bad[2].findings = [{ clauseExcerpt: "fourteen (14) days", severity: "LOW", category: "TERMINATION" }];
+    bad[2].findings = [
+      { clauseExcerpt: "fourteen (14) days", severity: "LOW", category: "TERMINATION" },
+    ];
     const gates = evaluateGates([
       scoreRepeat(perfect(), key),
       scoreRepeat(perfect(), key),
@@ -248,7 +350,9 @@ describe("evaluateGates (PRD §11.1)", () => {
 
   it("marks a metric the corpus cannot measure as SKIPPED, never as passing", () => {
     // A corpus with no fair clauses must not report 100% precision.
-    const noFair = { documents: key.documents.map((d) => ({ ...d, fair_clauses_do_not_flag: [] })) };
+    const noFair = {
+      documents: key.documents.map((d) => ({ ...d, fair_clauses_do_not_flag: [] })),
+    };
     const gates = evaluateGates([scoreRepeat(perfect(), noFair)]);
     expect(gate(gates, "Precision").verdict).toBe("SKIPPED");
   });

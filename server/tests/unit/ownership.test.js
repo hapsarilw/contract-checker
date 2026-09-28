@@ -46,7 +46,9 @@ function documentRow({ id = "doc_1", userId }) {
 
 /** @param {string} name */
 async function counterValue(name) {
-  const metric = /** @type {import("prom-client").Metric} */ (register.getSingleMetric(name));
+  const metric = /** @type {import("prom-client").Metric} */ (
+    register.getSingleMetric(name)
+  );
   return (await metric.get()).values.reduce((total, v) => total + v.value, 0);
 }
 
@@ -65,17 +67,23 @@ describe("loadOwnedDocument", () => {
 
   it("is NOT_FOUND, never FORBIDDEN, for a document that is not the caller's", async () => {
     vi.mocked(prisma.document.findFirst).mockResolvedValue(null);
-    await expect(loadOwnedDocument("doc_1", "user_1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(loadOwnedDocument("doc_1", "user_1")).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 
   it("refuses a document whose owner is not the subject, even if the query returns one", async () => {
     // The query above cannot do this. A later edit that drops `userId` from
     // the where clause can, and this is the line that would catch it.
-    vi.mocked(prisma.document.findFirst).mockResolvedValue(documentRow({ userId: "someone-else" }));
+    vi.mocked(prisma.document.findFirst).mockResolvedValue(
+      documentRow({ userId: "someone-else" }),
+    );
     const before = await counterValue("cross_user_access_total");
 
     await expect(loadOwnedDocument("doc_1", "user_1")).rejects.toBeInstanceOf(AppError);
-    await expect(loadOwnedDocument("doc_1", "user_1")).rejects.toMatchObject({ code: "INTERNAL" });
+    await expect(loadOwnedDocument("doc_1", "user_1")).rejects.toMatchObject({
+      code: "INTERNAL",
+    });
     expect(await counterValue("cross_user_access_total")).toBe(before + 2);
   });
 });

@@ -77,14 +77,21 @@ export async function run(argv, { out = (line) => console.log(line) } = {}) {
   /** @param {string} flag */
   const need = (flag) => {
     const value = /** @type {Record<string, string | undefined>} */ (values)[flag];
-    if (!value) throw new AppError("VALIDATION_ERROR", { message: `--${flag} is required for ${command}.` });
+    if (!value)
+      throw new AppError("VALIDATION_ERROR", {
+        message: `--${flag} is required for ${command}.`,
+      });
     return value;
   };
 
   switch (command) {
     case "spend-by-account": {
-      const report = await spendByAccount({ limit: values.limit ? Number(values.limit) : 10 });
-      out(`period ${report.period}: ${report.accounts} account(s), ${usd(report.totalUsd)} recorded on analysis rows`);
+      const report = await spendByAccount({
+        limit: values.limit ? Number(values.limit) : 10,
+      });
+      out(
+        `period ${report.period}: ${report.accounts} account(s), ${usd(report.totalUsd)} recorded on analysis rows`,
+      );
       for (const row of report.top) {
         out(
           `  ${usd(row.usd).padStart(9)}  ${(row.shareOfTotal * 100).toFixed(1).padStart(5)}%  ` +
@@ -95,26 +102,48 @@ export async function run(argv, { out = (line) => console.log(line) } = {}) {
       return 0;
     }
     case "suspend": {
-      const result = await suspendAccount(need("email"), { reference: need("reference") });
-      out(result.changed ? `suspended ${result.id}` : `${result.id} was already suspended; nothing changed`);
+      const result = await suspendAccount(need("email"), {
+        reference: need("reference"),
+      });
+      out(
+        result.changed
+          ? `suspended ${result.id}`
+          : `${result.id} was already suspended; nothing changed`,
+      );
       return 0;
     }
     case "lift-suspension": {
-      const result = await liftSuspension(need("email"), { reference: need("reference") });
-      out(result.changed ? `lifted: ${result.id} is now ${result.state}` : `${result.id} is ${result.state}, not suspended; nothing changed`);
+      const result = await liftSuspension(need("email"), {
+        reference: need("reference"),
+      });
+      out(
+        result.changed
+          ? `lifted: ${result.id} is now ${result.state}`
+          : `${result.id} is ${result.state}, not suspended; nothing changed`,
+      );
       return 0;
     }
     case "export": {
       const file = need("out");
       const data = await operatorExport(need("email"), { reference: need("reference") });
       // 0600: the file holds every contract the user uploaded.
-      await writeFile(file, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
-      out(`wrote the export to ${file} (mode 600). Deliver it over an encrypted channel, then delete it.`);
+      await writeFile(file, JSON.stringify(data, null, 2), {
+        encoding: "utf8",
+        mode: 0o600,
+      });
+      out(
+        `wrote the export to ${file} (mode 600). Deliver it over an encrypted channel, then delete it.`,
+      );
       return 0;
     }
     case "erase": {
-      const result = await operatorErase(need("email"), { reference: need("reference"), confirm: need("confirm") });
-      out(`erased ${result.id}. A confirmation email is queued; backups age out within 30 days.`);
+      const result = await operatorErase(need("email"), {
+        reference: need("reference"),
+        confirm: need("confirm"),
+      });
+      out(
+        `erased ${result.id}. A confirmation email is queued; backups age out within 30 days.`,
+      );
       return 0;
     }
     case "restore-deletions": {
@@ -122,11 +151,18 @@ export async function run(argv, { out = (line) => console.log(line) } = {}) {
       // flag: a connection string with a password in it does not belong in
       // shell history or the process list.
       const url = (await readFile(need("old-database-url-file"), "utf8")).trim();
-      const result = await restoredDeletions({ oldDatabaseUrl: url, since: new Date(need("since")) });
-      out(`${result.deletedSince} account(s) deleted in the old database since ${values.since}; ${result.resurrected.length} came back with the restore.`);
+      const result = await restoredDeletions({
+        oldDatabaseUrl: url,
+        since: new Date(need("since")),
+      });
+      out(
+        `${result.deletedSince} account(s) deleted in the old database since ${values.since}; ${result.resurrected.length} came back with the restore.`,
+      );
       for (const user of result.resurrected) out(`  ${user.email}  ${user.id}`);
       if (result.resurrected.length > 0) {
-        out("Erase each with: npm run ops -- erase --email <address> --reference <incident> --confirm <address>");
+        out(
+          "Erase each with: npm run ops -- erase --email <address> --reference <incident> --confirm <address>",
+        );
       }
       return 0;
     }
@@ -144,7 +180,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (err instanceof AppError) {
       console.error(err.message);
       code = 1;
-    } else if (err instanceof TypeError && /** @type {{ code?: string }} */ (err).code?.startsWith("ERR_PARSE_ARGS")) {
+    } else if (
+      err instanceof TypeError &&
+      /** @type {{ code?: string }} */ (err).code?.startsWith("ERR_PARSE_ARGS")
+    ) {
       console.error(`${err.message}\n\n${USAGE}`);
       code = 1;
     } else {

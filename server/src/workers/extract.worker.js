@@ -40,7 +40,10 @@ runWithRequestId(requestId, async () => {
         ? await extractPdfText(Buffer.from(buffer))
         : await extractDocxText(Buffer.from(buffer));
 
-    logger.debug({ document: { sourceType, chars: text.length } }, "extraction finished in worker");
+    logger.debug(
+      { document: { sourceType, chars: text.length } },
+      "extraction finished in worker",
+    );
     parentPort?.postMessage({ ok: true, text });
   } catch (err) {
     if (err instanceof AppError) {
@@ -55,7 +58,10 @@ runWithRequestId(requestId, async () => {
     logger.error({ err }, "unexpected failure inside the extraction worker");
     parentPort?.postMessage({
       ok: false,
-      error: { code: "MALFORMED_DOCUMENT", unexpected: String(err instanceof Error ? err.message : err) },
+      error: {
+        code: "MALFORMED_DOCUMENT",
+        unexpected: String(err instanceof Error ? err.message : err),
+      },
     });
   }
 });

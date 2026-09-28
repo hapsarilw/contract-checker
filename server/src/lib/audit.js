@@ -131,7 +131,11 @@ export async function recordAuditEvent(action, { userId, ip, requestId }) {
     });
   } catch (err) {
     logger.error(
-      { alert: "audit_write_failed", audit: { action }, err: { message: err instanceof Error ? err.message : String(err) } },
+      {
+        alert: "audit_write_failed",
+        audit: { action },
+        err: { message: err instanceof Error ? err.message : String(err) },
+      },
       "could not write an audit event",
     );
   }

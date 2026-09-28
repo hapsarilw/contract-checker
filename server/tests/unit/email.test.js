@@ -6,7 +6,10 @@ import { register } from "prom-client";
 import logger from "../../src/observability/logger.js";
 import { createEmailService, emailSendTotal, MAX_ATTEMPTS } from "../../src/lib/email.js";
 import { TEMPLATES, escapeHtml, maskEmail } from "../../src/lib/email/templates.js";
-import { createSinkProvider, extractFirstLink } from "../../src/lib/email/sinkProvider.js";
+import {
+  createSinkProvider,
+  extractFirstLink,
+} from "../../src/lib/email/sinkProvider.js";
 
 /**
  * BUILD-PLAN step 51 — transactional email, NFR-3.8.
@@ -39,7 +42,14 @@ function service(overrides = {}) {
 /** Everything the logger was asked to write, at every level, as one string. */
 function captureLogs() {
   const calls = [];
-  for (const level of /** @type {const} */ (["trace", "debug", "info", "warn", "error", "fatal"])) {
+  for (const level of /** @type {const} */ ([
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "fatal",
+  ])) {
     vi.spyOn(logger, level).mockImplementation((...args) => {
       calls.push(args);
     });
@@ -49,7 +59,9 @@ function captureLogs() {
 
 async function counts() {
   const { values } = await emailSendTotal.get();
-  return Object.fromEntries(values.map((v) => [`${v.labels.type}/${v.labels.outcome}`, v.value]));
+  return Object.fromEntries(
+    values.map((v) => [`${v.labels.type}/${v.labels.outcome}`, v.value]),
+  );
 }
 
 beforeEach(() => {
@@ -63,12 +75,21 @@ afterEach(() => {
 describe("NFR-3.8 — a delivery failure never reaches the caller", () => {
   it("returns without throwing when the provider always fails", async () => {
     const { svc } = service({
-      provider: { name: "broken", send: async () => { throw new Error("provider down"); } },
+      provider: {
+        name: "broken",
+        send: async () => {
+          throw new Error("provider down");
+        },
+      },
     });
 
     // The whole requirement: registration calls this and carries on.
-    expect(() => svc.send("verification", ADDRESS, { token: SECRET_TOKEN })).not.toThrow();
-    expect(svc.send("verification", ADDRESS, { token: SECRET_TOKEN })).toEqual({ queued: true });
+    expect(() =>
+      svc.send("verification", ADDRESS, { token: SECRET_TOKEN }),
+    ).not.toThrow();
+    expect(svc.send("verification", ADDRESS, { token: SECRET_TOKEN })).toEqual({
+      queued: true,
+    });
     await svc.flush();
   });
 
@@ -77,7 +98,10 @@ describe("NFR-3.8 — a delivery failure never reaches the caller", () => {
     /** @type {() => void} */
     let finish = () => {};
     const { svc } = service({
-      provider: { name: "slow", send: () => new Promise((resolve) => (finish = () => resolve(undefined))) },
+      provider: {
+        name: "slow",
+        send: () => new Promise((resolve) => (finish = () => resolve(undefined))),
+      },
     });
 
     const startedAt = Date.now();
@@ -120,7 +144,10 @@ describe("NFR-3.8 — a delivery failure never reaches the caller", () => {
 
 describe("retry", () => {
   it("retries a transient failure and reports the eventual success", async () => {
-    const send = vi.fn().mockRejectedValueOnce(new Error("blip")).mockResolvedValue(undefined);
+    const send = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("blip"))
+      .mockResolvedValue(undefined);
     const { svc } = service({ provider: { name: "flaky", send } });
 
     svc.send("password_reset", ADDRESS, { token: SECRET_TOKEN });
@@ -142,7 +169,9 @@ describe("retry", () => {
   });
 
   it("does not retry a permanent failure such as a rejected address", async () => {
-    const send = vi.fn().mockRejectedValue(Object.assign(new Error("rejected"), { permanent: true }));
+    const send = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("rejected"), { permanent: true }));
     const { svc } = service({ provider: { name: "strict", send } });
 
     svc.send("verification", ADDRESS, { token: SECRET_TOKEN });
@@ -172,7 +201,14 @@ describe("email_send_total — counted on BOTH outcomes, labelled by type", () =
     ok.svc.send("password_changed", ADDRESS);
     await ok.svc.flush();
 
-    const bad = service({ provider: { name: "down", send: async () => { throw new Error("x"); } } });
+    const bad = service({
+      provider: {
+        name: "down",
+        send: async () => {
+          throw new Error("x");
+        },
+      },
+    });
     bad.svc.send("password_reset", ADDRESS, { token: SECRET_TOKEN });
     await bad.svc.flush();
 
@@ -214,7 +250,14 @@ describe("what is NEVER logged (SRS §6.5)", () => {
       code: "EENVELOPE",
       permanent: true,
     });
-    const { svc } = service({ provider: { name: "strict", send: async () => { throw err; } } });
+    const { svc } = service({
+      provider: {
+        name: "strict",
+        send: async () => {
+          throw err;
+        },
+      },
+    });
 
     svc.send("verification", ADDRESS, { token: SECRET_TOKEN });
     await svc.flush();
@@ -229,7 +272,14 @@ describe("what is NEVER logged (SRS §6.5)", () => {
 
   it("logs the message TYPE and the attempt, which is what an operator needs", async () => {
     const logs = captureLogs();
-    const { svc } = service({ provider: { name: "down", send: async () => { throw new Error("x"); } } });
+    const { svc } = service({
+      provider: {
+        name: "down",
+        send: async () => {
+          throw new Error("x");
+        },
+      },
+    });
 
     svc.send("password_reset", ADDRESS, { token: SECRET_TOKEN });
     await svc.flush();
@@ -238,23 +288,29 @@ describe("what is NEVER logged (SRS §6.5)", () => {
     expect(logs.text()).toContain('"attempt"');
   });
 
-  it.each(Object.keys(TEMPLATES))("the %s template has no logger to log itself with", (type) => {
-    // Templates are pure functions of their inputs. Calling one must not
-    // write a single log line, whatever it is given.
-    const logs = captureLogs();
-    TEMPLATES[/** @type {keyof typeof TEMPLATES} */ (type)]({
-      verifyUrl: `${ORIGIN}/x?token=${SECRET_TOKEN}`,
-      resetUrl: `${ORIGIN}/y?token=${SECRET_TOKEN}`,
-      confirmUrl: `${ORIGIN}/z?token=${SECRET_TOKEN}`,
-      newEmail: ADDRESS,
-    });
-    expect(logs.calls).toHaveLength(0);
-  });
+  it.each(Object.keys(TEMPLATES))(
+    "the %s template has no logger to log itself with",
+    (type) => {
+      // Templates are pure functions of their inputs. Calling one must not
+      // write a single log line, whatever it is given.
+      const logs = captureLogs();
+      TEMPLATES[/** @type {keyof typeof TEMPLATES} */ (type)]({
+        verifyUrl: `${ORIGIN}/x?token=${SECRET_TOKEN}`,
+        resetUrl: `${ORIGIN}/y?token=${SECRET_TOKEN}`,
+        confirmUrl: `${ORIGIN}/z?token=${SECRET_TOKEN}`,
+        newEmail: ADDRESS,
+      });
+      expect(logs.calls).toHaveLength(0);
+    },
+  );
 });
 
 describe("shutdown", () => {
   it("flush waits for a message that is still being delivered", async () => {
-    const send = vi.fn().mockRejectedValueOnce(new Error("blip")).mockResolvedValue(undefined);
+    const send = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("blip"))
+      .mockResolvedValue(undefined);
     const { svc } = service({ provider: { name: "flaky", send } });
 
     svc.send("verification", ADDRESS, { token: SECRET_TOKEN });
@@ -264,7 +320,10 @@ describe("shutdown", () => {
   });
 
   it("flush gives up on a dead provider rather than hanging the deploy", async () => {
-    const { svc } = service({ provider: { name: "hung", send: () => new Promise(() => {}) }, sendTimeoutMs: 60_000 });
+    const { svc } = service({
+      provider: { name: "hung", send: () => new Promise(() => {}) },
+      sendTimeoutMs: 60_000,
+    });
     svc.send("verification", ADDRESS, { token: SECRET_TOKEN });
 
     const startedAt = Date.now();
@@ -281,7 +340,9 @@ describe("templates", () => {
 
     const message = sink.latestTo(ADDRESS);
     expect(message?.subject).toMatch(/confirm/i);
-    expect(extractFirstLink(message?.text ?? "")).toBe(`${ORIGIN}/verify-email?token=${SECRET_TOKEN}`);
+    expect(extractFirstLink(message?.text ?? "")).toBe(
+      `${ORIGIN}/verify-email?token=${SECRET_TOKEN}`,
+    );
     expect(message?.from).toBe(FROM);
   });
 
@@ -289,7 +350,9 @@ describe("templates", () => {
     const { svc, sink } = service();
     svc.send("verification", ADDRESS, { token: "a b&c=d" });
     await svc.flush();
-    expect(extractFirstLink(sink.latestTo(ADDRESS)?.text ?? "")).toBe(`${ORIGIN}/verify-email?token=a%20b%26c%3Dd`);
+    expect(extractFirstLink(sink.latestTo(ADDRESS)?.text ?? "")).toBe(
+      `${ORIGIN}/verify-email?token=a%20b%26c%3Dd`,
+    );
   });
 
   it("the reset email states the 30-minute expiry FR-1.8 sets", async () => {
@@ -303,7 +366,9 @@ describe("templates", () => {
     "the %s notice contains NO link — a notice that could be acted on is a phishing template",
     async (type) => {
       const { svc, sink } = service();
-      svc.send(/** @type {any} */ (type), ADDRESS, { newEmail: "someone.else@example.net" });
+      svc.send(/** @type {any} */ (type), ADDRESS, {
+        newEmail: "someone.else@example.net",
+      });
       await svc.flush();
       const message = sink.latestTo(ADDRESS);
       expect(extractFirstLink(message?.text ?? "")).toBeUndefined();
@@ -328,8 +393,12 @@ describe("templates", () => {
   });
 
   it("escapes HTML in the html part", () => {
-    expect(escapeHtml(`<script>"x"&'y'</script>`)).toBe("&lt;script&gt;&quot;x&quot;&amp;&#39;y&#39;&lt;/script&gt;");
-    const { html } = TEMPLATES.verification({ verifyUrl: `${ORIGIN}/v?a=1&b="><script>` });
+    expect(escapeHtml(`<script>"x"&'y'</script>`)).toBe(
+      "&lt;script&gt;&quot;x&quot;&amp;&#39;y&#39;&lt;/script&gt;",
+    );
+    const { html } = TEMPLATES.verification({
+      verifyUrl: `${ORIGIN}/v?a=1&b="><script>`,
+    });
     expect(html).not.toContain("<script>");
   });
 
@@ -355,7 +424,13 @@ describe("the sink provider", () => {
     const dir = await mkdtemp(join(tmpdir(), "clausecheck-sink-"));
     try {
       const sink = createSinkProvider({ dir: join(dir, "nested") });
-      await sink.send({ to: "a@x.test", from: FROM, subject: "hello", text: `${ORIGIN}/v?token=t`, html: "" });
+      await sink.send({
+        to: "a@x.test",
+        from: FROM,
+        subject: "hello",
+        text: `${ORIGIN}/v?token=t`,
+        html: "",
+      });
 
       const files = await readdir(join(dir, "nested"));
       expect(files).toHaveLength(1);
@@ -368,9 +443,9 @@ describe("the sink provider", () => {
   });
 
   it("finds the first link in a body, and none where there is none", () => {
-    expect(extractFirstLink("Confirm:\nhttps://app.example.test/verify-email?token=abc\n— x")).toBe(
-      "https://app.example.test/verify-email?token=abc",
-    );
+    expect(
+      extractFirstLink("Confirm:\nhttps://app.example.test/verify-email?token=abc\n— x"),
+    ).toBe("https://app.example.test/verify-email?token=abc");
     expect(extractFirstLink("no link here")).toBeUndefined();
   });
 });

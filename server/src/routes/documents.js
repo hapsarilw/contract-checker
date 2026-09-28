@@ -3,7 +3,11 @@ import prisma from "../lib/prisma.js";
 import { AppError } from "../lib/AppError.js";
 import { loadOwnedDocument } from "../lib/ownership.js";
 import { assertExcerptsVerified } from "../lib/defensiveAssertions.js";
-import { serializeDocument, serializeAnalysis, serializeDocumentListRow } from "../lib/serializers.js";
+import {
+  serializeDocument,
+  serializeAnalysis,
+  serializeDocumentListRow,
+} from "../lib/serializers.js";
 import { requireAuth } from "../middleware/auth.js";
 import { analyzeLimiter } from "../middleware/rateLimits.js";
 import { limitConcurrentUploads } from "../middleware/uploadConcurrency.js";
@@ -17,7 +21,11 @@ import { analyzeDocument } from "../services/analysis.js";
 import { intakeUpload, intakePastedText } from "../services/intake.js";
 import { pasteDocumentSchema } from "../schemas/document.js";
 import { decodeCursor, encodeCursor, resolvePageLimit } from "../lib/pagination.js";
-import { findIdempotentResponse, readIdempotencyKey, storeIdempotentResponse } from "../lib/idempotency.js";
+import {
+  findIdempotentResponse,
+  readIdempotencyKey,
+  storeIdempotentResponse,
+} from "../lib/idempotency.js";
 
 const router = Router();
 
@@ -202,9 +210,14 @@ router.get("/", requireAuth, async (req, res, next) => {
     const last = page[page.length - 1];
 
     res.status(200).json({
-      documents: page.map((document) => serializeDocumentListRow(document, document.analyses[0])),
+      documents: page.map((document) =>
+        serializeDocumentListRow(document, document.analyses[0]),
+      ),
       page: {
-        nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : null,
+        nextCursor:
+          hasMore && last
+            ? encodeCursor({ createdAt: last.createdAt, id: last.id })
+            : null,
         hasMore,
       },
     });

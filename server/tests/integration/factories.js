@@ -12,7 +12,13 @@ import prisma from "../../src/lib/prisma.js";
 /**
  * @param {{ state?: "UNVERIFIED"|"ACTIVE"|"LOCKED"|"SUSPENDED", email?: string, password?: string, passwordHash?: string, [key: string]: any }} [options]
  */
-export async function createUser({ state = "ACTIVE", email, password = "Password123!", passwordHash, ...rest } = {}) {
+export async function createUser({
+  state = "ACTIVE",
+  email,
+  password = "Password123!",
+  passwordHash,
+  ...rest
+} = {}) {
   return prisma.user.create({
     data: {
       email: email ?? `${randomUUID()}@example.test`,
@@ -94,7 +100,9 @@ export async function createAnalysis({ documentId, findings = [], ...rest } = {}
       completedAt: new Date(),
       ...rest,
       findings:
-        findings.length > 0 ? { create: findings.map((finding) => findingDefaults(finding)) } : undefined,
+        findings.length > 0
+          ? { create: findings.map((finding) => findingDefaults(finding)) }
+          : undefined,
     },
     include: { findings: true },
   });

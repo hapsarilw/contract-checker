@@ -63,7 +63,9 @@ function once(name, create) {
 }
 
 /** Seconds. Upper buckets reach the 90 s analyze ceiling (FR-3.10). */
-const REQUEST_BUCKETS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 90];
+const REQUEST_BUCKETS = [
+  0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 90,
+];
 const ANALYSIS_BUCKETS = [1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120];
 
 export const httpRequestDuration = once(
@@ -170,7 +172,8 @@ export const llmSpendUsdMonth = once(
         try {
           const state = await getSpendState();
           this.reset();
-          if (state.usd !== null) this.set({ model: config.llmParamProfile.model }, state.usd);
+          if (state.usd !== null)
+            this.set({ model: config.llmParamProfile.model }, state.usd);
         } catch (err) {
           logScrapeFailure("llm_spend_usd_month", err);
         }

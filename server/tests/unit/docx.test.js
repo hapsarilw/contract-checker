@@ -18,7 +18,10 @@ describe("extractDocxText (FR-2.10)", () => {
     // entry hides the content-type string from a naive scan) has no
     // bearing here — mammoth unzips properly either way. This just
     // confirms the fixture-building helper itself is compression-agnostic.
-    const deflated = await buildDocx({ paragraphs: ["deflate text"], compression: "DEFLATE" });
+    const deflated = await buildDocx({
+      paragraphs: ["deflate text"],
+      compression: "DEFLATE",
+    });
     const stored = await buildDocx({ paragraphs: ["store text"], compression: "STORE" });
 
     expect(await extractDocxText(deflated)).toContain("deflate text");

@@ -29,7 +29,12 @@ import { AppError } from "../lib/AppError.js";
  * the obvious capitalisations — so folding case rejects more, not less.
  */
 
-const LIST_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "data", "breached-passwords.txt");
+const LIST_PATH = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "data",
+  "breached-passwords.txt",
+);
 
 /** @type {Set<string> | undefined} */
 let breached;

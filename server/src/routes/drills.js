@@ -96,10 +96,16 @@ router.post("/unverified-excerpt", async (req, res, next) => {
       where: { documentId, status: "COMPLETED" },
       orderBy: { createdAt: "desc" },
     });
-    if (!analysis) throw new AppError("VALIDATION_ERROR", { message: "The document has no completed analysis to plant on." });
+    if (!analysis)
+      throw new AppError("VALIDATION_ERROR", {
+        message: "The document has no completed analysis to plant on.",
+      });
 
     logger.warn(
-      { drill: "unverified_excerpt_displayed", analysis: { id: analysis.id, documentId } },
+      {
+        drill: "unverified_excerpt_displayed",
+        analysis: { id: analysis.id, documentId },
+      },
       "ALERT DRILL: planting an excerpt that is not in the document",
     );
     const planted = await prisma.finding.create({
@@ -110,14 +116,17 @@ router.post("/unverified-excerpt", async (req, res, next) => {
         // Deliberately absent from any contract. Not fabricated-looking
         // legal text: a drill row that could be mistaken for a real finding
         // if the cleanup below ever failed would be its own hazard.
-        clauseExcerpt: "ALERT DRILL ROW — this sentence is not in the document (step 68).",
+        clauseExcerpt:
+          "ALERT DRILL ROW — this sentence is not in the document (step 68).",
         explanation: "Planted by the alert drill; never served.",
         suggestedChange: "Planted by the alert drill; never served.",
       },
     });
     plantedId = planted.id;
 
-    const findings = await prisma.finding.findMany({ where: { analysisId: analysis.id } });
+    const findings = await prisma.finding.findMany({
+      where: { analysisId: analysis.id },
+    });
     assertExcerptsVerified(findings, document.rawText, {
       path: "report",
       analysisId: analysis.id,
@@ -133,7 +142,8 @@ router.post("/unverified-excerpt", async (req, res, next) => {
   } catch (err) {
     next(err);
   } finally {
-    if (plantedId) await prisma.finding.delete({ where: { id: plantedId } }).catch(() => {});
+    if (plantedId)
+      await prisma.finding.delete({ where: { id: plantedId } }).catch(() => {});
   }
 });
 

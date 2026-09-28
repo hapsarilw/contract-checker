@@ -9,7 +9,11 @@ import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.j
 import { getLlmProvider } from "../../src/services/llm/index.js";
 import { MockLlmProvider } from "../../src/services/llm/mockProvider.js";
 import { periodOf } from "../../src/services/quota.js";
-import { getSpendState, recordSpend, assertAnalysisAllowed } from "../../src/services/spend.js";
+import {
+  getSpendState,
+  recordSpend,
+  assertAnalysisAllowed,
+} from "../../src/services/spend.js";
 import { createAnalysis, createDocument, createUser } from "./factories.js";
 
 /**
@@ -37,7 +41,8 @@ const CONTRACT = [
 
 function mockProvider() {
   const backend = getLlmProvider().backend;
-  if (!(backend instanceof MockLlmProvider)) throw new Error("expected the mock provider");
+  if (!(backend instanceof MockLlmProvider))
+    throw new Error("expected the mock provider");
   return backend;
 }
 
@@ -67,7 +72,13 @@ async function forcePastCeiling(now = new Date()) {
   const outputTokens = Math.ceil(
     ((config.MONTHLY_SPEND_CEILING_USD * 1.5) / config.LLM_PRICE_OUTPUT_PER_MTOK) * 1e6,
   );
-  await getRedis().hset(`spend:tokens:${periodOf(now)}`, "input", "0", "output", String(outputTokens));
+  await getRedis().hset(
+    `spend:tokens:${periodOf(now)}`,
+    "input",
+    "0",
+    "output",
+    String(outputTokens),
+  );
 }
 
 afterEach(async () => {
@@ -93,7 +104,10 @@ describe("FR-5.3 — the monthly spend estimate", () => {
   it("accumulates across analyses rather than replacing", async () => {
     await recordSpend({ inputTokens: 1_000, outputTokens: 2_000 });
     await recordSpend({ inputTokens: 3_000, outputTokens: 4_000 });
-    await expect(getSpendState()).resolves.toMatchObject({ inputTokens: 4_000, outputTokens: 6_000 });
+    await expect(getSpendState()).resolves.toMatchObject({
+      inputTokens: 4_000,
+      outputTokens: 6_000,
+    });
   });
 
   it("stores TOKENS, so correcting a wrong price re-prices the whole month", async () => {
@@ -105,12 +119,19 @@ describe("FR-5.3 — the monthly spend estimate", () => {
     const atCurrentPrice = await getSpendState();
     expect(atCurrentPrice.usd).toBeCloseTo(2 * config.LLM_PRICE_INPUT_PER_MTOK, 6);
     // The stored quantity is physical and price-free.
-    expect(await getRedis().hget(`spend:tokens:${periodOf(new Date())}`, "input")).toBe("2000000");
+    expect(await getRedis().hget(`spend:tokens:${periodOf(new Date())}`, "input")).toBe(
+      "2000000",
+    );
   });
 
   it("falls back to the Analysis rows when Redis cannot answer (FR-3.5 is the record)", async () => {
     const { document } = await signedInUser();
-    await createAnalysis({ documentId: document.id, status: "COMPLETED", inputTokens: 5_000, outputTokens: 7_000 });
+    await createAnalysis({
+      documentId: document.id,
+      status: "COMPLETED",
+      inputTokens: 5_000,
+      outputTokens: 7_000,
+    });
 
     getRedis().disconnect();
     try {
@@ -118,7 +139,9 @@ describe("FR-5.3 — the monthly spend estimate", () => {
       expect(state.source).toBe("database");
       expect(state).toMatchObject({ inputTokens: 5_000, outputTokens: 7_000 });
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
   });
 
@@ -161,10 +184,17 @@ describe("TR-14 — at the ceiling, analysis stops and everything else does not 
 
   it("still serves a stored report — the half a blanket 503 would break", async () => {
     const { document, cookie } = await signedInUser();
-    await createAnalysis({ documentId: document.id, status: "COMPLETED", overallRisk: "LOW", summary: "A stored report." });
+    await createAnalysis({
+      documentId: document.id,
+      status: "COMPLETED",
+      overallRisk: "LOW",
+      summary: "A stored report.",
+    });
     await forcePastCeiling();
 
-    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
+    const res = await request(testServer())
+      .get(`/api/v1/documents/${document.id}`)
+      .set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(res.body.analysis.summary).toBe("A stored report.");
   });
@@ -173,7 +203,9 @@ describe("TR-14 — at the ceiling, analysis stops and everything else does not 
     const { cookie } = await signedInUser();
     await forcePastCeiling();
 
-    const res = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+    const res = await request(testServer())
+      .get("/api/v1/documents")
+      .set("Cookie", cookie);
     expect(res.status).toBe(200);
   });
 
@@ -181,7 +213,9 @@ describe("TR-14 — at the ceiling, analysis stops and everything else does not 
     const { user, password } = await signedInUser();
     await forcePastCeiling();
 
-    const res = await request(testServer()).post("/api/v1/auth/login").send({ email: user.email, password });
+    const res = await request(testServer())
+      .post("/api/v1/auth/login")
+      .send({ email: user.email, password });
     expect(res.status).toBe(200);
   });
 

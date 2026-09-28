@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Registry } from "prom-client";
 import prisma from "../../src/lib/prisma.js";
-import { createBackupVerifyFailedGauge, createJobLastSuccessGauge } from "../../src/jobs/jobRuns.js";
+import {
+  createBackupVerifyFailedGauge,
+  createJobLastSuccessGauge,
+} from "../../src/jobs/jobRuns.js";
 import {
   REASONS,
   backupVerifyTick,
@@ -28,7 +31,9 @@ async function backupDir() {
   return dir;
 }
 afterEach(async () => {
-  await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
+  );
 });
 
 /** A backup file of `sizeBytes`, last modified `hoursAgo` before NOW. */
@@ -40,7 +45,11 @@ async function addBackup(dir, name, sizeBytes, hoursAgo) {
 }
 
 const verify = (dir, options = {}) =>
-  runBackupVerify(NOW, { listBackups: () => listBackupsInDirectory(dir), limits: LIMITS, ...options });
+  runBackupVerify(NOW, {
+    listBackups: () => listBackupsInDirectory(dir),
+    limits: LIMITS,
+    ...options,
+  });
 
 const jobRow = () => prisma.jobRun.findUnique({ where: { job: "backup-verify" } });
 
@@ -75,7 +84,12 @@ describe("runBackupVerify — fails loudly, with a specific reason", () => {
 
     const result = await verify(dir);
 
-    expect(result).toEqual({ lockAcquired: true, ran: true, ok: false, reason: REASONS.NO_BACKUPS });
+    expect(result).toEqual({
+      lockAcquired: true,
+      ran: true,
+      ok: false,
+      reason: REASONS.NO_BACKUPS,
+    });
     const row = await jobRow();
     expect(row?.lastFailureAt).toEqual(NOW);
     expect(row?.lastFailureReason).toBe(REASONS.NO_BACKUPS);
@@ -131,7 +145,12 @@ describe("runBackupVerify — fails loudly, with a specific reason", () => {
   it("fails when no backup source is configured at all: unconfigured is a failure, not a skip", async () => {
     const result = await runBackupVerify(NOW, { listBackups: undefined, limits: LIMITS });
 
-    expect(result).toEqual({ lockAcquired: true, ran: true, ok: false, reason: REASONS.NO_SOURCE });
+    expect(result).toEqual({
+      lockAcquired: true,
+      ran: true,
+      ok: false,
+      reason: REASONS.NO_SOURCE,
+    });
   }, 30_000);
 
   it("logs the failure at error level, with the alert name and a reason and nothing about the files", async () => {
@@ -147,7 +166,10 @@ describe("runBackupVerify — fails loudly, with a specific reason", () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
     const [fields] = spy.mock.calls[0];
-    expect(fields).toMatchObject({ alert: "backup_verify_failed", reason: REASONS.TOO_SMALL });
+    expect(fields).toMatchObject({
+      alert: "backup_verify_failed",
+      reason: REASONS.TOO_SMALL,
+    });
     expect(JSON.stringify(fields)).not.toContain("clausecheck-secret-name");
     spy.mockRestore();
   }, 30_000);
@@ -161,7 +183,10 @@ describe("runBackupVerify — fails loudly, with a specific reason", () => {
     await verify(missing);
 
     const [fields] = spy.mock.calls[0];
-    expect(fields).toMatchObject({ alert: "backup_verify_failed", reason: REASONS.UNREADABLE });
+    expect(fields).toMatchObject({
+      alert: "backup_verify_failed",
+      reason: REASONS.UNREADABLE,
+    });
     expect(JSON.stringify(fields)).not.toContain("path-that-must-not-leak");
     expect((await jobRow())?.lastFailureReason).not.toContain("path-that-must-not-leak");
     spy.mockRestore();
@@ -206,13 +231,18 @@ describe("backup_verify_failed — readable from any instance", () => {
     await verify(dir);
 
     const later = new Date(NOW.getTime() + 8 * 24 * 60 * 60 * 1000);
-    await runBackupVerify(later, { listBackups: () => listBackupsInDirectory(dir), limits: LIMITS });
+    await runBackupVerify(later, {
+      listBackups: () => listBackupsInDirectory(dir),
+      limits: LIMITS,
+    });
 
     const row = await jobRow();
     expect(row?.lastSuccessAt).toEqual(NOW);
     expect(row?.lastFailureAt).toEqual(later);
     const instanceB = createJobLastSuccessGauge({ registers: [new Registry()] });
-    const series = (await instanceB.get()).values.find((v) => v.labels.job === "backup-verify");
+    const series = (await instanceB.get()).values.find(
+      (v) => v.labels.job === "backup-verify",
+    );
     expect(series?.value).toBe(Math.floor(NOW.getTime() / 1000));
   }, 30_000);
 });
@@ -240,9 +270,14 @@ describe("exclusivity and the weekly due-check", () => {
   it("a second tick within the week does nothing", async () => {
     const dir = await backupDir();
     await addBackup(dir, "good.dump", 5_000, 2);
-    await runBackupVerify(NOW, { listBackups: () => listBackupsInDirectory(dir), limits: LIMITS });
+    await runBackupVerify(NOW, {
+      listBackups: () => listBackupsInDirectory(dir),
+      limits: LIMITS,
+    });
 
-    const result = await backupVerifyTick(new Date(NOW.getTime() + 2 * 24 * 60 * 60 * 1000));
+    const result = await backupVerifyTick(
+      new Date(NOW.getTime() + 2 * 24 * 60 * 60 * 1000),
+    );
 
     expect(result).toEqual({ lockAcquired: true, ran: false });
   }, 30_000);

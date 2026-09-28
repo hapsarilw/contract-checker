@@ -53,7 +53,9 @@ describe("ops routes — liveness, readiness, version (FR-4.7, FR-4.8)", () => {
 
   describe("GET /api/health", () => {
     it("returns 200 without touching the database", async () => {
-      const querySpy = vi.spyOn(prisma, "$queryRaw").mockResolvedValue([{ "?column?": 1 }]);
+      const querySpy = vi
+        .spyOn(prisma, "$queryRaw")
+        .mockResolvedValue([{ "?column?": 1 }]);
 
       const res = await request(testServer()).get("/api/health");
 

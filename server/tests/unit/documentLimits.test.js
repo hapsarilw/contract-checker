@@ -6,7 +6,11 @@ import { AppError } from "../../src/lib/AppError.js";
 import { intakeUpload } from "../../src/services/intake.js";
 import { extractDocxText } from "../../src/services/docx.js";
 import { extractPdfText } from "../../src/services/pdf.js";
-import { MAX_ENTRIES, MAX_EXPANSION_RATIO, MAX_UNCOMPRESSED_BYTES } from "../../src/services/zipLimits.js";
+import {
+  MAX_ENTRIES,
+  MAX_EXPANSION_RATIO,
+  MAX_UNCOMPRESSED_BYTES,
+} from "../../src/services/zipLimits.js";
 import { buildDocx } from "../helpers/buildDocx.js";
 import {
   buildManyEntryDocx,
@@ -46,7 +50,10 @@ describe("FR-2.9 — archive-bomb limits, before mammoth opens the file", () => 
     const err = await errorFrom(extractDocxText(await buildZipBomb({ megabytes: 60 })));
     expect(err).toBeInstanceOf(AppError);
     expect(err.code).toBe("MALFORMED_DOCUMENT");
-    expect(err.details).toMatchObject({ limit: "uncompressed", max: MAX_UNCOMPRESSED_BYTES });
+    expect(err.details).toMatchObject({
+      limit: "uncompressed",
+      max: MAX_UNCOMPRESSED_BYTES,
+    });
   }, 60_000);
 
   it("rejects an expansion ratio over 100:1 even while under the size cap", async () => {
@@ -59,7 +66,9 @@ describe("FR-2.9 — archive-bomb limits, before mammoth opens the file", () => 
   }, 60_000);
 
   it("rejects an archive with more than 500 entries", async () => {
-    const err = await errorFrom(extractDocxText(await buildManyEntryDocx(MAX_ENTRIES + 100)));
+    const err = await errorFrom(
+      extractDocxText(await buildManyEntryDocx(MAX_ENTRIES + 100)),
+    );
     expect(err.details).toMatchObject({ limit: "entries", max: MAX_ENTRIES });
   }, 60_000);
 
@@ -79,12 +88,18 @@ describe("FR-2.9 — archive-bomb limits, before mammoth opens the file", () => 
 
   it("lets an ordinary DOCX through untouched", async () => {
     // The limits must not be a tax on the common case.
-    const docx = await buildDocx({ paragraphs: ["A perfectly ordinary consulting agreement."] });
-    await expect(extractDocxText(docx)).resolves.toContain("ordinary consulting agreement");
+    const docx = await buildDocx({
+      paragraphs: ["A perfectly ordinary consulting agreement."],
+    });
+    await expect(extractDocxText(docx)).resolves.toContain(
+      "ordinary consulting agreement",
+    );
   });
 
   it("reports a non-archive as MALFORMED_DOCUMENT rather than throwing raw", async () => {
-    const err = await errorFrom(extractDocxText(Buffer.from("PK\u0003\u0004 and then nothing useful")));
+    const err = await errorFrom(
+      extractDocxText(Buffer.from("PK\u0003\u0004 and then nothing useful")),
+    );
     expect(err).toBeInstanceOf(AppError);
     expect(err.code).toBe("MALFORMED_DOCUMENT");
   });
@@ -115,9 +130,9 @@ describe("FR-2.10 — PDF limits, before text extraction", () => {
   }, 30_000);
 
   it("lets an ordinary PDF through", async () => {
-    await expect(extractPdfText(await buildPdf({ text: "SERVICES AGREEMENT" }))).resolves.toContain(
-      "SERVICES AGREEMENT",
-    );
+    await expect(
+      extractPdfText(await buildPdf({ text: "SERVICES AGREEMENT" })),
+    ).resolves.toContain("SERVICES AGREEMENT");
   }, 30_000);
 });
 

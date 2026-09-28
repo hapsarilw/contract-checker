@@ -53,7 +53,10 @@ describe("logger redaction (TR-16)", () => {
         email: { body: secret, address: secret },
         password: secret,
         token: secret,
-        req: { headers: { authorization: secret, cookie: secret }, body: { text: secret } },
+        req: {
+          headers: { authorization: secret, cookie: secret },
+          body: { text: secret },
+        },
       },
       "kitchen sink",
     );

@@ -23,7 +23,9 @@ app.get("/slow", async (req, res) => {
 
 const server = app.listen(0, () => {
   const address = server.address();
-  process.stdout.write(`LISTENING:${typeof address === "object" && address ? address.port : ""}\n`);
+  process.stdout.write(
+    `LISTENING:${typeof address === "object" && address ? address.port : ""}\n`,
+  );
 });
 
 server.keepAliveTimeout = 60_000;

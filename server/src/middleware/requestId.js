@@ -10,7 +10,11 @@ const MAX_INBOUND_ID_LENGTH = 128;
 
 function resolveRequestId(inboundHeader) {
   const inbound = Array.isArray(inboundHeader) ? inboundHeader[0] : inboundHeader;
-  if (typeof inbound === "string" && inbound.length > 0 && inbound.length <= MAX_INBOUND_ID_LENGTH) {
+  if (
+    typeof inbound === "string" &&
+    inbound.length > 0 &&
+    inbound.length <= MAX_INBOUND_ID_LENGTH
+  ) {
     return inbound;
   }
   return ulid();

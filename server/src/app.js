@@ -153,7 +153,9 @@ app.use(express.json({ limit: "1mb" }));
 app.use((err, req, res, next) => {
   const type = typeof err?.type === "string" ? err.type : "";
   const isBodyParserError =
-    type.startsWith("entity.") || type.startsWith("charset.") || type.startsWith("encoding.");
+    type.startsWith("entity.") ||
+    type.startsWith("charset.") ||
+    type.startsWith("encoding.");
 
   if (!isBodyParserError) {
     next(err);
@@ -168,7 +170,8 @@ app.use((err, req, res, next) => {
     // left to imply the wrong limit.
     next(
       new AppError("FILE_TOO_LARGE", {
-        message: "That request body is over the 1 MB limit for pasted text. Try a shorter document, or split it into sections.",
+        message:
+          "That request body is over the 1 MB limit for pasted text. Try a shorter document, or split it into sections.",
       }),
     );
     return;

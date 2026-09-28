@@ -1,7 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
-import { APIError, APIUserAbortError, APIConnectionTimeoutError } from "@anthropic-ai/sdk";
+import {
+  APIError,
+  APIUserAbortError,
+  APIConnectionTimeoutError,
+} from "@anthropic-ai/sdk";
 import { AppError } from "../../src/lib/AppError.js";
-import { classify, backoffMs, retryAfterOf, withProviderRetries, MAX_RETRIES } from "../../src/services/llm/retry.js";
+import {
+  classify,
+  backoffMs,
+  retryAfterOf,
+  withProviderRetries,
+  MAX_RETRIES,
+} from "../../src/services/llm/retry.js";
 
 /**
  * FR-3.10 and FR-3.11 as pure logic. The parts that need Redis or a
@@ -12,7 +22,12 @@ import { classify, backoffMs, retryAfterOf, withProviderRetries, MAX_RETRIES } f
 
 /** @param {number} status @param {Record<string,string>} [headers] */
 const apiError = (status, headers = {}) =>
-  APIError.generate(status, { type: "error", error: { type: "x", message: "m" } }, "m", new Headers(headers));
+  APIError.generate(
+    status,
+    { type: "error", error: { type: "x", message: "m" } },
+    "m",
+    new Headers(headers),
+  );
 
 const never = async () => {
   throw new Error("should not have been called");
@@ -23,9 +38,12 @@ describe("classify (FR-3.10's transient set, FR-3.11's configuration set)", () =
     expect(classify(apiError(status))).toBe("retryable");
   });
 
-  it.each([400, 401, 403, 404])("treats %i as a configuration defect, never retryable", (status) => {
-    expect(classify(apiError(status))).toBe("config");
-  });
+  it.each([400, 401, 403, 404])(
+    "treats %i as a configuration defect, never retryable",
+    (status) => {
+      expect(classify(apiError(status))).toBe("config");
+    },
+  );
 
   it.each(["ECONNRESET", "ECONNREFUSED", "EPIPE", "ETIMEDOUT"])(
     "treats a %s connection failure as retryable — the call never got an answer",
@@ -91,20 +109,27 @@ describe("withProviderRetries", () => {
   it("returns the first success without waiting", async () => {
     const attempt = vi.fn().mockResolvedValue("ok");
     const sleep = vi.fn();
-    await expect(withProviderRetries(attempt, { deadlineAt: far(), sleep })).resolves.toBe("ok");
+    await expect(
+      withProviderRetries(attempt, { deadlineAt: far(), sleep }),
+    ).resolves.toBe("ok");
     expect(attempt).toHaveBeenCalledTimes(1);
     expect(sleep).not.toHaveBeenCalled();
   });
 
   it("retries a transient failure and returns the eventual success", async () => {
     const attempt = vi.fn().mockRejectedValueOnce(apiError(529)).mockResolvedValue("ok");
-    await expect(withProviderRetries(attempt, { deadlineAt: far(), sleep: async () => {} })).resolves.toBe("ok");
+    await expect(
+      withProviderRetries(attempt, { deadlineAt: far(), sleep: async () => {} }),
+    ).resolves.toBe("ok");
     expect(attempt).toHaveBeenCalledTimes(2);
   });
 
   it("gives up after exactly two retries with LLM_UNAVAILABLE (FR-3.10)", async () => {
     const attempt = vi.fn().mockRejectedValue(apiError(529));
-    const err = await withProviderRetries(attempt, { deadlineAt: far(), sleep: async () => {} }).catch((e) => e);
+    const err = await withProviderRetries(attempt, {
+      deadlineAt: far(),
+      sleep: async () => {},
+    }).catch((e) => e);
 
     expect(attempt).toHaveBeenCalledTimes(MAX_RETRIES + 1);
     expect(err).toBeInstanceOf(AppError);
@@ -117,7 +142,10 @@ describe("withProviderRetries", () => {
     // A bad key is a configuration defect: no amount of waiting fixes it,
     // and telling the user to try again in a minute would be a lie.
     const attempt = vi.fn().mockRejectedValue(apiError(401));
-    const err = await withProviderRetries(attempt, { deadlineAt: far(), sleep: async () => {} }).catch((e) => e);
+    const err = await withProviderRetries(attempt, {
+      deadlineAt: far(),
+      sleep: async () => {},
+    }).catch((e) => e);
 
     expect(attempt).toHaveBeenCalledTimes(1);
     expect(err.code).toBe("INTERNAL");
@@ -127,7 +155,9 @@ describe("withProviderRetries", () => {
   it("passes a non-retryable, non-config error through untouched", async () => {
     const cause = apiError(418);
     const attempt = vi.fn().mockRejectedValue(cause);
-    await expect(withProviderRetries(attempt, { deadlineAt: far(), sleep: async () => {} })).rejects.toBe(cause);
+    await expect(
+      withProviderRetries(attempt, { deadlineAt: far(), sleep: async () => {} }),
+    ).rejects.toBe(cause);
     expect(attempt).toHaveBeenCalledTimes(1);
   });
 
@@ -136,7 +166,10 @@ describe("withProviderRetries", () => {
     // burn the remaining budget and fail afterwards regardless.
     const attempt = vi.fn().mockRejectedValue(apiError(503, { "retry-after": "8" }));
     const sleep = vi.fn();
-    const err = await withProviderRetries(attempt, { deadlineAt: Date.now() + 500, sleep }).catch((e) => e);
+    const err = await withProviderRetries(attempt, {
+      deadlineAt: Date.now() + 500,
+      sleep,
+    }).catch((e) => e);
 
     expect(sleep).not.toHaveBeenCalled();
     expect(attempt).toHaveBeenCalledTimes(1);
@@ -149,14 +182,25 @@ describe("withProviderRetries", () => {
     const onAttempt = vi.fn();
     const attempt = vi.fn().mockRejectedValueOnce(apiError(529)).mockResolvedValue("ok");
 
-    await withProviderRetries(attempt, { deadlineAt: far(), sleep: async () => {}, onAttempt });
+    await withProviderRetries(attempt, {
+      deadlineAt: far(),
+      sleep: async () => {},
+      onAttempt,
+    });
 
-    expect(onAttempt.mock.calls.map(([outcome]) => outcome)).toEqual(["failure", "success"]);
+    expect(onAttempt.mock.calls.map(([outcome]) => outcome)).toEqual([
+      "failure",
+      "success",
+    ]);
   });
 
   it("reports the failed attempt even when it will not be retried", async () => {
     const onAttempt = vi.fn();
-    await withProviderRetries(never, { deadlineAt: far(), sleep: async () => {}, onAttempt }).catch(() => {});
+    await withProviderRetries(never, {
+      deadlineAt: far(),
+      sleep: async () => {},
+      onAttempt,
+    }).catch(() => {});
     // The error travels with it since step 67, for llm_request_total's
     // http_status label.
     expect(onAttempt).toHaveBeenCalledWith("failure", expect.any(Error));

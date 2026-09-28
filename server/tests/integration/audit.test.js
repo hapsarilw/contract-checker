@@ -40,7 +40,10 @@ async function everyRowAsText() {
 describe("NFR-2.12 — every real event type writes a row with a hashed subject", () => {
   it("REGISTERED, on account creation", async () => {
     const email = "audit-register@example.test";
-    const res = await json(request(testServer()).post("/api/v1/auth/register")).send({ email, password: PASSWORD });
+    const res = await json(request(testServer()).post("/api/v1/auth/register")).send({
+      email,
+      password: PASSWORD,
+    });
     expect(res.status).toBe(201);
 
     const row = await latest(AUDIT_ACTIONS.REGISTERED);
@@ -61,7 +64,10 @@ describe("NFR-2.12 — every real event type writes a row with a hashed subject"
 
   it("LOGIN_FAILED, for a real account's wrong password", async () => {
     const user = await createUser({ password: PASSWORD });
-    await json(request(testServer()).post("/api/v1/auth/login")).send({ email: user.email, password: "wrong" });
+    await json(request(testServer()).post("/api/v1/auth/login")).send({
+      email: user.email,
+      password: "wrong",
+    });
 
     const row = await latest(AUDIT_ACTIONS.LOGIN_FAILED);
     expect(row?.subjectHash).toBe(subjectHash(user.id));
@@ -75,7 +81,9 @@ describe("NFR-2.12 — every real event type writes a row with a hashed subject"
       email: "no-such-account@example.test",
       password: "whatever",
     });
-    expect(await prisma.auditEvent.count({ where: { action: AUDIT_ACTIONS.LOGIN_FAILED } })).toBe(0);
+    expect(
+      await prisma.auditEvent.count({ where: { action: AUDIT_ACTIONS.LOGIN_FAILED } }),
+    ).toBe(0);
   }, 30_000);
 
   it("ACCOUNT_LOCKED, on the transition into lockout, not on every attempt after", async () => {
@@ -85,14 +93,18 @@ describe("NFR-2.12 — every real event type writes a row with a hashed subject"
         .set("X-Forwarded-For", `203.0.113.${i + 1}`)
         .send({ email: user.email, password: "wrong" });
     }
-    expect(await prisma.auditEvent.count({ where: { action: AUDIT_ACTIONS.ACCOUNT_LOCKED } })).toBe(1);
+    expect(
+      await prisma.auditEvent.count({ where: { action: AUDIT_ACTIONS.ACCOUNT_LOCKED } }),
+    ).toBe(1);
 
     // One more attempt against the now-locked account must not write a
     // second ACCOUNT_LOCKED row — lockout is one event, not a repeat.
     await json(request(testServer()).post("/api/v1/auth/login"))
       .set("X-Forwarded-For", "203.0.113.99")
       .send({ email: user.email, password: "wrong" });
-    expect(await prisma.auditEvent.count({ where: { action: AUDIT_ACTIONS.ACCOUNT_LOCKED } })).toBe(1);
+    expect(
+      await prisma.auditEvent.count({ where: { action: AUDIT_ACTIONS.ACCOUNT_LOCKED } }),
+    ).toBe(1);
   }, 30_000);
 
   it("PASSWORD_CHANGED", async () => {
@@ -110,7 +122,10 @@ describe("NFR-2.12 — every real event type writes a row with a hashed subject"
     const user = await createUser({ password: PASSWORD });
     const token = await issueAuthToken(user.id, "PASSWORD_RESET");
 
-    await json(request(testServer()).post("/api/v1/auth/reset-password")).send({ token, password: "brand-new-one-here" });
+    await json(request(testServer()).post("/api/v1/auth/reset-password")).send({
+      token,
+      password: "brand-new-one-here",
+    });
 
     const row = await latest(AUDIT_ACTIONS.PASSWORD_RESET);
     expect(row?.subjectHash).toBe(subjectHash(user.id));
@@ -118,7 +133,9 @@ describe("NFR-2.12 — every real event type writes a row with a hashed subject"
 
   it("SIGNED_OUT_EVERYWHERE", async () => {
     const user = await createUser({ password: PASSWORD });
-    await json(request(testServer()).post("/api/v1/auth/logout-all")).set("Cookie", cookieFor(user)).send({});
+    await json(request(testServer()).post("/api/v1/auth/logout-all"))
+      .set("Cookie", cookieFor(user))
+      .send({});
 
     const row = await latest(AUDIT_ACTIONS.SIGNED_OUT_EVERYWHERE);
     expect(row?.subjectHash).toBe(subjectHash(user.id));
@@ -134,12 +151,16 @@ describe("NFR-2.12 — every real event type writes a row with a hashed subject"
       .set("Cookie", cookieFor(user))
       .send({ email: newEmail, currentPassword: PASSWORD });
     // The request alone must not write the event: nothing has changed yet.
-    expect(await prisma.auditEvent.count({ where: { action: AUDIT_ACTIONS.EMAIL_CHANGED } })).toBe(0);
+    expect(
+      await prisma.auditEvent.count({ where: { action: AUDIT_ACTIONS.EMAIL_CHANGED } }),
+    ).toBe(0);
 
     await getEmailService().flush();
     const link = extractFirstLink(sink().latestTo(newEmail)?.text ?? "");
     const token = link ? new URL(link).searchParams.get("token") : null;
-    await json(request(testServer()).post("/api/v1/auth/confirm-email-change")).send({ token });
+    await json(request(testServer()).post("/api/v1/auth/confirm-email-change")).send({
+      token,
+    });
 
     const row = await latest(AUDIT_ACTIONS.EMAIL_CHANGED);
     expect(row?.subjectHash).toBe(subjectHash(user.id));
@@ -149,19 +170,30 @@ describe("NFR-2.12 — every real event type writes a row with a hashed subject"
 describe("NFR-2.12 — no personal data anywhere in the table", () => {
   it("no row's subjectHash equals the raw userId", async () => {
     const user = await createUser({ password: PASSWORD });
-    await json(request(testServer()).post("/api/v1/auth/login")).set("X-Forwarded-For", "198.51.100.9").send({
-      email: user.email,
-      password: PASSWORD,
-    });
+    await json(request(testServer()).post("/api/v1/auth/login"))
+      .set("X-Forwarded-For", "198.51.100.9")
+      .send({
+        email: user.email,
+        password: PASSWORD,
+      });
 
     const rows = await prisma.auditEvent.findMany();
     for (const row of rows) expect(row.subjectHash).not.toBe(user.id);
   }, 30_000);
 
   it("the user's email never appears in the table, in any column, for any row", async () => {
-    const user = await createUser({ password: PASSWORD, email: "very-distinctive-address@example.test" });
-    await json(request(testServer()).post("/api/v1/auth/login")).send({ email: user.email, password: PASSWORD });
-    await json(request(testServer()).post("/api/v1/auth/login")).send({ email: user.email, password: "wrong" });
+    const user = await createUser({
+      password: PASSWORD,
+      email: "very-distinctive-address@example.test",
+    });
+    await json(request(testServer()).post("/api/v1/auth/login")).send({
+      email: user.email,
+      password: PASSWORD,
+    });
+    await json(request(testServer()).post("/api/v1/auth/login")).send({
+      email: user.email,
+      password: "wrong",
+    });
 
     expect(await everyRowAsText()).not.toContain(user.email);
   }, 30_000);
@@ -169,10 +201,12 @@ describe("NFR-2.12 — no personal data anywhere in the table", () => {
   it("no row's ipHash equals the raw client IP", async () => {
     const user = await createUser({ password: PASSWORD });
     const ip = "203.0.113.200";
-    await json(request(testServer()).post("/api/v1/auth/login")).set("X-Forwarded-For", ip).send({
-      email: user.email,
-      password: PASSWORD,
-    });
+    await json(request(testServer()).post("/api/v1/auth/login"))
+      .set("X-Forwarded-For", ip)
+      .send({
+        email: user.email,
+        password: PASSWORD,
+      });
 
     const row = await latest(AUDIT_ACTIONS.LOGIN_SUCCEEDED);
     expect(row?.ipHash).not.toBe(ip);
@@ -181,11 +215,23 @@ describe("NFR-2.12 — no personal data anywhere in the table", () => {
 
   it("the same subject hashes identically across two different events — rows correlate without an id", async () => {
     const user = await createUser({ password: PASSWORD });
-    await json(request(testServer()).post("/api/v1/auth/login")).send({ email: user.email, password: PASSWORD });
-    await json(request(testServer()).post("/api/v1/auth/logout-all")).set("Cookie", cookieFor(user)).send({});
+    await json(request(testServer()).post("/api/v1/auth/login")).send({
+      email: user.email,
+      password: PASSWORD,
+    });
+    await json(request(testServer()).post("/api/v1/auth/logout-all"))
+      .set("Cookie", cookieFor(user))
+      .send({});
 
-    const login = await prisma.auditEvent.findFirst({ where: { action: AUDIT_ACTIONS.LOGIN_SUCCEEDED, subjectHash: subjectHash(user.id) } });
-    const logout = await prisma.auditEvent.findFirst({ where: { action: AUDIT_ACTIONS.SIGNED_OUT_EVERYWHERE, subjectHash: subjectHash(user.id) } });
+    const login = await prisma.auditEvent.findFirst({
+      where: { action: AUDIT_ACTIONS.LOGIN_SUCCEEDED, subjectHash: subjectHash(user.id) },
+    });
+    const logout = await prisma.auditEvent.findFirst({
+      where: {
+        action: AUDIT_ACTIONS.SIGNED_OUT_EVERYWHERE,
+        subjectHash: subjectHash(user.id),
+      },
+    });
     expect(login?.subjectHash).toBe(logout?.subjectHash);
   }, 30_000);
 });
@@ -198,7 +244,10 @@ describe("NFR-2.12 / FR-4.6 — audit rows survive the user they are about being
     // model in this schema uses — would erase the evidence in the same
     // statement that creates it.
     const user = await createUser({ password: PASSWORD });
-    await recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, { userId: user.id, ip: "198.51.100.1" });
+    await recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, {
+      userId: user.id,
+      ip: "198.51.100.1",
+    });
     await recordAuditEvent(AUDIT_ACTIONS.PASSWORD_CHANGED, { userId: user.id });
     const hash = subjectHash(user.id);
     expect(await prisma.auditEvent.count({ where: { subjectHash: hash } })).toBe(2);
@@ -222,7 +271,13 @@ describe("NFR-2.12 / FR-4.6 — audit rows survive the user they are about being
     await prisma.user.delete({ where: { id: user.id } });
     await recordAuditEvent(AUDIT_ACTIONS.ACCOUNT_DELETED, { userId: user.id });
 
-    const rows = await prisma.auditEvent.findMany({ where: { subjectHash: hash }, orderBy: { createdAt: "asc" } });
-    expect(rows.map((r) => r.action)).toEqual([AUDIT_ACTIONS.LOGIN_SUCCEEDED, AUDIT_ACTIONS.ACCOUNT_DELETED]);
+    const rows = await prisma.auditEvent.findMany({
+      where: { subjectHash: hash },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(rows.map((r) => r.action)).toEqual([
+      AUDIT_ACTIONS.LOGIN_SUCCEEDED,
+      AUDIT_ACTIONS.ACCOUNT_DELETED,
+    ]);
   }, 30_000);
 });

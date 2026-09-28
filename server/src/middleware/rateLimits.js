@@ -108,7 +108,15 @@ const stores = [];
  *   skip?: (req: import("express").Request) => boolean,
  * }} options
  */
-export function createLimiter({ windowMs, limit, prefix, failurePolicy, buildMessage, keyGenerator, skip }) {
+export function createLimiter({
+  windowMs,
+  limit,
+  prefix,
+  failurePolicy,
+  buildMessage,
+  keyGenerator,
+  skip,
+}) {
   // Each limiter gets its own prefix so the three buckets cannot collide
   // in one Redis database — without it, an IP's 100-request general count
   // and its 5-attempt auth count would increment the same key.
@@ -205,7 +213,10 @@ export function isSyntheticCheck(req) {
   if (!timingSafeEqual(digest(presented), digest(token))) return false;
   const body = /** @type {{ email?: unknown }} */ (req.body ?? {});
   // Normalised the way the login schema normalises it (schemas/auth.js).
-  return typeof body.email === "string" && body.email.trim().toLowerCase() === email.toLowerCase();
+  return (
+    typeof body.email === "string" &&
+    body.email.trim().toLowerCase() === email.toLowerCase()
+  );
 }
 
 // One shared instance — auth.js mounts THIS SAME middleware on both
@@ -313,7 +324,10 @@ export const forgotPasswordEmailLimiter = createLimiter({
   limit: 3,
   prefix: "rl:forgot-email:",
   failurePolicy: "closed",
-  keyGenerator: (req) => `email:${String(req.body?.email ?? "").trim().toLowerCase()}`,
+  keyGenerator: (req) =>
+    `email:${String(req.body?.email ?? "")
+      .trim()
+      .toLowerCase()}`,
   buildMessage: (retryTime) =>
     `A reset link has already been requested for that address. Check your inbox and spam folder, or try again in about ${retryTime}.`,
 });

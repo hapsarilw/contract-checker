@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { ERROR_CODES, lookupErrorCode, DEFAULT_RETRY_AFTER_SECONDS } from "../../src/lib/errorCodes.js";
+import {
+  ERROR_CODES,
+  lookupErrorCode,
+  DEFAULT_RETRY_AFTER_SECONDS,
+} from "../../src/lib/errorCodes.js";
 
 // The literal SRS §4.2 table, transcribed independently of errorCodes.js,
 // so this test catches the module drifting from the spec rather than just
@@ -56,9 +60,14 @@ describe("errorCodes.js (SRS §4.2)", () => {
     for (const [code, rawEntry] of Object.entries(ERROR_CODES)) {
       const entry = /** @type {{ status: number, retryAfter?: number }} */ (rawEntry);
       if (entry.status === 503) {
-        expect(entry.retryAfter, `${code} is 503 but has no retryAfter`).toBeTypeOf("number");
+        expect(entry.retryAfter, `${code} is 503 but has no retryAfter`).toBeTypeOf(
+          "number",
+        );
       } else {
-        expect(entry.retryAfter, `${code} is not 503 but has a retryAfter`).toBeUndefined();
+        expect(
+          entry.retryAfter,
+          `${code} is not 503 but has a retryAfter`,
+        ).toBeUndefined();
       }
     }
   });

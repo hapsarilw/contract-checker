@@ -33,7 +33,9 @@ export class MockLlmProvider {
     return {
       document_type: overrides.document_type ?? "Independent contractor agreement",
       overall_risk: overrides.overall_risk ?? "medium",
-      summary: overrides.summary ?? "This is a mocked analysis summary of sufficient length to pass validation.",
+      summary:
+        overrides.summary ??
+        "This is a mocked analysis summary of sufficient length to pass validation.",
       findings: overrides.findings ?? [],
       missing_clauses: overrides.missing_clauses ?? [],
     };
@@ -45,7 +47,11 @@ export class MockLlmProvider {
    */
   scriptValidResponse(overrides = {}, { fenced = false, delayMs = 0 } = {}) {
     const json = JSON.stringify(MockLlmProvider.#validResponseBody(overrides));
-    this.#queue.push({ kind: "text", text: fenced ? "```json\n" + json + "\n```" : json, delayMs });
+    this.#queue.push({
+      kind: "text",
+      text: fenced ? "```json\n" + json + "\n```" : json,
+      delayMs,
+    });
     return this;
   }
 
@@ -95,7 +101,9 @@ export class MockLlmProvider {
    * parsing. `excerpts` lets a caller supply text guaranteed absent from
    * whatever fixture document a specific test uses.
    */
-  scriptFabricatedExcerpts(excerpts = ["This exact sentence appears nowhere in the source document."]) {
+  scriptFabricatedExcerpts(
+    excerpts = ["This exact sentence appears nowhere in the source document."],
+  ) {
     const body = {
       document_type: "Fabricated-excerpt response",
       overall_risk: "high",
@@ -105,7 +113,8 @@ export class MockLlmProvider {
         severity: "high",
         clause_excerpt: excerpt,
         explanation: "This finding cites text that was never in the document.",
-        suggested_change: "N/A — this finding should be discarded by excerpt verification.",
+        suggested_change:
+          "N/A — this finding should be discarded by excerpt verification.",
       })),
       missing_clauses: [],
     };
@@ -121,7 +130,11 @@ export class MockLlmProvider {
    * that specifically needs to measure timing.
    */
   scriptTimeout({ realDelayMs = 0 } = {}) {
-    this.#queue.push({ kind: "error", build: () => new APIUserAbortError(), delayMs: realDelayMs });
+    this.#queue.push({
+      kind: "error",
+      build: () => new APIUserAbortError(),
+      delayMs: realDelayMs,
+    });
     return this;
   }
 
@@ -140,7 +153,10 @@ export class MockLlmProvider {
    */
   scriptHttpError(status, { message, errorType } = {}) {
     const headers = new Headers();
-    const body = { type: "error", error: { type: errorType ?? "mock_error", message: message ?? `mock ${status}` } };
+    const body = {
+      type: "error",
+      error: { type: errorType ?? "mock_error", message: message ?? `mock ${status}` },
+    };
     this.#queue.push({
       kind: "error",
       build: () => APIError.generate(status, body, message, headers),
@@ -160,13 +176,17 @@ export class MockLlmProvider {
     this.calls.push({ documentText, requestId, correction, at: startedAt });
 
     const script = this.#queue.shift();
-    if (script?.delayMs) await new Promise((resolve) => setTimeout(resolve, script.delayMs));
+    if (script?.delayMs)
+      await new Promise((resolve) => setTimeout(resolve, script.delayMs));
 
     if (script?.kind === "error") {
       throw script.build();
     }
 
-    const text = script?.kind === "text" ? script.text : JSON.stringify(MockLlmProvider.#validResponseBody());
+    const text =
+      script?.kind === "text"
+        ? script.text
+        : JSON.stringify(MockLlmProvider.#validResponseBody());
 
     return {
       rawText: text,

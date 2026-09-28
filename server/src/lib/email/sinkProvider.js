@@ -59,7 +59,8 @@ export function createSinkProvider({ dir } = {}) {
     messages: () => [...sent],
 
     /** The most recent message to an address, or undefined. */
-    latestTo: (/** @type {string} */ address) => [...sent].reverse().find((m) => m.to === address),
+    latestTo: (/** @type {string} */ address) =>
+      [...sent].reverse().find((m) => m.to === address),
 
     clear: () => {
       sent.length = 0;

@@ -1,2 +1,5 @@
 dist/
 .perf-build/
+# Gitignored Playwright output, not source — see server/.prettierignore's
+# .mail-sink entry for the same reason.
+test-results/

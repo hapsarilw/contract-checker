@@ -83,7 +83,12 @@ export async function findIdempotentResponse(userId, idempotencyKey) {
  */
 export async function storeIdempotentResponse(userId, idempotencyKey, status, body) {
   try {
-    await getRedis().set(redisKey(userId, idempotencyKey), JSON.stringify({ status, body }), "EX", TTL_SECONDS);
+    await getRedis().set(
+      redisKey(userId, idempotencyKey),
+      JSON.stringify({ status, body }),
+      "EX",
+      TTL_SECONDS,
+    );
   } catch (err) {
     // Best-effort. A request that succeeded stays succeeded even if the
     // cache write failed — the cost is that ITS OWN retry, specifically,

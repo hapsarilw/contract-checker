@@ -19,7 +19,8 @@ import { withSpan } from "../../observability/tracing.js";
  */
 export function httpStatusLabel(outcome, err) {
   if (outcome === "success") return "200";
-  if (err instanceof APIUserAbortError || err instanceof APIConnectionTimeoutError) return "timeout";
+  if (err instanceof APIUserAbortError || err instanceof APIConnectionTimeoutError)
+    return "timeout";
   const status = /** @type {{ status?: unknown }} */ (err)?.status;
   return typeof status === "number" ? String(status) : "network";
 }
@@ -79,7 +80,10 @@ export function createLlmProvider(cfg, deps = {}) {
   // Without this the breaker's own fail-open path would quietly stand in
   // for a closed circuit, and the test would pass while asserting
   // something it had not exercised.
-  const { breaker = { assertClosed: assertCircuitClosed, record: recordProviderCall }, ...backendDeps } = deps;
+  const {
+    breaker = { assertClosed: assertCircuitClosed, record: recordProviderCall },
+    ...backendDeps
+  } = deps;
   const backend =
     cfg.LLM_PROVIDER === "mock"
       ? new MockLlmProvider()
@@ -114,7 +118,10 @@ export function createLlmProvider(cfg, deps = {}) {
             deadlineAt: deadlineAt ?? Date.now() + cfg.timeouts.analyzeCeiling,
             onAttempt: (outcome, err) => {
               attempts += 1;
-              llmRequestTotal.inc({ outcome, http_status: httpStatusLabel(outcome, err) });
+              llmRequestTotal.inc({
+                outcome,
+                http_status: httpStatusLabel(outcome, err),
+              });
               return breaker.record(outcome);
             },
           });

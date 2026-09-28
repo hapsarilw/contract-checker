@@ -41,7 +41,10 @@ async function signedIn() {
 }
 
 const upload = (cookie, buffer, filename = "contract.pdf") =>
-  request(testServer()).post("/api/v1/documents").set("Cookie", cookie).attach("file", buffer, filename);
+  request(testServer())
+    .post("/api/v1/documents")
+    .set("Cookie", cookie)
+    .attach("file", buffer, filename);
 
 /** A contract long enough to clear the 200-word floor. */
 const wordyPdf = () =>
@@ -54,7 +57,9 @@ afterEach(() => {
 describe("FR-2.11 — extraction runs in a worker, bounded to ten seconds", () => {
   it("parses a real document through the worker and returns its text", async () => {
     const pdf = await buildPdf({ text: "MASTER SERVICES AGREEMENT" });
-    await expect(extractInWorker(pdf, "UPLOAD_PDF")).resolves.toContain("MASTER SERVICES AGREEMENT");
+    await expect(extractInWorker(pdf, "UPLOAD_PDF")).resolves.toContain(
+      "MASTER SERVICES AGREEMENT",
+    );
   }, 30_000);
 
   it("aborts a parse that outlives its bound with 422 MALFORMED_DOCUMENT", async () => {
@@ -63,7 +68,9 @@ describe("FR-2.11 — extraction runs in a worker, bounded to ten seconds", () =
     // ten-second document would make the suite ten seconds slower for
     // the same assertion.
     const pdf = await buildPdf({ pages: 40 });
-    const err = await extractInWorker(pdf, "UPLOAD_PDF", { timeoutMs: 1 }).catch((e) => e);
+    const err = await extractInWorker(pdf, "UPLOAD_PDF", { timeoutMs: 1 }).catch(
+      (e) => e,
+    );
 
     expect(err.code).toBe("MALFORMED_DOCUMENT");
     expect(err.status).toBe(422);
@@ -74,7 +81,9 @@ describe("FR-2.11 — extraction runs in a worker, bounded to ten seconds", () =
     // resident, and under load the abandoned parses accumulate — the
     // failure the bound exists to prevent, reached by another route.
     const before = activeWorkers();
-    await extractInWorker(await buildPdf({ pages: 40 }), "UPLOAD_PDF", { timeoutMs: 1 }).catch(() => {});
+    await extractInWorker(await buildPdf({ pages: 40 }), "UPLOAD_PDF", {
+      timeoutMs: 1,
+    }).catch(() => {});
     // Termination is async; give the thread a tick to actually go.
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(activeWorkers()).toBeLessThanOrEqual(before);
@@ -114,7 +123,9 @@ describe("FR-2.12 — concurrent uploads are capped per instance", () => {
 
     // One more than the cap, all in flight together.
     const responses = await Promise.all(
-      Array.from({ length: config.MAX_CONCURRENT_UPLOADS + 1 }, () => upload(cookie, pdf)),
+      Array.from({ length: config.MAX_CONCURRENT_UPLOADS + 1 }, () =>
+        upload(cookie, pdf),
+      ),
     );
 
     const shed = responses.filter((res) => res.status === 503);
@@ -199,9 +210,14 @@ describe("the requestId survives the worker boundary", () => {
     // parse makes you want it. The id is passed in workerData and
     // re-established there.
     const requestId = `test-${Date.now()}`;
-    const lines = await runWorkerCapturingLogs(await buildPdf({ text: "AGREEMENT" }), requestId);
+    const lines = await runWorkerCapturingLogs(
+      await buildPdf({ text: "AGREEMENT" }),
+      requestId,
+    );
 
-    const fromWorker = lines.filter((line) => line.msg?.includes("extraction finished in worker"));
+    const fromWorker = lines.filter((line) =>
+      line.msg?.includes("extraction finished in worker"),
+    );
     expect(fromWorker.length).toBeGreaterThan(0);
     expect(fromWorker[0].requestId).toBe(requestId);
   }, 30_000);
@@ -244,7 +260,9 @@ function activeWorkers() {
  */
 async function runWorkerCapturingLogs(buffer, requestId) {
   const serverDir = fileURLToPath(new URL("../..", import.meta.url));
-  const workerPath = fileURLToPath(new URL("../../src/workers/extract.worker.js", import.meta.url));
+  const workerPath = fileURLToPath(
+    new URL("../../src/workers/extract.worker.js", import.meta.url),
+  );
   const documentPath = join(tmpdir(), `clausecheck-worker-${randomUUID()}.pdf`);
   await writeFile(documentPath, buffer);
 
@@ -265,10 +283,14 @@ async function runWorkerCapturingLogs(buffer, requestId) {
   `;
 
   try {
-    const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "-e", script], {
-      cwd: serverDir,
-      env: { ...process.env, LOG_LEVEL: "debug" },
-    });
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      ["--input-type=module", "-e", script],
+      {
+        cwd: serverDir,
+        env: { ...process.env, LOG_LEVEL: "debug" },
+      },
+    );
     return stdout
       .split("\n")
       .filter(Boolean)

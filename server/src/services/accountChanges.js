@@ -135,7 +135,9 @@ export async function requestEmailChange(userId, { newEmail, currentPassword }) 
   // Registration already answers EMAIL_TAKEN for an address in use, so
   // saying so here discloses nothing new — and silently accepting a
   // change that can never complete would be worse.
-  if (await prisma.user.findUnique({ where: { email: newEmail }, select: { id: true } })) {
+  if (
+    await prisma.user.findUnique({ where: { email: newEmail }, select: { id: true } })
+  ) {
     throw new AppError("EMAIL_TAKEN");
   }
 
@@ -198,7 +200,8 @@ export async function confirmEmailChange(token, now = new Date()) {
       // Someone else claimed the address between the request and the
       // confirmation. The unique index is the authority; a check here
       // would just be a longer race.
-      if (/** @type {{ code?: string }} */ (err)?.code === "P2002") throw new AppError("EMAIL_TAKEN");
+      if (/** @type {{ code?: string }} */ (err)?.code === "P2002")
+        throw new AppError("EMAIL_TAKEN");
       throw err;
     }
   });

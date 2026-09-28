@@ -117,7 +117,8 @@ export async function recordFailedLogin(userId, now = new Date()) {
     RETURNING "lockedUntil" AS "lockedUntil"
   `;
 
-  const lockedUntil = /** @type {{ lockedUntil: Date | null }[]} */ (rows)[0]?.lockedUntil ?? null;
+  const lockedUntil =
+    /** @type {{ lockedUntil: Date | null }[]} */ (rows)[0]?.lockedUntil ?? null;
   return { locked: Boolean(lockedUntil && lockedUntil > now) };
 }
 
@@ -132,7 +133,8 @@ export async function recordFailedLogin(userId, now = new Date()) {
  * @param {{ id: string, failedLoginCount: number, lockedUntil: Date | null, firstFailedLoginAt?: Date | null }} user
  */
 export async function clearFailedLogins(user) {
-  if (user.failedLoginCount === 0 && !user.lockedUntil && !user.firstFailedLoginAt) return;
+  if (user.failedLoginCount === 0 && !user.lockedUntil && !user.firstFailedLoginAt)
+    return;
   await prisma.user.update({
     where: { id: user.id },
     data: { failedLoginCount: 0, firstFailedLoginAt: null, lockedUntil: null },

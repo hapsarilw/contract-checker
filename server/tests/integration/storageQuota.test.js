@@ -62,7 +62,9 @@ describe("FR-2.13 — the document-count limit", () => {
 
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe("STORAGE_QUOTA_EXCEEDED");
-    expect(await prisma.document.count({ where: { userId: user.id } })).toBe(config.MAX_DOCS_PER_USER);
+    expect(await prisma.document.count({ where: { userId: user.id } })).toBe(
+      config.MAX_DOCS_PER_USER,
+    );
   }, 60_000);
 });
 
@@ -122,12 +124,18 @@ describe("FR-2.13 — the message and the remedy", () => {
     const res = await paste(cookie);
 
     expect(res.body.error.message).toContain(String(config.MAX_DOCS_PER_USER));
-    expect(res.body.error.message).toContain(`${Math.round(config.MAX_BYTES_PER_USER / MB)} MB`);
+    expect(res.body.error.message).toContain(
+      `${Math.round(config.MAX_BYTES_PER_USER / MB)} MB`,
+    );
   }, 60_000);
 
   it("frees the quota when a document is deleted", async () => {
     const { user, cookie } = await signedIn();
-    const first = await createDocument({ userId: user.id, rawText: TEXT, wordCount: 300 });
+    const first = await createDocument({
+      userId: user.id,
+      rawText: TEXT,
+      wordCount: 300,
+    });
     await seed(user.id, config.MAX_DOCS_PER_USER - 1);
     expect((await paste(cookie)).status).toBe(422);
 
@@ -189,7 +197,12 @@ describe("FR-2.13 — scoping and atomicity", () => {
     expect(finished).toBe(false);
 
     // Keyed per user: someone else is not held up by this user's lock.
-    await expect(createDocumentWithinQuota(other.user.id, { ...doc("other"), textSha256: `o-${other.user.id}` })).resolves.toBeDefined();
+    await expect(
+      createDocumentWithinQuota(other.user.id, {
+        ...doc("other"),
+        textSha256: `o-${other.user.id}`,
+      }),
+    ).resolves.toBeDefined();
 
     release();
     await holder;
@@ -225,7 +238,13 @@ describe("FR-2.13 — scoping and atomicity", () => {
     expect(attempts.filter((a) => a.status === "fulfilled")).toHaveLength(1);
     const refused = attempts.filter((a) => a.status === "rejected");
     expect(refused).toHaveLength(29);
-    expect(refused.every((a) => /** @type {any} */ (a).reason?.code === "STORAGE_QUOTA_EXCEEDED")).toBe(true);
-    expect(await prisma.document.count({ where: { userId: user.id } })).toBe(config.MAX_DOCS_PER_USER);
+    expect(
+      refused.every(
+        (a) => /** @type {any} */ (a).reason?.code === "STORAGE_QUOTA_EXCEEDED",
+      ),
+    ).toBe(true);
+    expect(await prisma.document.count({ where: { userId: user.id } })).toBe(
+      config.MAX_DOCS_PER_USER,
+    );
   }, 90_000);
 });

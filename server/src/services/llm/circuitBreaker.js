@@ -79,7 +79,10 @@ export async function recordProviderCall(outcome, now = new Date()) {
       // opened it would re-open the breaker on the next single failure,
       // so one trial success would buy one call rather than a recovery.
       await redis.del(OPEN_KEY, WINDOW_KEY, TRIAL_KEY);
-      logger.warn({ alert: "circuit_closed" }, "FR-3.12: provider circuit closed after a successful trial");
+      logger.warn(
+        { alert: "circuit_closed" },
+        "FR-3.12: provider circuit closed after a successful trial",
+      );
       return;
     }
 
@@ -115,7 +118,13 @@ async function maybeOpen(ms) {
   const opened = await redis.set(OPEN_KEY, String(ms + OPEN_MS), "PX", OPEN_MS, "NX");
   if (opened === "OK") {
     logger.error(
-      { alert: "circuit_open", failures, calls: recent.length, ratio: Number(ratio.toFixed(2)), openMs: OPEN_MS },
+      {
+        alert: "circuit_open",
+        failures,
+        calls: recent.length,
+        ratio: Number(ratio.toFixed(2)),
+        openMs: OPEN_MS,
+      },
       "FR-3.12: provider circuit opened — analyses will fail fast without a provider call",
     );
   }
@@ -160,9 +169,14 @@ export async function assertCircuitClosed(now = new Date()) {
   }
 
   // The open period has elapsed. Exactly one request becomes the trial.
-  const won = await redis.set(TRIAL_KEY, String(ms), "PX", OPEN_MS, "NX").catch(() => null);
+  const won = await redis
+    .set(TRIAL_KEY, String(ms), "PX", OPEN_MS, "NX")
+    .catch(() => null);
   if (won === "OK") {
-    logger.warn({ alert: "circuit_trial" }, "FR-3.12: circuit half-open, sending a single trial request");
+    logger.warn(
+      { alert: "circuit_trial" },
+      "FR-3.12: circuit half-open, sending a single trial request",
+    );
     return;
   }
   throw new AppError("LLM_UNAVAILABLE");
@@ -176,7 +190,9 @@ export async function getCircuitState(now = new Date()) {
       redis.get(OPEN_KEY),
       redis.lrange(WINDOW_KEY, 0, WINDOW_SIZE - 1),
     ]);
-    const recent = entries.filter((entry) => now.getTime() - Number(entry.split(":")[0]) <= WINDOW_MS);
+    const recent = entries.filter(
+      (entry) => now.getTime() - Number(entry.split(":")[0]) <= WINDOW_MS,
+    );
     const failures = recent.filter((entry) => entry.endsWith(":fail")).length;
     return {
       open: Boolean(openUntil) && now.getTime() < Number(openUntil),

@@ -13,12 +13,36 @@ import "../../src/observability/metrics.js";
  * "nothing is wrong".
  */
 
-const DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "ops", "dashboards");
+const DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "ops",
+  "dashboards",
+);
 const FILES = readdirSync(DIR).filter((f) => f.endsWith(".json"));
 
 const FUNCTIONS = new Set([
-  "sum", "max", "min", "avg", "count", "rate", "increase", "irate", "histogram_quantile",
-  "time", "scalar", "by", "without", "on", "ignoring", "and", "or", "unless", "clamp_min",
+  "sum",
+  "max",
+  "min",
+  "avg",
+  "count",
+  "rate",
+  "increase",
+  "irate",
+  "histogram_quantile",
+  "time",
+  "scalar",
+  "by",
+  "without",
+  "on",
+  "ignoring",
+  "and",
+  "or",
+  "unless",
+  "clamp_min",
 ]);
 const HISTOGRAM_SUFFIXES = ["_bucket", "_sum", "_count"];
 
@@ -36,13 +60,17 @@ function metricFor(name) {
 
 /** @param {import("prom-client").Metric} metric */
 const labelsOf = (metric) =>
-  /** @type {{ labelNames?: string[] }} */ (/** @type {unknown} */ (metric)).labelNames ?? [];
+  /** @type {{ labelNames?: string[] }} */ (/** @type {unknown} */ (metric)).labelNames ??
+  [];
 
 /** Every (expr, metrics named, labels used) in a dashboard file. */
 function queries(file) {
   const dashboard = JSON.parse(readFileSync(join(DIR, file), "utf8"));
   return dashboard.panels.flatMap((panel) =>
-    panel.targets.map((/** @type {{ expr: string }} */ t) => ({ panel: panel.title, expr: t.expr })),
+    panel.targets.map((/** @type {{ expr: string }} */ t) => ({
+      panel: panel.title,
+      expr: t.expr,
+    })),
   );
 }
 
@@ -58,47 +86,51 @@ describe.each(FILES)("%s", (file) => {
     }
   });
 
-  it.each(/** @type {[string, string][]} */ (queries(file).map((q) => [q.panel, q.expr])))(
-    "%s: names only registered metrics, with only their labels",
-    (_panel, expr) => {
-      // Strip string literals, then find label matchers and grouping labels.
-      const withoutStrings = expr.replace(/"[^"]*"/g, '""');
-      const matcherBlocks = [...withoutStrings.matchAll(/([a-z_][a-z0-9_]*)\{([^}]*)\}/g)];
-      const grouping = [...withoutStrings.matchAll(/\b(?:by|without)\s*\(([^)]*)\)/g)].flatMap((m) =>
-        m[1].split(",").map((l) => l.trim()).filter(Boolean),
-      );
-      const bare = withoutStrings
-        .replace(/\{[^}]*\}/g, "")
-        .replace(/\b(?:by|without)\s*\([^)]*\)/g, "")
-        .replace(/\[[^\]]*\]/g, "");
-      const identifiers = [...bare.matchAll(/\b([a-z_][a-z0-9_]*)\b/g)].map((m) => m[1]);
-      const metricNames = identifiers.filter((id) => !FUNCTIONS.has(id));
+  it.each(
+    /** @type {[string, string][]} */ (queries(file).map((q) => [q.panel, q.expr])),
+  )("%s: names only registered metrics, with only their labels", (_panel, expr) => {
+    // Strip string literals, then find label matchers and grouping labels.
+    const withoutStrings = expr.replace(/"[^"]*"/g, '""');
+    const matcherBlocks = [...withoutStrings.matchAll(/([a-z_][a-z0-9_]*)\{([^}]*)\}/g)];
+    const grouping = [
+      ...withoutStrings.matchAll(/\b(?:by|without)\s*\(([^)]*)\)/g),
+    ].flatMap((m) =>
+      m[1]
+        .split(",")
+        .map((l) => l.trim())
+        .filter(Boolean),
+    );
+    const bare = withoutStrings
+      .replace(/\{[^}]*\}/g, "")
+      .replace(/\b(?:by|without)\s*\([^)]*\)/g, "")
+      .replace(/\[[^\]]*\]/g, "");
+    const identifiers = [...bare.matchAll(/\b([a-z_][a-z0-9_]*)\b/g)].map((m) => m[1]);
+    const metricNames = identifiers.filter((id) => !FUNCTIONS.has(id));
 
-      expect(metricNames.length).toBeGreaterThan(0);
-      /** @type {Set<string>} */
-      const allowedLabels = new Set(["instance", "job", "le"]);
-      for (const name of metricNames) {
-        const found = metricFor(name);
-        expect(found, `${name} is not a registered metric`).not.toBeNull();
-        if (!found) continue;
-        for (const label of [...labelsOf(found.metric), ...found.extraLabels]) {
-          allowedLabels.add(label);
-        }
+    expect(metricNames.length).toBeGreaterThan(0);
+    /** @type {Set<string>} */
+    const allowedLabels = new Set(["instance", "job", "le"]);
+    for (const name of metricNames) {
+      const found = metricFor(name);
+      expect(found, `${name} is not a registered metric`).not.toBeNull();
+      if (!found) continue;
+      for (const label of [...labelsOf(found.metric), ...found.extraLabels]) {
+        allowedLabels.add(label);
       }
-      for (const [, name, body] of matcherBlocks) {
-        const found = metricFor(name);
-        expect(found, `${name} is not a registered metric`).not.toBeNull();
-        if (!found) continue;
-        const own = new Set([...labelsOf(found.metric), ...found.extraLabels]);
-        for (const [, label] of body.matchAll(/([a-z_]+)\s*(?:=~|!=|!~|=)/g)) {
-          expect(own.has(label), `${name} has no label "${label}"`).toBe(true);
-        }
+    }
+    for (const [, name, body] of matcherBlocks) {
+      const found = metricFor(name);
+      expect(found, `${name} is not a registered metric`).not.toBeNull();
+      if (!found) continue;
+      const own = new Set([...labelsOf(found.metric), ...found.extraLabels]);
+      for (const [, label] of body.matchAll(/([a-z_]+)\s*(?:=~|!=|!~|=)/g)) {
+        expect(own.has(label), `${name} has no label "${label}"`).toBe(true);
       }
-      for (const label of grouping) {
-        expect(allowedLabels.has(label), `grouping by unknown label "${label}"`).toBe(true);
-      }
-    },
-  );
+    }
+    for (const label of grouping) {
+      expect(allowedLabels.has(label), `grouping by unknown label "${label}"`).toBe(true);
+    }
+  });
 });
 
 describe("the quality dashboard carries PRD §11's thresholds", () => {
@@ -109,9 +141,12 @@ describe("the quality dashboard carries PRD §11's thresholds", () => {
       .fieldConfig.defaults.thresholds.steps.map((s) => s.value)
       .filter((v) => v !== null);
 
-  it("discard rate: 5% target, 10% review (§11.1)", () => expect(steps("Discard rate")).toEqual([0.05, 0.1]));
-  it("risk drift: 25% review (§11.1)", () => expect(steps("Rule/model risk drift")).toEqual([0.25]));
-  it("user-visible errors: 2% (§11.2)", () => expect(steps("Analyses ending in an error")).toEqual([0.02]));
+  it("discard rate: 5% target, 10% review (§11.1)", () =>
+    expect(steps("Discard rate")).toEqual([0.05, 0.1]));
+  it("risk drift: 25% review (§11.1)", () =>
+    expect(steps("Rule/model risk drift")).toEqual([0.25]));
+  it("user-visible errors: 2% (§11.2)", () =>
+    expect(steps("Analyses ending in an error")).toEqual([0.02]));
   it("spend: the 50/80/100% alert thresholds (FR-5.4)", () =>
     expect(steps("Spend against ceiling")).toEqual([0.5, 0.8, 1]));
 });

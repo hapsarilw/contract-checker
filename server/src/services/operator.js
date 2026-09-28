@@ -36,7 +36,10 @@ import { usdFor } from "./spend.js";
 export async function findAccountByEmail(email) {
   const normalised = email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email: normalised } });
-  if (!user) throw new AppError("NOT_FOUND", { message: `No account with the address ${normalised}.` });
+  if (!user)
+    throw new AppError("NOT_FOUND", {
+      message: `No account with the address ${normalised}.`,
+    });
   return user;
 }
 
@@ -44,7 +47,8 @@ export async function findAccountByEmail(email) {
 function requireReference(reference) {
   if (!reference || reference.trim().length < 3) {
     throw new AppError("VALIDATION_ERROR", {
-      message: "A --reference (the ticket, thread or incident this action is for) is required.",
+      message:
+        "A --reference (the ticket, thread or incident this action is for) is required.",
     });
   }
   return reference.trim();
@@ -62,11 +66,18 @@ function requireReference(reference) {
 export async function suspendAccount(email, { reference }) {
   const ref = requireReference(reference);
   const user = await findAccountByEmail(email);
-  if (user.state === "SUSPENDED") return { id: user.id, state: user.state, changed: false };
+  if (user.state === "SUSPENDED")
+    return { id: user.id, state: user.state, changed: false };
 
   await prisma.user.update({ where: { id: user.id }, data: { state: "SUSPENDED" } });
-  await recordAuditEvent(AUDIT_ACTIONS.OPERATOR_SUSPENDED, { userId: user.id, requestId: `operator:${ref}` });
-  logger.warn({ operator: { action: "suspend", userId: user.id, reference: ref } }, "operator suspended an account");
+  await recordAuditEvent(AUDIT_ACTIONS.OPERATOR_SUSPENDED, {
+    userId: user.id,
+    requestId: `operator:${ref}`,
+  });
+  logger.warn(
+    { operator: { action: "suspend", userId: user.id, reference: ref } },
+    "operator suspended an account",
+  );
   return { id: user.id, state: "SUSPENDED", changed: true };
 }
 
@@ -82,7 +93,8 @@ export async function suspendAccount(email, { reference }) {
 export async function liftSuspension(email, { reference }) {
   const ref = requireReference(reference);
   const user = await findAccountByEmail(email);
-  if (user.state !== "SUSPENDED") return { id: user.id, state: user.state, changed: false };
+  if (user.state !== "SUSPENDED")
+    return { id: user.id, state: user.state, changed: false };
 
   const state = user.emailVerifiedAt ? "ACTIVE" : "UNVERIFIED";
   await prisma.user.update({ where: { id: user.id }, data: { state } });
@@ -90,7 +102,10 @@ export async function liftSuspension(email, { reference }) {
     userId: user.id,
     requestId: `operator:${ref}`,
   });
-  logger.warn({ operator: { action: "lift-suspension", userId: user.id, reference: ref } }, "operator lifted a suspension");
+  logger.warn(
+    { operator: { action: "lift-suspension", userId: user.id, reference: ref } },
+    "operator lifted a suspension",
+  );
   return { id: user.id, state, changed: true };
 }
 
@@ -122,7 +137,12 @@ export async function spendByAccount({ now = new Date(), limit = 10 } = {}) {
   const byUser = new Map();
   for (const analysis of analyses) {
     const userId = analysis.document.userId;
-    const row = byUser.get(userId) ?? { analyses: 0, failed: 0, inputTokens: 0, outputTokens: 0 };
+    const row = byUser.get(userId) ?? {
+      analyses: 0,
+      failed: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
     row.analyses += 1;
     if (analysis.status === "FAILED") row.failed += 1;
     row.inputTokens += analysis.inputTokens ?? 0;
@@ -130,9 +150,16 @@ export async function spendByAccount({ now = new Date(), limit = 10 } = {}) {
     byUser.set(userId, row);
   }
 
-  const totalUsd = [...byUser.values()].reduce((sum, r) => sum + usdFor(r.inputTokens, r.outputTokens), 0);
+  const totalUsd = [...byUser.values()].reduce(
+    (sum, r) => sum + usdFor(r.inputTokens, r.outputTokens),
+    0,
+  );
   const ranked = [...byUser.entries()]
-    .map(([userId, row]) => ({ userId, ...row, usd: usdFor(row.inputTokens, row.outputTokens) }))
+    .map(([userId, row]) => ({
+      userId,
+      ...row,
+      usd: usdFor(row.inputTokens, row.outputTokens),
+    }))
     .sort((a, b) => b.usd - a.usd)
     .slice(0, limit);
 
@@ -167,8 +194,14 @@ export async function operatorExport(email, { reference }) {
   const ref = requireReference(reference);
   const user = await findAccountByEmail(email);
   const data = await exportAccount(user.id);
-  await recordAuditEvent(AUDIT_ACTIONS.OPERATOR_EXPORTED, { userId: user.id, requestId: `dsar:${ref}` });
-  logger.warn({ operator: { action: "export", userId: user.id, reference: ref } }, "operator exported an account's data");
+  await recordAuditEvent(AUDIT_ACTIONS.OPERATOR_EXPORTED, {
+    userId: user.id,
+    requestId: `dsar:${ref}`,
+  });
+  logger.warn(
+    { operator: { action: "export", userId: user.id, reference: ref } },
+    "operator exported an account's data",
+  );
   return data;
 }
 
@@ -191,14 +224,21 @@ export async function operatorErase(email, { reference, confirm }) {
   const ref = requireReference(reference);
   if (!confirm || confirm.trim().toLowerCase() !== email.trim().toLowerCase()) {
     throw new AppError("VALIDATION_ERROR", {
-      message: "--confirm must repeat the account's address exactly. Nothing was deleted.",
+      message:
+        "--confirm must repeat the account's address exactly. Nothing was deleted.",
     });
   }
   const user = await findAccountByEmail(email);
   const { email: deletedEmail } = await eraseAccount(user);
-  await recordAuditEvent(AUDIT_ACTIONS.ACCOUNT_DELETED, { userId: user.id, requestId: `dsar:${ref}` });
+  await recordAuditEvent(AUDIT_ACTIONS.ACCOUNT_DELETED, {
+    userId: user.id,
+    requestId: `dsar:${ref}`,
+  });
   sendAccountDeletedNotice(deletedEmail);
-  logger.warn({ operator: { action: "erase", userId: user.id, reference: ref } }, "operator erased an account");
+  logger.warn(
+    { operator: { action: "erase", userId: user.id, reference: ref } },
+    "operator erased an account",
+  );
   return { id: user.id, deleted: true };
 }
 
@@ -229,7 +269,9 @@ export async function operatorErase(email, { reference, confirm }) {
  */
 export async function restoredDeletions({ oldDatabaseUrl, since }) {
   if (Number.isNaN(since.getTime())) {
-    throw new AppError("VALIDATION_ERROR", { message: "--since must be a date, e.g. 2026-09-28T03:00:00Z." });
+    throw new AppError("VALIDATION_ERROR", {
+      message: "--since must be a date, e.g. 2026-09-28T03:00:00Z.",
+    });
   }
   const old = new pg.Client({ connectionString: oldDatabaseUrl });
   await old.connect();
@@ -260,4 +302,3 @@ export async function restoredDeletions({ oldDatabaseUrl, since }) {
     resurrected: users.filter((user) => deleted.has(subjectHash(user.id))),
   };
 }
-

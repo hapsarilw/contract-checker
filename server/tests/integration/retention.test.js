@@ -51,16 +51,32 @@ describe("runRetention — documents and descendants (RETENTION_DAYS = 90)", () 
     const young = await documentWithDescendantsAt(daysAgo(89));
 
     // Anti-vacuity: both trees are fully populated before the run.
-    expect(await countTreeUnder(old.document.id)).toEqual({ documents: 1, analyses: 1, findings: 2 });
-    expect(await countTreeUnder(young.document.id)).toEqual({ documents: 1, analyses: 1, findings: 2 });
+    expect(await countTreeUnder(old.document.id)).toEqual({
+      documents: 1,
+      analyses: 1,
+      findings: 2,
+    });
+    expect(await countTreeUnder(young.document.id)).toEqual({
+      documents: 1,
+      analyses: 1,
+      findings: 2,
+    });
 
     const result = await runRetention(NOW);
 
     expect(result.documents).toEqual({ deleted: 1, batches: 1 });
     // The cascade removed the descendants; nothing in this job deletes them
     // by hand, and this is what proves the schema's cascade did it.
-    expect(await countTreeUnder(old.document.id)).toEqual({ documents: 0, analyses: 0, findings: 0 });
-    expect(await countTreeUnder(young.document.id)).toEqual({ documents: 1, analyses: 1, findings: 2 });
+    expect(await countTreeUnder(old.document.id)).toEqual({
+      documents: 0,
+      analyses: 0,
+      findings: 0,
+    });
+    expect(await countTreeUnder(young.document.id)).toEqual({
+      documents: 1,
+      analyses: 1,
+      findings: 2,
+    });
   }, 30_000);
 
   it("a document exactly RETENTION_DAYS old is kept — the cutoff is strictly older-than", async () => {
@@ -109,7 +125,12 @@ describe("runRetention — expired AuthTokens (7 days past expiry) and AuditEven
     const user = await createUser();
     const token = (expiresAt) =>
       prisma.authToken.create({
-        data: { userId: user.id, type: "PASSWORD_RESET", tokenHash: randomUUID(), expiresAt },
+        data: {
+          userId: user.id,
+          type: "PASSWORD_RESET",
+          tokenHash: randomUUID(),
+          expiresAt,
+        },
       });
     const longExpired = await token(daysAgo(8));
     // Between 6 and 7 days past expiry, for the same reason as the audit
@@ -144,7 +165,9 @@ describe("runRetention — expired AuthTokens (7 days past expiry) and AuditEven
 
     expect(result.auditEvents?.deleted).toBe(1);
     expect(await prisma.auditEvent.count({ where: { id: fourteenMonths.id } })).toBe(0);
-    expect(await prisma.auditEvent.count({ where: { id: twelveAndAHalfMonths.id } })).toBe(1);
+    expect(
+      await prisma.auditEvent.count({ where: { id: twelveAndAHalfMonths.id } }),
+    ).toBe(1);
   }, 30_000);
 });
 
@@ -170,7 +193,11 @@ describe("the last-success timestamp (step 61's cross-instance requirement)", ()
     const metric = await gauge.get();
     // One series per known job (retention, quota-reset, backup-verify),
     // every one of them present and 0 before any has ever succeeded.
-    expect(metric.values.map((v) => v.labels.job).sort()).toEqual(["backup-verify", "quota-reset", "retention"]);
+    expect(metric.values.map((v) => v.labels.job).sort()).toEqual([
+      "backup-verify",
+      "quota-reset",
+      "retention",
+    ]);
     expect(metric.values.every((v) => v.value === 0)).toBe(true);
   }, 30_000);
 

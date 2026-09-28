@@ -90,7 +90,9 @@ export async function main() {
   const { yaml, rules, stripped } = stripAnnotations(alerts);
   if (rules === 0) throw new Error("alerts.yml has no rules — did its shape change?");
   if (stripped !== rules) {
-    throw new Error(`${rules - stripped} rule(s) have no annotations; every alert needs a summary and a runbook`);
+    throw new Error(
+      `${rules - stripped} rule(s) have no annotations; every alert needs a summary and a runbook`,
+    );
   }
 
   const dir = await mkdtemp(join(tmpdir(), "clausecheck-rule-tests-"));
@@ -107,13 +109,17 @@ export async function main() {
 
     const result = runPromtool(dir, testFiles);
     if (result.error) {
-      console.error(`could not run promtool (is Docker running?): ${result.error.message}`);
+      console.error(
+        `could not run promtool (is Docker running?): ${result.error.message}`,
+      );
       return 2;
     }
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
     console.log(output.trimEnd());
     if (result.status !== 0) {
-      console.error(`\nFAIL: promtool reported failing alert-rule tests (${rules} rules under test).`);
+      console.error(
+        `\nFAIL: promtool reported failing alert-rule tests (${rules} rules under test).`,
+      );
       return 1;
     }
     console.log(`\nOK: ${rules} alert rules pass their promtool unit tests.`);

@@ -32,10 +32,15 @@ const sink = () =>
 
 const json = (req) => req.set("Content-Type", "application/json");
 
-const forgot = (email) => json(request(testServer()).post("/api/v1/auth/forgot-password")).send({ email });
+const forgot = (email) =>
+  json(request(testServer()).post("/api/v1/auth/forgot-password")).send({ email });
 const reset = (token, password = NEW_PASSWORD) =>
-  json(request(testServer()).post("/api/v1/auth/reset-password")).send({ token, password });
-const login = (email, password) => json(request(testServer()).post("/api/v1/auth/login")).send({ email, password });
+  json(request(testServer()).post("/api/v1/auth/reset-password")).send({
+    token,
+    password,
+  });
+const login = (email, password) =>
+  json(request(testServer()).post("/api/v1/auth/login")).send({ email, password });
 
 /** The reset token from the most recent email to an address. */
 function tokenFromEmail(email) {
@@ -116,7 +121,10 @@ describe("TR-10 — forgot-password does not disclose whether an account exists"
   }, 30_000);
 
   it("normalises the address, so whitespace and case still reach the account", async () => {
-    const user = await createUser({ email: "mixed.case@example.test", password: PASSWORD });
+    const user = await createUser({
+      email: "mixed.case@example.test",
+      password: PASSWORD,
+    });
     const token = await requestResetAndWait(user.email);
     expect(token).toEqual(expect.any(String));
 
@@ -132,7 +140,9 @@ describe("TR-10 — the token", () => {
     const user = await createUser({ password: PASSWORD });
     const token = await requestResetAndWait(user.email);
 
-    const row = await prisma.authToken.findFirstOrThrow({ where: { userId: user.id, type: "PASSWORD_RESET" } });
+    const row = await prisma.authToken.findFirstOrThrow({
+      where: { userId: user.id, type: "PASSWORD_RESET" },
+    });
     expect(row.tokenHash).toBe(hashToken(/** @type {string} */ (token)));
     expect(row.tokenHash).not.toContain(token);
 
@@ -232,12 +242,16 @@ describe("TR-10 — reset does all four things", () => {
     // means the reset changed a password and nothing else.
     const user = await createUser({ password: PASSWORD });
     const cookie = `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion })}`;
-    expect((await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookie)).status).toBe(200);
+    expect(
+      (await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookie)).status,
+    ).toBe(200);
 
     const token = /** @type {string} */ (await requestResetAndWait(user.email));
     await reset(token);
 
-    const after = await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookie);
+    const after = await request(testServer())
+      .get("/api/v1/auth/me")
+      .set("Cookie", cookie);
     expect(after.status).toBe(401);
     expect(after.body.error.code).toBe("SESSION_REVOKED");
   }, 30_000);
@@ -365,7 +379,9 @@ describe("FR-1.8 — forgot-password is rate limited", () => {
     try {
       expect((await forgot(user.email)).status).toBe(503);
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
   }, 30_000);
 });

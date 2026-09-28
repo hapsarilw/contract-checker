@@ -107,7 +107,10 @@ export async function runQuotaReset(now = new Date(), { shouldRun } = {}) {
 
     // A count and a period, nothing about who: this log line has no user
     // in it and never will.
-    logger.info({ job: "quota-reset", period: periodOf(now), reset: count }, "quota reset finished");
+    logger.info(
+      { job: "quota-reset", period: periodOf(now), reset: count },
+      "quota reset finished",
+    );
     return { ran: true, reset: count };
   });
 
@@ -126,7 +129,10 @@ export function quotaResetTick(now = new Date()) {
  * @param {{ tick?: () => Promise<unknown>, intervalMs?: number }} [options]
  * @returns {NodeJS.Timeout}
  */
-export function startQuotaResetJob({ tick = () => quotaResetTick(), intervalMs = TICK_INTERVAL_MS } = {}) {
+export function startQuotaResetJob({
+  tick = () => quotaResetTick(),
+  intervalMs = TICK_INTERVAL_MS,
+} = {}) {
   return startRecurring({ job: "quota-reset", tick, intervalMs });
 }
 

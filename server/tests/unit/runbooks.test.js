@@ -24,13 +24,18 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const DIR = join(ROOT, "docs", "runbooks");
-const RUNBOOKS = readdirSync(DIR).filter((name) => name.endsWith(".md") && name !== "README.md");
+const RUNBOOKS = readdirSync(DIR).filter(
+  (name) => name.endsWith(".md") && name !== "README.md",
+);
 const read = (name) => readFileSync(join(DIR, name), "utf8");
 
 /** SRS §12.3's numbered list: 1. `analysis-failure-rate-high` — … */
 function specifiedRunbooks() {
   const srs = readFileSync(join(ROOT, "docs", "SRS.md"), "utf8");
-  const section = srs.slice(srs.indexOf("### 12.3 Scheduled jobs and runbooks"), srs.indexOf("### 12.4"));
+  const section = srs.slice(
+    srs.indexOf("### 12.3 Scheduled jobs and runbooks"),
+    srs.indexOf("### 12.4"),
+  );
   return [...section.matchAll(/^\d+\. `([a-z0-9-]+)`/gm)].map((m) => m[1]);
 }
 
@@ -85,7 +90,9 @@ describe.each(RUNBOOKS)("%s", (file) => {
   it("tells the operator to run only operator commands that exist", () => {
     const commands = opsCommands();
     for (const [, command] of text.matchAll(/npm run ops -- ([a-z-]+)/g)) {
-      expect(commands.has(command), `${file} names "npm run ops -- ${command}"`).toBe(true);
+      expect(commands.has(command), `${file} names "npm run ops -- ${command}"`).toBe(
+        true,
+      );
     }
   });
 });
@@ -96,7 +103,9 @@ describe("the index", () => {
   it("lists every runbook, and every runbook it lists exists", () => {
     // Unique: the index links some runbooks twice (the table, and the list of
     // defects the walkthroughs found).
-    const linked = [...new Set([...index.matchAll(/\]\(([a-z0-9-]+\.md)\)/g)].map((m) => m[1]))].sort();
+    const linked = [
+      ...new Set([...index.matchAll(/\]\(([a-z0-9-]+\.md)\)/g)].map((m) => m[1])),
+    ].sort();
     expect(linked).toEqual([...RUNBOOKS].sort());
   });
 });
@@ -128,6 +137,8 @@ describe("secret-rotation keeps AUDIT_SALT apart from JWT_SECRET", () => {
   });
 
   it("AUDIT_SALT comes after JWT_SECRET, as the exception to it, not the rule", () => {
-    expect(text.indexOf("### `AUDIT_SALT`")).toBeGreaterThan(text.indexOf("### `JWT_SECRET`"));
+    expect(text.indexOf("### `AUDIT_SALT`")).toBeGreaterThan(
+      text.indexOf("### `JWT_SECRET`"),
+    );
   });
 });

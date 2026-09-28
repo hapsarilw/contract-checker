@@ -59,7 +59,9 @@ const SINK_FROM = "noreply@clausecheck.invalid";
  * twice and throw.
  */
 export const emailSendTotal =
-  /** @type {Counter<"type" | "outcome"> | undefined} */ (register.getSingleMetric("email_send_total")) ??
+  /** @type {Counter<"type" | "outcome"> | undefined} */ (
+    register.getSingleMetric("email_send_total")
+  ) ??
   new Counter({
     name: "email_send_total",
     help: "Transactional emails by type and final outcome (sent, failed).",
@@ -72,8 +74,15 @@ export const emailSendTotal =
  * @param {unknown} err
  */
 function describeProviderError(err) {
-  const e = /** @type {{ name?: string, status?: number, statusCode?: number, code?: string }} */ (err ?? {});
-  return { name: e.name ?? "Error", status: e.status ?? e.statusCode ?? null, code: e.code ?? null };
+  const e =
+    /** @type {{ name?: string, status?: number, statusCode?: number, code?: string }} */ (
+      err ?? {}
+    );
+  return {
+    name: e.name ?? "Error",
+    status: e.status ?? e.statusCode ?? null,
+    code: e.code ?? null,
+  };
 }
 
 /**
@@ -84,7 +93,8 @@ function describeProviderError(err) {
  *
  * @param {unknown} err
  */
-const isPermanent = (err) => /** @type {{ permanent?: boolean }} */ (err)?.permanent === true;
+const isPermanent = (err) =>
+  /** @type {{ permanent?: boolean }} */ (err)?.permanent === true;
 
 /**
  * @typedef {{
@@ -127,7 +137,12 @@ export function createEmailService({
         provider.send(message, { signal: controller.signal }),
         new Promise((_resolve, reject) => {
           controller.signal.addEventListener("abort", () =>
-            reject(Object.assign(new Error("email send timed out"), { name: "TimeoutError", code: "ETIMEDOUT" })),
+            reject(
+              Object.assign(new Error("email send timed out"), {
+                name: "TimeoutError",
+                code: "ETIMEDOUT",
+              }),
+            ),
           );
         }),
       ]);
@@ -162,7 +177,10 @@ export function createEmailService({
           return;
         }
 
-        logger.warn({ email: { type, attempt: n }, err: detail }, "email delivery failed, will retry");
+        logger.warn(
+          { email: { type, attempt: n }, err: detail },
+          "email delivery failed, will retry",
+        );
         await sleep(RETRY_DELAYS_MS[n - 1] ?? RETRY_DELAYS_MS.at(-1) ?? 1_000);
       }
     }
@@ -182,7 +200,9 @@ export function createEmailService({
         const template = TEMPLATES[type];
         if (!template) throw new Error(`unknown email type "${type}"`);
 
-        const content = template(/** @type {any} */ (withLinks(type, params, frontendOrigin)));
+        const content = template(
+          /** @type {any} */ (withLinks(type, params, frontendOrigin)),
+        );
         const message = { to, from, ...content };
 
         const task = deliver(type, message).finally(() => pending.delete(task));
@@ -194,7 +214,11 @@ export function createEmailService({
         // the user.
         emailSendTotal.inc({ type: String(type), outcome: "failed" });
         logger.error(
-          { alert: "email_send_failed", email: { type: String(type) }, err: { message: String(/** @type {Error} */ (err)?.message ?? err) } },
+          {
+            alert: "email_send_failed",
+            email: { type: String(type) },
+            err: { message: String(/** @type {Error} */ (err)?.message ?? err) },
+          },
           "email could not be built",
         );
         return { queued: false };
@@ -236,13 +260,19 @@ export function createEmailService({
  */
 function withLinks(type, params, origin) {
   if (type === "verification") {
-    return { verifyUrl: `${origin}/verify-email?token=${encodeURIComponent(params.token ?? "")}` };
+    return {
+      verifyUrl: `${origin}/verify-email?token=${encodeURIComponent(params.token ?? "")}`,
+    };
   }
   if (type === "password_reset") {
-    return { resetUrl: `${origin}/reset-password?token=${encodeURIComponent(params.token ?? "")}` };
+    return {
+      resetUrl: `${origin}/reset-password?token=${encodeURIComponent(params.token ?? "")}`,
+    };
   }
   if (type === "email_change_verification") {
-    return { confirmUrl: `${origin}/confirm-email-change?token=${encodeURIComponent(params.token ?? "")}` };
+    return {
+      confirmUrl: `${origin}/confirm-email-change?token=${encodeURIComponent(params.token ?? "")}`,
+    };
   }
   return params;
 }
@@ -261,7 +291,9 @@ export function getEmailService() {
   // NODE_ENV=test keeps the sink in memory only, so the test run does not
   // litter the working tree. Anywhere else the directory is what a
   // separate E2E process reads (see sinkProvider.js).
-  const dir = config.EMAIL_SINK_DIR ?? (config.NODE_ENV === "test" ? undefined : join(process.cwd(), ".mail-sink"));
+  const dir =
+    config.EMAIL_SINK_DIR ??
+    (config.NODE_ENV === "test" ? undefined : join(process.cwd(), ".mail-sink"));
 
   service = createEmailService({
     provider: createSinkProvider({ dir }),

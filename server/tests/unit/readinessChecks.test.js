@@ -17,7 +17,9 @@ describe("checkPostgres (FR-4.7)", () => {
     // connection — verified directly against a real unreachable Postgres:
     // a generic "Invalid `prisma.$queryRaw()` invocation:" message with
     // no further detail, and the useful part on `.code` instead.
-    const prismaStyleError = new Error("\nInvalid `prisma.$queryRaw()` invocation:\n\n\n");
+    const prismaStyleError = new Error(
+      "\nInvalid `prisma.$queryRaw()` invocation:\n\n\n",
+    );
     // @ts-expect-error — attaching a non-standard field, same as Prisma does
     prismaStyleError.code = "ECONNREFUSED";
     vi.spyOn(prisma, "$queryRaw").mockRejectedValue(prismaStyleError);

@@ -47,25 +47,49 @@ const upload = (cookie, buffer, filename) =>
 
 describe("TR-18 — hostile uploads are refused as 4xx, never 500", () => {
   it.each([
-    ["a zip bomb over the ratio cap", () => buildZipBomb({ megabytes: 10 }), "ratio.docx", "MALFORMED_DOCUMENT"],
-    ["an archive with too many entries", () => buildManyEntryDocx(MAX_ENTRIES + 100), "many.docx", "MALFORMED_DOCUMENT"],
-    ["a bomb that lies about its declared sizes", async () => lieAboutUncompressedSizes(await buildZipBomb({ megabytes: 60 })), "liar.docx", "MALFORMED_DOCUMENT"],
+    [
+      "a zip bomb over the ratio cap",
+      () => buildZipBomb({ megabytes: 10 }),
+      "ratio.docx",
+      "MALFORMED_DOCUMENT",
+    ],
+    [
+      "an archive with too many entries",
+      () => buildManyEntryDocx(MAX_ENTRIES + 100),
+      "many.docx",
+      "MALFORMED_DOCUMENT",
+    ],
+    [
+      "a bomb that lies about its declared sizes",
+      async () => lieAboutUncompressedSizes(await buildZipBomb({ megabytes: 60 })),
+      "liar.docx",
+      "MALFORMED_DOCUMENT",
+    ],
     ["a 200-page PDF", () => buildPdf({ pages: 200 }), "long.pdf", "DOCUMENT_TOO_LONG"],
-    ["an encrypted PDF", () => buildPdf({ password: "secret" }), "locked.pdf", "ENCRYPTED_DOCUMENT"],
+    [
+      "an encrypted PDF",
+      () => buildPdf({ password: "secret" }),
+      "locked.pdf",
+      "ENCRYPTED_DOCUMENT",
+    ],
     ["a truncated PDF", () => buildTruncatedPdf(), "cut.pdf", "MALFORMED_DOCUMENT"],
-  ])("%s → 422 %s, and stores nothing", async (_label, build, filename, code) => {
-    const { user, cookie } = await signedIn();
+  ])(
+    "%s → 422 %s, and stores nothing",
+    async (_label, build, filename, code) => {
+      const { user, cookie } = await signedIn();
 
-    const res = await upload(cookie, await build(), filename);
+      const res = await upload(cookie, await build(), filename);
 
-    expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe(code);
-    expect(res.body.error.requestId).toEqual(expect.any(String));
-    // Never a 500: a malformed upload is not a server defect, and
-    // labelling it as one would hide the real ones.
-    expect(res.status).not.toBe(500);
-    expect(await prisma.document.count({ where: { userId: user.id } })).toBe(0);
-  }, 90_000);
+      expect(res.status).toBe(422);
+      expect(res.body.error.code).toBe(code);
+      expect(res.body.error.requestId).toEqual(expect.any(String));
+      // Never a 500: a malformed upload is not a server defect, and
+      // labelling it as one would hide the real ones.
+      expect(res.status).not.toBe(500);
+      expect(await prisma.document.count({ where: { userId: user.id } })).toBe(0);
+    },
+    90_000,
+  );
 
   it("never puts document content into the error body", async () => {
     // FR-2.7 bars document content from logs and error output, and a
@@ -79,7 +103,9 @@ describe("TR-18 — hostile uploads are refused as 4xx, never 500", () => {
 
   it("still accepts an ordinary PDF, so the limits are not a tax on the common case", async () => {
     const { user, cookie } = await signedIn();
-    const words = Array.from({ length: 300 }, (_unused, index) => `clause${index}`).join(" ");
+    const words = Array.from({ length: 300 }, (_unused, index) => `clause${index}`).join(
+      " ",
+    );
 
     const res = await upload(cookie, await buildPdf({ text: words }), "ordinary.pdf");
 

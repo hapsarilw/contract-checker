@@ -128,7 +128,11 @@ export function assessBackups(backups, now, { minBytes, maxAgeHours }) {
     return { ok: false, reason: REASONS.SHRUNK };
   }
 
-  return { ok: true, ageHours: Math.round(ageHours * 10) / 10, sizeBytes: newest.sizeBytes };
+  return {
+    ok: true,
+    ageHours: Math.round(ageHours * 10) / 10,
+    sizeBytes: newest.sizeBytes,
+  };
 }
 
 /**
@@ -141,8 +145,10 @@ export function assessBackups(backups, now, { minBytes, maxAgeHours }) {
  * @param {Date} now
  */
 export function isBackupVerifyDue({ lastSuccessAt, lastFailureAt }, now) {
-  const failingSinceSuccess = lastFailureAt && (!lastSuccessAt || lastFailureAt > lastSuccessAt);
-  if (failingSinceSuccess) return now.getTime() - lastFailureAt.getTime() >= RETRY_AFTER_FAILURE_MS;
+  const failingSinceSuccess =
+    lastFailureAt && (!lastSuccessAt || lastFailureAt > lastSuccessAt);
+  if (failingSinceSuccess)
+    return now.getTime() - lastFailureAt.getTime() >= RETRY_AFTER_FAILURE_MS;
   if (!lastSuccessAt) return true;
   return now.getTime() - lastSuccessAt.getTime() >= INTERVAL_MS;
 }
@@ -164,9 +170,14 @@ export function isBackupVerifyDue({ lastSuccessAt, lastFailureAt }, now) {
 export async function runBackupVerify(
   now = new Date(),
   {
-    listBackups = config.BACKUP_DIR ? () => listBackupsInDirectory(/** @type {string} */ (config.BACKUP_DIR)) : undefined,
+    listBackups = config.BACKUP_DIR
+      ? () => listBackupsInDirectory(/** @type {string} */ (config.BACKUP_DIR))
+      : undefined,
     shouldRun,
-    limits = { minBytes: config.BACKUP_MIN_BYTES, maxAgeHours: config.BACKUP_MAX_AGE_HOURS },
+    limits = {
+      minBytes: config.BACKUP_MIN_BYTES,
+      maxAgeHours: config.BACKUP_MAX_AGE_HOURS,
+    },
   } = {},
 ) {
   const outcome = await withJobLock(BACKUP_VERIFY_LOCK_KEY, async () => {
@@ -227,7 +238,10 @@ export function shouldScheduleBackupVerify() {
  * @param {{ tick?: () => Promise<unknown>, intervalMs?: number }} [options]
  * @returns {NodeJS.Timeout}
  */
-export function startBackupVerifyJob({ tick = () => backupVerifyTick(), intervalMs = TICK_INTERVAL_MS } = {}) {
+export function startBackupVerifyJob({
+  tick = () => backupVerifyTick(),
+  intervalMs = TICK_INTERVAL_MS,
+} = {}) {
   return startRecurring({ job: "backup-verify", tick, intervalMs });
 }
 

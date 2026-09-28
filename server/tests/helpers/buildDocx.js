@@ -10,7 +10,10 @@ import JSZip from "jszip";
  * @param {{ paragraphs?: string[], compression?: "DEFLATE" | "STORE" }} [options]
  * @returns {Promise<Buffer>}
  */
-export async function buildDocx({ paragraphs = ["Hello, this is a test document."], compression = "DEFLATE" } = {}) {
+export async function buildDocx({
+  paragraphs = ["Hello, this is a test document."],
+  compression = "DEFLATE",
+} = {}) {
   const zip = new JSZip();
 
   zip.file(

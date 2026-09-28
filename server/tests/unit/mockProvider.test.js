@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { MockLlmProvider } from "../../src/services/llm/mockProvider.js";
-import { APIUserAbortError, RateLimitError, InternalServerError, AuthenticationError } from "@anthropic-ai/sdk";
+import {
+  APIUserAbortError,
+  RateLimitError,
+  InternalServerError,
+  AuthenticationError,
+} from "@anthropic-ai/sdk";
 
 describe("MockLlmProvider (SRS §2.3 — LLM_PROVIDER=mock)", () => {
   it("returns a valid AnalysisResult-shaped rawText by default, with no script queued", async () => {
@@ -19,7 +24,10 @@ describe("MockLlmProvider (SRS §2.3 — LLM_PROVIDER=mock)", () => {
 
   it("scripts a valid response with overrides", async () => {
     const provider = new MockLlmProvider();
-    provider.scriptValidResponse({ overall_risk: "high", document_type: "Test Agreement" });
+    provider.scriptValidResponse({
+      overall_risk: "high",
+      document_type: "Test Agreement",
+    });
 
     const result = await provider.analyze({});
     const parsed = JSON.parse(result.rawText);
@@ -79,7 +87,9 @@ describe("MockLlmProvider (SRS §2.3 — LLM_PROVIDER=mock)", () => {
 
     const result = await provider.analyze({});
     const parsed = JSON.parse(result.rawText);
-    expect(parsed.findings[0].clause_excerpt).toBe("this text is nowhere in the source document");
+    expect(parsed.findings[0].clause_excerpt).toBe(
+      "this text is nowhere in the source document",
+    );
     // Well-formed enough to pass Zod — the point is that verification
     // (§5.3, step 20), not parsing, is what should catch this.
     expect(parsed.findings[0]).toHaveProperty("category");
@@ -97,18 +107,23 @@ describe("MockLlmProvider (SRS §2.3 — LLM_PROVIDER=mock)", () => {
     [429, RateLimitError],
     [529, InternalServerError],
     [401, AuthenticationError],
-  ])("scripts a %i provider HTTP error as the SDK's own %s", async (status, ErrorClass) => {
-    const provider = new MockLlmProvider();
-    provider.scriptHttpError(status);
+  ])(
+    "scripts a %i provider HTTP error as the SDK's own %s",
+    async (status, ErrorClass) => {
+      const provider = new MockLlmProvider();
+      provider.scriptHttpError(status);
 
-    const err = await provider.analyze({}).catch((e) => e);
-    expect(err).toBeInstanceOf(ErrorClass);
-    expect(err.status).toBe(status);
-  });
+      const err = await provider.analyze({}).catch((e) => e);
+      expect(err).toBeInstanceOf(ErrorClass);
+      expect(err.status).toBe(status);
+    },
+  );
 
   it("consumes scripts in order — retries see the SECOND scripted response", async () => {
     const provider = new MockLlmProvider();
-    provider.scriptMalformedJson().scriptValidResponse({ document_type: "Retry succeeded" });
+    provider
+      .scriptMalformedJson()
+      .scriptValidResponse({ document_type: "Retry succeeded" });
 
     const first = await provider.analyze({});
     expect(() => JSON.parse(first.rawText)).toThrow();

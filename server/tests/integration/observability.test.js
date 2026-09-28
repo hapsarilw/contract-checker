@@ -35,11 +35,18 @@ const CONTRACT = [
 ].join("\n\n");
 const EXCERPT = "Invoices are payable within ninety (90) days of receipt.";
 
-const mock = () => /** @type {import("../../src/services/llm/mockProvider.js").MockLlmProvider} */ (getLlmProvider().backend);
+const mock = () =>
+  /** @type {import("../../src/services/llm/mockProvider.js").MockLlmProvider} */ (
+    getLlmProvider().backend
+  );
 
 async function signedInDocument() {
   const user = await createUser();
-  const document = await createDocument({ userId: user.id, rawText: CONTRACT, wordCount: countWords(CONTRACT) });
+  const document = await createDocument({
+    userId: user.id,
+    rawText: CONTRACT,
+    wordCount: countWords(CONTRACT),
+  });
   const token = signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion });
   return { user, document, cookie: `${SESSION_COOKIE_NAME}=${token}` };
 }
@@ -52,19 +59,31 @@ const analyze = (documentId, cookie) =>
 
 /** A metric's current value for exactly these labels (0 if absent). */
 async function valueOf(name, labels = {}) {
-  const metric = /** @type {import("prom-client").Metric} */ (register.getSingleMetric(name));
+  const metric = /** @type {import("prom-client").Metric} */ (
+    register.getSingleMetric(name)
+  );
   const { values } = await metric.get();
   return values
     .filter((v) => Object.entries(labels).every(([k, want]) => v.labels[k] === want))
-    .filter((v) => !("metricName" in v) || v.metricName === name || v.metricName === `${name}_count`)
+    .filter(
+      (v) =>
+        !("metricName" in v) || v.metricName === name || v.metricName === `${name}_count`,
+    )
     .reduce((total, v) => total + v.value, 0);
 }
 
 describe("GET /metrics (§6.6, a token-protected route on the one port)", () => {
   it("refuses a request with no token, and one with the wrong token, without leaking anything", async () => {
-    for (const auth of [undefined, "Bearer nope", `Bearer ${config.METRICS_TOKEN}x`, config.METRICS_TOKEN]) {
+    for (const auth of [
+      undefined,
+      "Bearer nope",
+      `Bearer ${config.METRICS_TOKEN}x`,
+      config.METRICS_TOKEN,
+    ]) {
       const req = request(testServer()).get("/metrics");
-      const res = await (auth ? req.set("Authorization", /** @type {string} */ (auth)) : req);
+      const res = await (auth
+        ? req.set("Authorization", /** @type {string} */ (auth))
+        : req);
       expect(res.status).toBe(401);
       expect(res.headers["www-authenticate"]).toMatch(/^Bearer/);
       expect(res.text).not.toContain("http_request_duration_seconds");
@@ -72,7 +91,9 @@ describe("GET /metrics (§6.6, a token-protected route on the one port)", () => 
   });
 
   it("serves the Prometheus exposition, naming every §6.6 metric, to the right token", async () => {
-    const res = await request(testServer()).get("/metrics").set("Authorization", `Bearer ${config.METRICS_TOKEN}`);
+    const res = await request(testServer())
+      .get("/metrics")
+      .set("Authorization", `Bearer ${config.METRICS_TOKEN}`);
 
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/^text\/plain/);
@@ -81,7 +102,9 @@ describe("GET /metrics (§6.6, a token-protected route on the one port)", () => 
     }
     // Shared state read at scrape time: the configured ceiling, and the
     // breaker (closed in a fresh test database).
-    expect(res.text).toContain(`llm_spend_ceiling_usd ${config.MONTHLY_SPEND_CEILING_USD}`);
+    expect(res.text).toContain(
+      `llm_spend_ceiling_usd ${config.MONTHLY_SPEND_CEILING_USD}`,
+    );
     expect(res.text).toMatch(/^llm_circuit_state 0$/m);
   });
 });
@@ -102,11 +125,20 @@ describe("what a real analysis records (§6.6)", () => {
       ],
     });
     const before = {
-      completed: await valueOf("analysis_total", { outcome: "completed", error_code: "none" }),
+      completed: await valueOf("analysis_total", {
+        outcome: "completed",
+        error_code: "none",
+      }),
       high: await valueOf("analysis_findings_total", { severity: "high" }),
-      input: await valueOf("llm_tokens_total", { direction: "input", model: config.ANTHROPIC_MODEL }),
+      input: await valueOf("llm_tokens_total", {
+        direction: "input",
+        model: config.ANTHROPIC_MODEL,
+      }),
       ok: await valueOf("llm_request_total", { outcome: "success", http_status: "200" }),
-      drift: await valueOf("analysis_risk_drift_total", { rule_risk: "high", model_risk: "medium" }),
+      drift: await valueOf("analysis_risk_drift_total", {
+        rule_risk: "high",
+        model_risk: "medium",
+      }),
       requests: await valueOf("http_request_duration_seconds", {
         route: "/api/v1/documents/:id/analyze",
         method: "POST",
@@ -117,20 +149,44 @@ describe("what a real analysis records (§6.6)", () => {
     const res = await analyze(document.id, cookie);
 
     expect(res.status).toBe(200);
-    expect(await valueOf("analysis_total", { outcome: "completed", error_code: "none" })).toBe(before.completed + 1);
-    expect(await valueOf("analysis_findings_total", { severity: "high" })).toBe(before.high + 1);
+    expect(
+      await valueOf("analysis_total", { outcome: "completed", error_code: "none" }),
+    ).toBe(before.completed + 1);
+    expect(await valueOf("analysis_findings_total", { severity: "high" })).toBe(
+      before.high + 1,
+    );
     // The mock reports 500 input tokens per call.
-    expect(await valueOf("llm_tokens_total", { direction: "input", model: config.ANTHROPIC_MODEL })).toBe(before.input + 500);
-    expect(await valueOf("llm_request_total", { outcome: "success", http_status: "200" })).toBe(before.ok + 1);
+    expect(
+      await valueOf("llm_tokens_total", {
+        direction: "input",
+        model: config.ANTHROPIC_MODEL,
+      }),
+    ).toBe(before.input + 500);
+    expect(
+      await valueOf("llm_request_total", { outcome: "success", http_status: "200" }),
+    ).toBe(before.ok + 1);
     // One high finding makes the rule say HIGH; the model said medium.
-    expect(await valueOf("analysis_risk_drift_total", { rule_risk: "high", model_risk: "medium" })).toBe(before.drift + 1);
+    expect(
+      await valueOf("analysis_risk_drift_total", {
+        rule_risk: "high",
+        model_risk: "medium",
+      }),
+    ).toBe(before.drift + 1);
     // By route PATTERN, never the raw path with the document id in it.
     expect(
-      await valueOf("http_request_duration_seconds", { route: "/api/v1/documents/:id/analyze", method: "POST", status: "200" }),
+      await valueOf("http_request_duration_seconds", {
+        route: "/api/v1/documents/:id/analyze",
+        method: "POST",
+        status: "200",
+      }),
     ).toBe(before.requests + 1);
-    const metric = /** @type {import("prom-client").Metric} */ (register.getSingleMetric("http_request_duration_seconds"));
+    const metric = /** @type {import("prom-client").Metric} */ (
+      register.getSingleMetric("http_request_duration_seconds")
+    );
     const routes = (await metric.get()).values.map((v) => v.labels.route);
-    expect(routes.some((r) => typeof r === "string" && r.includes(document.id))).toBe(false);
+    expect(routes.some((r) => typeof r === "string" && r.includes(document.id))).toBe(
+      false,
+    );
   });
 
   it("an analysis whose every finding is discarded counts as failed, and its discards still count", async () => {
@@ -146,13 +202,21 @@ describe("what a real analysis records (§6.6)", () => {
         },
       ],
     });
-    const failed = await valueOf("analysis_total", { outcome: "failed", error_code: "ALL_FINDINGS_DISCARDED" });
+    const failed = await valueOf("analysis_total", {
+      outcome: "failed",
+      error_code: "ALL_FINDINGS_DISCARDED",
+    });
     const discarded = await valueOf("analysis_findings_discarded_total");
 
     const res = await analyze(document.id, cookie);
 
     expect(res.status).toBe(502);
-    expect(await valueOf("analysis_total", { outcome: "failed", error_code: "ALL_FINDINGS_DISCARDED" })).toBe(failed + 1);
+    expect(
+      await valueOf("analysis_total", {
+        outcome: "failed",
+        error_code: "ALL_FINDINGS_DISCARDED",
+      }),
+    ).toBe(failed + 1);
     expect(await valueOf("analysis_findings_discarded_total")).toBe(discarded + 1);
   });
 });
@@ -163,7 +227,9 @@ describe("traces (§6.6: extract, prompt, provider call, validate, verify, persi
   let provider;
 
   beforeAll(() => {
-    provider = new NodeTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+    provider = new NodeTracerProvider({
+      spanProcessors: [new SimpleSpanProcessor(exporter)],
+    });
     provider.register();
   });
   afterAll(async () => {
@@ -176,7 +242,13 @@ describe("traces (§6.6: extract, prompt, provider call, validate, verify, persi
   it("an upload and an analysis leave every stage's span, each carrying its request's id and nothing of the document", async () => {
     const user = await createUser();
     const cookie = `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion })}`;
-    const docx = await buildDocx({ paragraphs: CONTRACT.split("\n\n").concat(Array(30).fill("The Designer shall deliver the agreed work on time and to the agreed standard.")) });
+    const docx = await buildDocx({
+      paragraphs: CONTRACT.split("\n\n").concat(
+        Array(30).fill(
+          "The Designer shall deliver the agreed work on time and to the agreed standard.",
+        ),
+      ),
+    });
 
     const upload = await request(testServer())
       .post("/api/v1/documents")
@@ -207,10 +279,18 @@ describe("traces (§6.6: extract, prompt, provider call, validate, verify, persi
 
     const [root] = byName("analysis");
     expect(root.attributes[REQUEST_ID_ATTRIBUTE]).toBe(res.headers["x-request-id"]);
-    for (const stage of ["analysis.prompt", "analysis.provider_call", "analysis.validate", "analysis.verify", "analysis.persist"]) {
+    for (const stage of [
+      "analysis.prompt",
+      "analysis.provider_call",
+      "analysis.validate",
+      "analysis.verify",
+      "analysis.persist",
+    ]) {
       const [span] = byName(stage);
       expect(span, stage).toBeDefined();
-      expect(span.attributes[REQUEST_ID_ATTRIBUTE], stage).toBe(res.headers["x-request-id"]);
+      expect(span.attributes[REQUEST_ID_ATTRIBUTE], stage).toBe(
+        res.headers["x-request-id"],
+      );
       // A child of the analysis span, in the same trace.
       expect(span.spanContext().traceId, stage).toBe(root.spanContext().traceId);
       expect(span.parentSpanContext?.spanId, stage).toBe(root.spanContext().spanId);
@@ -283,20 +363,29 @@ describe("the synthetic login check and NFR-2.6's auth limiter", () => {
     ["another account's email", { email: "someone-else@example.test" }],
     ["an address outside the allowlist", { ip: "203.0.113.50" }],
     ["/register instead of /login", { path: "/register" }],
-  ])("with %s, the request is counted like any other and the sixth is refused", async (_label, change) => {
-    const override = /** @type {{ ip?: string, token?: string, email?: string, path?: string }} */ (change);
-    const ip = override.ip ?? nextAllowlistedIp();
-    const statuses = [];
-    for (let i = 0; i < 6; i += 1) statuses.push((await attempt({ ...override, ip })).status);
-    expect(statuses.slice(0, 5)).not.toContain(429);
-    expect(statuses[5]).toBe(429);
-  });
+  ])(
+    "with %s, the request is counted like any other and the sixth is refused",
+    async (_label, change) => {
+      const override =
+        /** @type {{ ip?: string, token?: string, email?: string, path?: string }} */ (
+          change
+        );
+      const ip = override.ip ?? nextAllowlistedIp();
+      const statuses = [];
+      for (let i = 0; i < 6; i += 1)
+        statuses.push((await attempt({ ...override, ip })).status);
+      expect(statuses.slice(0, 5)).not.toContain(429);
+      expect(statuses[5]).toBe(429);
+    },
+  );
 
   it("the login-and-list round trip consumes no analysis quota: nothing to exclude, by construction", async () => {
     const ip = nextAllowlistedIp();
     const login = await attempt({ ip });
     const cookie = login.headers["set-cookie"];
-    const list = await request(testServer()).get("/api/v1/documents").set("Cookie", cookie);
+    const list = await request(testServer())
+      .get("/api/v1/documents")
+      .set("Cookie", cookie);
     expect(list.status).toBe(200);
 
     const user = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
@@ -324,9 +413,18 @@ describe("the synthetic login check and NFR-2.6's auth limiter", () => {
     const { port } = /** @type {import("node:net").AddressInfo} */ (server.address());
     let result;
     for (let i = 0; i < 6; i += 1) {
-      result = await runCheck({ baseUrl: `http://127.0.0.1:${port}`, email: EMAIL, password: PASSWORD, checkToken: "wrong-".repeat(8) });
+      result = await runCheck({
+        baseUrl: `http://127.0.0.1:${port}`,
+        email: EMAIL,
+        password: PASSWORD,
+        checkToken: "wrong-".repeat(8),
+      });
     }
     expect(result?.ok).toBe(false);
-    expect(result?.steps.at(-1)).toMatchObject({ step: "login", status: 429, reason: expect.stringMatching(/SYNTHETIC_CHECK_IPS/) });
+    expect(result?.steps.at(-1)).toMatchObject({
+      step: "login",
+      status: 429,
+      reason: expect.stringMatching(/SYNTHETIC_CHECK_IPS/),
+    });
   });
 });

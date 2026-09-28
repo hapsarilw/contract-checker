@@ -213,7 +213,10 @@ async function deleteInBatches(model, where, orderField, batchSize) {
  * @param {{ batchSize?: number, shouldRun?: () => Promise<boolean> }} [options]
  * @returns {Promise<RetentionResult>}
  */
-export async function runRetention(now = new Date(), { batchSize = BATCH_SIZE, shouldRun } = {}) {
+export async function runRetention(
+  now = new Date(),
+  { batchSize = BATCH_SIZE, shouldRun } = {},
+) {
   const cutoffs = cutoffsFor(now);
 
   const outcome = await withJobLock(
@@ -275,7 +278,10 @@ export function retentionTick(now = new Date()) {
  * @param {{ tick?: () => Promise<unknown>, intervalMs?: number }} [options]
  * @returns {NodeJS.Timeout} pass to `stopRetentionJob` to cancel
  */
-export function startRetentionJob({ tick = () => retentionTick(), intervalMs = TICK_INTERVAL_MS } = {}) {
+export function startRetentionJob({
+  tick = () => retentionTick(),
+  intervalMs = TICK_INTERVAL_MS,
+} = {}) {
   return startRecurring({ job: "retention", tick, intervalMs });
 }
 

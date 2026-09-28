@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import prisma from "../../src/lib/prisma.js";
 import { createDocument } from "./factories.js";
-import { isPendingAnalysisConflict, mapPendingAnalysisConflict } from "../../src/lib/prismaErrors.js";
+import {
+  isPendingAnalysisConflict,
+  mapPendingAnalysisConflict,
+} from "../../src/lib/prismaErrors.js";
 import { AppError } from "../../src/lib/AppError.js";
 import { ERROR_CODES } from "../../src/lib/errorCodes.js";
 import { randomUUID } from "node:crypto";
@@ -18,7 +21,11 @@ import { randomUUID } from "node:crypto";
  */
 
 const pendingAnalysis = (documentId) => ({
-  data: { documentId, status: /** @type {const} */ ("PENDING"), model: "claude-haiku-4-5" },
+  data: {
+    documentId,
+    status: /** @type {const} */ ("PENDING"),
+    model: "claude-haiku-4-5",
+  },
 });
 
 describe("the pending-analysis guard (FR-3.8)", () => {

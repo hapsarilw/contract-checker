@@ -60,7 +60,9 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.user.email).toBe("mixed@example.com");
-    expect(await prisma.user.findUnique({ where: { email: "mixed@example.com" } })).not.toBeNull();
+    expect(
+      await prisma.user.findUnique({ where: { email: "mixed@example.com" } }),
+    ).not.toBeNull();
   });
 
   it("returns 409 EMAIL_TAKEN for a duplicate email", async () => {
@@ -102,13 +104,16 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
     // bound this case exists to check.
     ["10 characters", "qz7-plum-w"],
     ["200 characters", "a".repeat(200)],
-  ])("accepts a password of exactly %s — the bounds are inclusive", async (_label, password) => {
-    const res = await request(testServer())
-      .post("/api/v1/auth/register")
-      .send({ email: `ok-${_label.replace(/\W/g, "")}@example.test`, password });
+  ])(
+    "accepts a password of exactly %s — the bounds are inclusive",
+    async (_label, password) => {
+      const res = await request(testServer())
+        .post("/api/v1/auth/register")
+        .send({ email: `ok-${_label.replace(/\W/g, "")}@example.test`, password });
 
-    expect(res.status).toBe(201);
-  });
+      expect(res.status).toBe(201);
+    },
+  );
 
   it("never echoes the submitted password back in a validation error", async () => {
     const password = "short";
@@ -160,14 +165,19 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
   });
 
   it("issues a JWT that decodes to { sub, tv } and expires in 7 days", async () => {
-    const user = await createUser({ email: "jwt@example.test", password: VALID_PASSWORD });
+    const user = await createUser({
+      email: "jwt@example.test",
+      password: VALID_PASSWORD,
+    });
 
     const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "jwt@example.test", password: VALID_PASSWORD });
 
     const token = sessionCookieValue(res).split("=")[1];
-    const claims = jwt.verify(decodeURIComponent(token), config.JWT_SECRET, { algorithms: ["HS256"] });
+    const claims = jwt.verify(decodeURIComponent(token), config.JWT_SECRET, {
+      algorithms: ["HS256"],
+    });
 
     expect(claims.sub).toBe(user.id);
     expect(claims.tv).toBe(user.tokenVersion);
@@ -175,17 +185,24 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
   });
 
   it("signs with HS256, not none — an unsigned forgery must not verify", async () => {
-    const user = await createUser({ email: "alg@example.test", password: VALID_PASSWORD });
+    const user = await createUser({
+      email: "alg@example.test",
+      password: VALID_PASSWORD,
+    });
     const res = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "alg@example.test", password: VALID_PASSWORD });
 
     const token = decodeURIComponent(sessionCookieValue(res).split("=")[1]);
-    expect(JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString()).alg).toBe("HS256");
+    expect(JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString()).alg).toBe(
+      "HS256",
+    );
 
     // The classic algorithm-confusion attack: same claims, alg "none",
     // no signature. It must not be accepted by /me.
-    const forged = jwt.sign({ sub: user.id, tv: user.tokenVersion }, "", { algorithm: "none" });
+    const forged = jwt.sign({ sub: user.id, tv: user.tokenVersion }, "", {
+      algorithm: "none",
+    });
     const meRes = await request(testServer())
       .get("/api/v1/auth/me")
       .set("Cookie", `${SESSION_COOKIE_NAME}=${forged}`);
@@ -246,8 +263,14 @@ describe("POST /api/v1/auth/login (FR-1.3, FR-1.6)", () => {
         return Number(process.hrtime.bigint() - startedAt) / 1e6;
       };
 
-      const unknownMs = await time({ email: "absent@example.test", password: VALID_PASSWORD });
-      const wrongMs = await time({ email: "timing@example.test", password: "wrong-password-here" });
+      const unknownMs = await time({
+        email: "absent@example.test",
+        password: VALID_PASSWORD,
+      });
+      const wrongMs = await time({
+        email: "timing@example.test",
+        password: "wrong-password-here",
+      });
 
       // The point is the ORDER OF MAGNITUDE, not a tight bound: without
       // the dummy compare the unknown-email path costs ~1ms against
@@ -315,12 +338,18 @@ describe("POST /api/v1/auth/logout", () => {
 
 describe("GET /api/v1/auth/me", () => {
   it("returns the current user including account state", async () => {
-    const user = await createUser({ email: "me@example.test", password: VALID_PASSWORD, state: "UNVERIFIED" });
+    const user = await createUser({
+      email: "me@example.test",
+      password: VALID_PASSWORD,
+      state: "UNVERIFIED",
+    });
     const login = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "me@example.test", password: VALID_PASSWORD });
 
-    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
+    const res = await request(testServer())
+      .get("/api/v1/auth/me")
+      .set("Cookie", sessionCookieValue(login));
 
     expect(res.status).toBe(200);
     expect(res.body.user.id).toBe(user.id);
@@ -329,14 +358,20 @@ describe("GET /api/v1/auth/me", () => {
   });
 
   it("does NOT block an UNVERIFIED account — verification gates analysis, not the door (FR-1.7)", async () => {
-    await createUser({ email: "unverified@example.test", password: VALID_PASSWORD, state: "UNVERIFIED" });
+    await createUser({
+      email: "unverified@example.test",
+      password: VALID_PASSWORD,
+      state: "UNVERIFIED",
+    });
 
     const login = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "unverified@example.test", password: VALID_PASSWORD });
     expect(login.status).toBe(200);
 
-    const me = await request(testServer()).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
+    const me = await request(testServer())
+      .get("/api/v1/auth/me")
+      .set("Cookie", sessionCookieValue(login));
     expect(me.status).toBe(200);
   });
 
@@ -348,9 +383,13 @@ describe("GET /api/v1/auth/me", () => {
 
   it("returns 401 for a token signed with the wrong secret", async () => {
     const user = await createUser({ email: "wrongsecret@example.test" });
-    const forged = jwt.sign({ sub: user.id, tv: user.tokenVersion }, "a-different-secret-entirely", {
-      algorithm: "HS256",
-    });
+    const forged = jwt.sign(
+      { sub: user.id, tv: user.tokenVersion },
+      "a-different-secret-entirely",
+      {
+        algorithm: "HS256",
+      },
+    );
 
     const res = await request(testServer())
       .get("/api/v1/auth/me")
@@ -374,14 +413,19 @@ describe("GET /api/v1/auth/me", () => {
   });
 
   it("returns 401 when the token's subject no longer exists", async () => {
-    const user = await createUser({ email: "deleted@example.test", password: VALID_PASSWORD });
+    const user = await createUser({
+      email: "deleted@example.test",
+      password: VALID_PASSWORD,
+    });
     const login = await request(testServer())
       .post("/api/v1/auth/login")
       .send({ email: "deleted@example.test", password: VALID_PASSWORD });
 
     await prisma.user.delete({ where: { id: user.id } });
 
-    const res = await request(testServer()).get("/api/v1/auth/me").set("Cookie", sessionCookieValue(login));
+    const res = await request(testServer())
+      .get("/api/v1/auth/me")
+      .set("Cookie", sessionCookieValue(login));
     expect(res.status).toBe(401);
   });
 });

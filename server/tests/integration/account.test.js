@@ -78,7 +78,8 @@ async function seedAccount(email) {
   const contract = await createDocument({
     userId: user.id,
     filename: "design-retainer.pdf",
-    rawText: "The Contractor shall deliver the designs within thirty days of the effective date.",
+    rawText:
+      "The Contractor shall deliver the designs within thirty days of the effective date.",
   });
   const pasted = await createDocument({
     userId: user.id,
@@ -108,7 +109,10 @@ async function seedAccount(email) {
 
   await issueAuthToken(user.id, "EMAIL_VERIFICATION");
   await issueAuthToken(user.id, "PASSWORD_RESET");
-  await recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, { userId: user.id, ip: "198.51.100.4" });
+  await recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, {
+    userId: user.id,
+    ip: "198.51.100.4",
+  });
 
   return { user, contract, pasted };
 }
@@ -137,7 +141,11 @@ describe("FR-4.5 — the data export", () => {
       .set("Cookie", cookieFor(user));
 
     expect(res.status).toBe(200);
-    expect(res.body.account).toMatchObject({ id: user.id, email: user.email, state: "ACTIVE" });
+    expect(res.body.account).toMatchObject({
+      id: user.id,
+      email: user.email,
+      state: "ACTIVE",
+    });
     expect(res.body.documents).toHaveLength(2);
 
     const exported = res.body.documents.find((doc) => doc.id === contract.id);
@@ -150,7 +158,10 @@ describe("FR-4.5 — the data export", () => {
     expect(exported.analyses[0].findings).toHaveLength(2);
     // FR-4.2's ordering, kept by the same comparator the report uses.
     expect(exported.analyses[0].findings.map((f) => f.severity)).toEqual(["HIGH", "LOW"]);
-    expect(exported.analyses[0].missingClauses).toEqual(["Late payment interest", "Kill fee"]);
+    expect(exported.analyses[0].missingClauses).toEqual([
+      "Late payment interest",
+      "Kill fee",
+    ]);
   }, 30_000);
 
   it("excludes modelRisk at every depth, while the row it came from still has it", async () => {
@@ -169,7 +180,9 @@ describe("FR-4.5 — the data export", () => {
 
     // And the field was DROPPED, not merely never written: the stored row
     // carries a modelRisk that disagrees with the risk the export shows.
-    const stored = await prisma.analysis.findFirstOrThrow({ where: { documentId: contract.id } });
+    const stored = await prisma.analysis.findFirstOrThrow({
+      where: { documentId: contract.id },
+    });
     expect(stored.modelRisk).toBe("HIGH");
     expect(stored.overallRisk).toBe("LOW");
     const exported = res.body.documents.find((doc) => doc.id === contract.id);
@@ -287,7 +300,9 @@ describe("TR-12 / FR-4.6 — account deletion is hard, cascading and complete", 
     // FR-1.9's check reads the user row; there is no row, so the answer is
     // UNAUTHENTICATED rather than SESSION_REVOKED — which is the whole
     // reason FR-4.6 increments nothing.
-    const me = await request(testServer()).get("/api/v1/auth/me").set("Cookie", elsewhere);
+    const me = await request(testServer())
+      .get("/api/v1/auth/me")
+      .set("Cookie", elsewhere);
     expect(me.status).toBe(401);
     expect(me.body.error.code).toBe("UNAUTHENTICATED");
   }, 30_000);
@@ -412,8 +427,16 @@ describe("D2 / PRD §8.1 — deleted means deleted, not flagged", () => {
       `
     );
     const names = columns.map((row) => row.column_name.toLowerCase());
-    for (const forbidden of ["deletedat", "deleted", "isdeleted", "archivedat", "softdeleted"]) {
-      expect(names, `User has a soft-delete column: ${forbidden}`).not.toContain(forbidden);
+    for (const forbidden of [
+      "deletedat",
+      "deleted",
+      "isdeleted",
+      "archivedat",
+      "softdeleted",
+    ]) {
+      expect(names, `User has a soft-delete column: ${forbidden}`).not.toContain(
+        forbidden,
+      );
     }
 
     const states = /** @type {{ value: string }[]} */ (

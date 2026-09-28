@@ -28,9 +28,13 @@ const WRONG = "definitely-not-the-password";
 
 const json = (req) => req.set("Content-Type", "application/json");
 const login = (email, password, ip) =>
-  json(request(testServer()).post("/api/v1/auth/login")).set("X-Forwarded-For", ip).send({ email, password });
+  json(request(testServer()).post("/api/v1/auth/login"))
+    .set("X-Forwarded-For", ip)
+    .send({ email, password });
 const register = (email, password, ip = "198.51.100.1") =>
-  json(request(testServer()).post("/api/v1/auth/register")).set("X-Forwarded-For", ip).send({ email, password });
+  json(request(testServer()).post("/api/v1/auth/register"))
+    .set("X-Forwarded-For", ip)
+    .send({ email, password });
 
 /** Ten failures, each from its own address, so no per-IP limiter fires. */
 async function failFromManyIps(email, attempts = MAX_FAILED_ATTEMPTS) {
@@ -72,7 +76,9 @@ describe("TR-11 — lockout is per ACCOUNT, not per IP (FR-1.10)", () => {
     await failFromManyIps(user.email);
 
     const res = await login(user.email, WRONG, "198.51.100.79");
-    expect(res.body.error.message).toMatch(/try again in about \d+ minutes|about a minute/i);
+    expect(res.body.error.message).toMatch(
+      /try again in about \d+ minutes|about a minute/i,
+    );
     expect(Number(res.headers["retry-after"])).toBeGreaterThan(0);
     expect(Number(res.headers["retry-after"])).toBeLessThanOrEqual(LOCKOUT_MS / 1000);
   }, 60_000);
@@ -146,7 +152,10 @@ describe("TR-11 — the counter resets, and the lock expires on its own", () => 
     for (let i = 0; i < MAX_FAILED_ATTEMPTS - 1; i++) await recordFailedLogin(user.id);
 
     const stale = new Date(Date.now() - WINDOW_MS - 60_000);
-    await prisma.user.update({ where: { id: user.id }, data: { firstFailedLoginAt: stale } });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { firstFailedLoginAt: stale },
+    });
 
     const { locked } = await recordFailedLogin(user.id);
     expect(locked).toBe(false);
@@ -162,7 +171,9 @@ describe("TR-11 — the counter resets, and the lock expires on its own", () => 
     // account at 1 with ten attempts spent.
     const user = await createUser({ password: PASSWORD });
 
-    await Promise.all(Array.from({ length: MAX_FAILED_ATTEMPTS }, () => recordFailedLogin(user.id)));
+    await Promise.all(
+      Array.from({ length: MAX_FAILED_ATTEMPTS }, () => recordFailedLogin(user.id)),
+    );
 
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     expect(after.failedLoginCount).toBe(MAX_FAILED_ATTEMPTS);
@@ -199,7 +210,9 @@ describe("FR-1.2 — breached passwords are refused with a specific message", ()
     // Not `details`: SRS §4 fixes the error body at code, message and
     // requestId, so the message is the whole of what a client can act on.
     expect(Object.keys(res.body.error).sort()).toEqual(["code", "message", "requestId"]);
-    expect(await prisma.user.count({ where: { email: "new-person@example.test" } })).toBe(0);
+    expect(await prisma.user.count({ where: { email: "new-person@example.test" } })).toBe(
+      0,
+    );
   }, 60_000);
 
   it("is case-insensitive — capitalising a common password does not rescue it", async () => {
@@ -228,7 +241,8 @@ describe("FR-1.2 — breached passwords are refused with a specific message", ()
     // FR-1.2 allows a k-anonymity range API; this build uses a bundled
     // list instead, so there is no outbound call to assert the absence of.
     // The check is a pure function over a file — provable by calling it.
-    const { isBreachedPassword } = await import("../../src/services/breachedPasswords.js");
+    const { isBreachedPassword } =
+      await import("../../src/services/breachedPasswords.js");
     expect(isBreachedPassword("password123")).toBe(true);
     expect(isBreachedPassword("wheelbarrow-thistle-9")).toBe(false);
   }, 30_000);

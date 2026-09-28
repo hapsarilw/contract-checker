@@ -82,11 +82,18 @@ function buildErrorSchema() {
         properties: {
           code: {
             type: "string",
-            description: "One of the codes in SRS §4.2, sourced from server/src/lib/errorCodes.js.",
+            description:
+              "One of the codes in SRS §4.2, sourced from server/src/lib/errorCodes.js.",
             enum: Object.keys(ERROR_CODES),
           },
-          message: { type: "string", description: "Human-readable, safe to show the user as-is (NFR-4.3)." },
-          requestId: { type: "string", description: "Echoed so a user can quote it to support (§6.5)." },
+          message: {
+            type: "string",
+            description: "Human-readable, safe to show the user as-is (NFR-4.3).",
+          },
+          requestId: {
+            type: "string",
+            description: "Echoed so a user can quote it to support (§6.5).",
+          },
         },
         additionalProperties: false,
       },
@@ -123,19 +130,22 @@ const REQUEST_SCHEMAS = {
  */
 const UPLOAD_DOCUMENT_MULTIPART_SCHEMA = {
   type: "object",
-  description: "FR-2.1 upload path. Not Zod-validated — multer parses the multipart body directly; this shape is documentation only.",
+  description:
+    "FR-2.1 upload path. Not Zod-validated — multer parses the multipart body directly; this shape is documentation only.",
   properties: {
     file: {
       type: "string",
       format: "binary",
-      description: "PDF or DOCX, ≤ 5 MB (FR-2.2). The field name is exactly \"file\".",
+      description: 'PDF or DOCX, ≤ 5 MB (FR-2.2). The field name is exactly "file".',
     },
   },
   required: ["file"],
 };
 
 const jsonBody = (componentName) => ({
-  content: { "application/json": { schema: { $ref: `#/components/schemas/${componentName}` } } },
+  content: {
+    "application/json": { schema: { $ref: `#/components/schemas/${componentName}` } },
+  },
 });
 
 /**
@@ -199,7 +209,8 @@ const ROUTES = [
     tag: "Auth",
     auth: true,
     successStatus: 200,
-    successDescription: "tokenVersion incremented; every session, including this one, is now invalid.",
+    successDescription:
+      "tokenVersion incremented; every session, including this one, is now invalid.",
   },
   {
     method: "get",
@@ -227,7 +238,8 @@ const ROUTES = [
     tag: "Auth",
     auth: true,
     successStatus: 200,
-    successDescription: "A new verification email was sent, unless the account is already verified.",
+    successDescription:
+      "A new verification email was sent, unless the account is already verified.",
   },
   {
     method: "post",
@@ -246,7 +258,8 @@ const ROUTES = [
     tag: "Auth",
     auth: false,
     successStatus: 200,
-    successDescription: "Password changed; tokenVersion incremented, signing out every session.",
+    successDescription:
+      "Password changed; tokenVersion incremented, signing out every session.",
     requestBody: jsonBody("ResetPasswordRequest"),
   },
   {
@@ -256,7 +269,8 @@ const ROUTES = [
     tag: "Auth",
     auth: true,
     successStatus: 200,
-    successDescription: "Password changed; a fresh session cookie is issued for this session.",
+    successDescription:
+      "Password changed; a fresh session cookie is issued for this session.",
     requestBody: jsonBody("ChangePasswordRequest"),
   },
   {
@@ -266,7 +280,8 @@ const ROUTES = [
     tag: "Auth",
     auth: true,
     successStatus: 202,
-    successDescription: "A confirmation link was sent to the new address; the current address is unchanged until it is opened.",
+    successDescription:
+      "A confirmation link was sent to the new address; the current address is unchanged until it is opened.",
     requestBody: jsonBody("ChangeEmailRequest"),
   },
   {
@@ -292,7 +307,9 @@ const ROUTES = [
     requestBody: {
       content: {
         "multipart/form-data": { schema: UPLOAD_DOCUMENT_MULTIPART_SCHEMA },
-        "application/json": { schema: { $ref: "#/components/schemas/PasteDocumentRequest" } },
+        "application/json": {
+          schema: { $ref: "#/components/schemas/PasteDocumentRequest" },
+        },
       },
     },
     parameters: [
@@ -300,7 +317,8 @@ const ROUTES = [
         name: "Idempotency-Key",
         in: "header",
         required: false,
-        description: "FR-3.15. A repeat within 24 hours replays the original response instead of creating a second document.",
+        description:
+          "FR-3.15. A repeat within 24 hours replays the original response instead of creating a second document.",
         schema: { type: "string", maxLength: 256 },
       },
     ],
@@ -335,7 +353,8 @@ const ROUTES = [
     tag: "Documents",
     auth: true,
     successStatus: 200,
-    successDescription: "The document and its latest analysis, whatever that analysis's status.",
+    successDescription:
+      "The document and its latest analysis, whatever that analysis's status.",
     parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
   },
   {
@@ -357,7 +376,8 @@ const ROUTES = [
     tag: "Account",
     auth: true,
     successStatus: 200,
-    successDescription: "Account metadata, every document (including raw text), analysis and finding, and the caller's own audit history. Rate limited to 3 per day per user.",
+    successDescription:
+      "Account metadata, every document (including raw text), analysis and finding, and the caller's own audit history. Rate limited to 3 per day per user.",
   },
   {
     method: "delete",
@@ -388,7 +408,9 @@ const ROUTES = [
     auth: false,
     successStatus: 200,
     successDescription: "Postgres and Redis are both reachable.",
-    extraResponses: { 503: "One or more dependencies are unreachable; the body names which (FR-4.7)." },
+    extraResponses: {
+      503: "One or more dependencies are unreachable; the body names which (FR-4.7).",
+    },
   },
   {
     method: "get",
@@ -435,8 +457,11 @@ function buildOperation(route) {
   // asserting a narrower set here would be precision this file cannot
   // back up. `default` is the honest way to say "any error shape below".
   responses.default = {
-    description: "An error. `error.code` is one of ERROR_CODES (server/src/lib/errorCodes.js); see ErrorResponse.",
-    content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } },
+    description:
+      "An error. `error.code` is one of ERROR_CODES (server/src/lib/errorCodes.js); see ErrorResponse.",
+    content: {
+      "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+    },
   };
 
   const operation = {

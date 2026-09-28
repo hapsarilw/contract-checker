@@ -36,7 +36,11 @@ import { closeRedis } from "./lib/redis.js";
 import { startReaper, stopReaper } from "./jobs/reaper.js";
 import { startRetentionJob, stopRetentionJob } from "./jobs/retention.js";
 import { startQuotaResetJob, stopQuotaResetJob } from "./jobs/quotaReset.js";
-import { shouldScheduleBackupVerify, startBackupVerifyJob, stopBackupVerifyJob } from "./jobs/backupVerify.js";
+import {
+  shouldScheduleBackupVerify,
+  startBackupVerifyJob,
+  stopBackupVerifyJob,
+} from "./jobs/backupVerify.js";
 import { startTracing } from "./observability/tracing.js";
 
 // §6.6's traces. A no-op without OTEL_EXPORTER_OTLP_ENDPOINT.
@@ -77,9 +81,13 @@ const quotaResetHandle = startQuotaResetJob();
 // §12.3's weekly backup check. Scheduled in production whether or not a
 // backup directory is configured (unconfigured there is a FAILURE that
 // pages, never a skip), and in development only when one is given.
-const backupVerifyHandle = shouldScheduleBackupVerify() ? startBackupVerifyJob() : undefined;
+const backupVerifyHandle = shouldScheduleBackupVerify()
+  ? startBackupVerifyJob()
+  : undefined;
 if (!backupVerifyHandle) {
-  logger.info("backup verification not scheduled: no BACKUP_DIR in a non-production environment");
+  logger.info(
+    "backup verification not scheduled: no BACKUP_DIR in a non-production environment",
+  );
 }
 
 attachGracefulShutdown({

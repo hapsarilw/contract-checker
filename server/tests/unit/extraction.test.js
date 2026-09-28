@@ -88,12 +88,16 @@ describe("normalize() — step 1: line endings, controls, invisibles (FR-2.4)", 
 
 describe("normalize() — step 2: quote and dash folding (FR-2.4)", () => {
   it("folds typographic apostrophes to straight ones", () => {
-    expect(normalize(`Client${CURLY_APOSTROPHE}s obligations`)).toBe("Client's obligations");
+    expect(normalize(`Client${CURLY_APOSTROPHE}s obligations`)).toBe(
+      "Client's obligations",
+    );
     expect(normalize(`${CURLY_OPEN_SINGLE}quoted${CURLY_APOSTROPHE}`)).toBe("'quoted'");
   });
 
   it("folds curly double quotes to straight ones", () => {
-    expect(normalize(`${CURLY_OPEN_DOUBLE}the Agreement${CURLY_CLOSE_DOUBLE}`)).toBe('"the Agreement"');
+    expect(normalize(`${CURLY_OPEN_DOUBLE}the Agreement${CURLY_CLOSE_DOUBLE}`)).toBe(
+      '"the Agreement"',
+    );
   });
 
   it("folds en and em dashes to a hyphen", () => {
@@ -106,10 +110,7 @@ describe("normalize() — step 2: quote and dash folding (FR-2.4)", () => {
     // could fold differently and a legitimate finding would fail
     // verification for a reason nobody would think to look for.
     const spec53Folding = (s) =>
-      s
-        .replace(/[‘’]/g, "'")
-        .replace(/[“”]/g, '"')
-        .replace(/[–—]/g, "-");
+      s.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-");
 
     const sample = `${CURLY_OPEN_SINGLE}a${CURLY_APOSTROPHE} ${CURLY_OPEN_DOUBLE}b${CURLY_CLOSE_DOUBLE} c${EN_DASH}d e${EM_DASH}f`;
     expect(normalize(sample)).toBe(spec53Folding(sample));
@@ -132,7 +133,9 @@ describe("normalize() — step 3: whitespace collapsing (FR-2.4)", () => {
 
   it("preserves paragraph structure rather than flattening it — flattening is normalizeForMatch's job", () => {
     const document = "PAYMENT TERMS\n\nNet 60 days.\n\n\n\nTERMINATION\n\nAt will.";
-    expect(normalize(document)).toBe("PAYMENT TERMS\n\nNet 60 days.\n\nTERMINATION\n\nAt will.");
+    expect(normalize(document)).toBe(
+      "PAYMENT TERMS\n\nNet 60 days.\n\nTERMINATION\n\nAt will.",
+    );
   });
 
   it("preserves case — the user reads findings quoted from this text", () => {
@@ -185,7 +188,8 @@ describe("countWords() (FR-2.5)", () => {
   it("matches a hand-counted sample", () => {
     // Hand count: This(1) Agreement(2) is(3) made(4) between(5)
     // Client(6) and(7) Contractor(8) on(9) the(10) Effective(11) Date(12)
-    const sample = "This Agreement is made between Client and Contractor on the Effective Date.";
+    const sample =
+      "This Agreement is made between Client and Contractor on the Effective Date.";
     expect(countWords(sample)).toBe(12);
   });
 
@@ -246,7 +250,9 @@ describe("the module performs no I/O (FR-2.4)", () => {
       "utf8",
     );
 
-    const imports = [...source.matchAll(/^import .* from "(.+)";$/gm)].map((match) => match[1]);
+    const imports = [...source.matchAll(/^import .* from "(.+)";$/gm)].map(
+      (match) => match[1],
+    );
     expect(imports).toEqual(["node:crypto"]);
   });
 });

@@ -8,7 +8,11 @@ import { getEmailService } from "../../src/lib/email.js";
 import { extractFirstLink } from "../../src/lib/email/sinkProvider.js";
 import { countWords } from "../../src/services/extraction.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
-import { consumeAuthToken, issueAuthToken, TOKEN_TTL_MS } from "../../src/services/authTokens.js";
+import {
+  consumeAuthToken,
+  issueAuthToken,
+  TOKEN_TTL_MS,
+} from "../../src/services/authTokens.js";
 import { sendVerificationEmail } from "../../src/services/emailVerification.js";
 import { getLlmProvider } from "../../src/services/llm/index.js";
 import { createDocument, createUser } from "./factories.js";
@@ -29,15 +33,18 @@ const CONTRACT = [
 ].join("\n\n");
 
 /** The sink the singleton email service is writing to under NODE_ENV=test. */
-const sink = () => /** @type {ReturnType<typeof import("../../src/lib/email/sinkProvider.js").createSinkProvider>} */ (
-  /** @type {any} */ (getEmailService().provider)
-);
+const sink = () =>
+  /** @type {ReturnType<typeof import("../../src/lib/email/sinkProvider.js").createSinkProvider>} */ (
+    /** @type {any} */ (getEmailService().provider)
+  );
 
 // Imported as a TYPE, not a value: eslint's no-unused-vars does not read
 // JSDoc casts and reported the value import as unused, but tsc needs the
 // name. An inline import type satisfies both.
 const mock = () =>
-  /** @type {import("../../src/services/llm/mockProvider.js").MockLlmProvider} */ (getLlmProvider().backend);
+  /** @type {import("../../src/services/llm/mockProvider.js").MockLlmProvider} */ (
+    getLlmProvider().backend
+  );
 
 const json = (req) => req.set("Content-Type", "application/json");
 
@@ -54,7 +61,8 @@ async function tokenSentTo(address) {
   return link ? new URL(link).searchParams.get("token") : null;
 }
 
-const verify = (token) => json(request(testServer()).post("/api/v1/auth/verify-email")).send({ token });
+const verify = (token) =>
+  json(request(testServer()).post("/api/v1/auth/verify-email")).send({ token });
 
 beforeEach(() => {
   sink().clear();
@@ -82,7 +90,9 @@ describe("TR-9 — registration", () => {
     });
     const token = /** @type {string} */ (await tokenSentTo("hashed@example.test"));
 
-    const rows = await prisma.authToken.findMany({ where: { user: { email: "hashed@example.test" } } });
+    const rows = await prisma.authToken.findMany({
+      where: { user: { email: "hashed@example.test" } },
+    });
     expect(rows).toHaveLength(1);
     expect(rows[0].type).toBe("EMAIL_VERIFICATION");
     expect(rows[0].tokenHash).toBe(createHash("sha256").update(token).digest("hex"));
@@ -107,7 +117,9 @@ describe("TR-9 — registration", () => {
     // A real database failure, not a mock: a user id that does not exist
     // violates the foreign key, so issuing the token rejects. Registration
     // has already succeeded by then, so this must not throw.
-    await expect(sendVerificationEmail({ id: "no-such-user", email: "ghost@example.test" })).resolves.toEqual({
+    await expect(
+      sendVerificationEmail({ id: "no-such-user", email: "ghost@example.test" }),
+    ).resolves.toEqual({
       queued: false,
     });
   });
@@ -116,9 +128,17 @@ describe("TR-9 — registration", () => {
 describe("TR-9 — analysis is gated, and only analysis", () => {
   it("returns 403 EMAIL_NOT_VERIFIED from analyze, naming the fix", async () => {
     const { user, cookie } = await unverifiedUser();
-    const document = await createDocument({ userId: user.id, rawText: CONTRACT, wordCount: countWords(CONTRACT) });
+    const document = await createDocument({
+      userId: user.id,
+      rawText: CONTRACT,
+      wordCount: countWords(CONTRACT),
+    });
 
-    const res = await json(request(testServer()).post(`/api/v1/documents/${document.id}/analyze`).set("Cookie", cookie));
+    const res = await json(
+      request(testServer())
+        .post(`/api/v1/documents/${document.id}/analyze`)
+        .set("Cookie", cookie),
+    );
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("EMAIL_NOT_VERIFIED");
@@ -132,9 +152,17 @@ describe("TR-9 — analysis is gated, and only analysis", () => {
   it("checks ownership FIRST, so verification state cannot be used to probe another user's documents", async () => {
     const { cookie } = await unverifiedUser();
     const other = await createUser();
-    const foreign = await createDocument({ userId: other.id, rawText: CONTRACT, wordCount: countWords(CONTRACT) });
+    const foreign = await createDocument({
+      userId: other.id,
+      rawText: CONTRACT,
+      wordCount: countWords(CONTRACT),
+    });
 
-    const res = await json(request(testServer()).post(`/api/v1/documents/${foreign.id}/analyze`).set("Cookie", cookie));
+    const res = await json(
+      request(testServer())
+        .post(`/api/v1/documents/${foreign.id}/analyze`)
+        .set("Cookie", cookie),
+    );
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
@@ -144,27 +172,48 @@ describe("TR-9 — analysis is gated, and only analysis", () => {
     const password = "correct-horse-battery";
     const user = await createUser({ state: "UNVERIFIED", password });
 
-    const login = await json(request(testServer()).post("/api/v1/auth/login")).send({ email: user.email, password });
+    const login = await json(request(testServer()).post("/api/v1/auth/login")).send({
+      email: user.email,
+      password,
+    });
     expect(login.status).toBe(200);
     expect(login.body.user.state).toBe("UNVERIFIED");
     const cookie = login.headers["set-cookie"][0].split(";")[0];
 
-    expect((await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookie)).status).toBe(200);
-    expect((await request(testServer()).get("/api/v1/documents").set("Cookie", cookie)).status).toBe(200);
+    expect(
+      (await request(testServer()).get("/api/v1/auth/me").set("Cookie", cookie)).status,
+    ).toBe(200);
+    expect(
+      (await request(testServer()).get("/api/v1/documents").set("Cookie", cookie)).status,
+    ).toBe(200);
 
     const words = Array.from({ length: 300 }, (_unused, i) => `clause${i}`).join(" ");
-    const created = await json(request(testServer()).post("/api/v1/documents").set("Cookie", cookie)).send({ text: words });
+    const created = await json(
+      request(testServer()).post("/api/v1/documents").set("Cookie", cookie),
+    ).send({ text: words });
     expect(created.status).toBe(201);
 
     const id = created.body.document.id;
-    expect((await request(testServer()).get(`/api/v1/documents/${id}`).set("Cookie", cookie)).status).toBe(200);
-    expect((await json(request(testServer()).delete(`/api/v1/documents/${id}`).set("Cookie", cookie))).status).toBe(200);
+    expect(
+      (await request(testServer()).get(`/api/v1/documents/${id}`).set("Cookie", cookie))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await json(
+          request(testServer()).delete(`/api/v1/documents/${id}`).set("Cookie", cookie),
+        )
+      ).status,
+    ).toBe(200);
   }, 60_000);
 });
 
 describe("TR-9 — consuming the token", () => {
   async function registered(email = "consume@example.test") {
-    await json(request(testServer()).post("/api/v1/auth/register")).send({ email, password: "correct-horse-battery" });
+    await json(request(testServer()).post("/api/v1/auth/register")).send({
+      email,
+      password: "correct-horse-battery",
+    });
     const token = /** @type {string} */ (await tokenSentTo(email));
     const user = await prisma.user.findUniqueOrThrow({ where: { email } });
     return { token, user };
@@ -182,9 +231,21 @@ describe("TR-9 — consuming the token", () => {
     expect(after.emailVerifiedAt).toBeInstanceOf(Date);
 
     const cookie = `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion })}`;
-    const document = await createDocument({ userId: user.id, rawText: CONTRACT, wordCount: countWords(CONTRACT) });
+    const document = await createDocument({
+      userId: user.id,
+      rawText: CONTRACT,
+      wordCount: countWords(CONTRACT),
+    });
     mock().scriptValidResponse({ overall_risk: "low", findings: [] });
-    expect((await json(request(testServer()).post(`/api/v1/documents/${document.id}/analyze`).set("Cookie", cookie))).status).toBe(200);
+    expect(
+      (
+        await json(
+          request(testServer())
+            .post(`/api/v1/documents/${document.id}/analyze`)
+            .set("Cookie", cookie),
+        )
+      ).status,
+    ).toBe(200);
   });
 
   it("is single-use: the same token is refused the second time", async () => {
@@ -227,7 +288,10 @@ describe("TR-9 — consuming the token", () => {
 
     const b = prisma
       .$transaction((tx) => consumeAuthToken(tx, token, "EMAIL_VERIFICATION"))
-      .then(() => "won", () => "lost");
+      .then(
+        () => "won",
+        () => "lost",
+      );
     await new Promise((resolve) => setTimeout(resolve, 250));
     release();
     await a;
@@ -247,12 +311,17 @@ describe("TR-9 — consuming the token", () => {
 
   it("rejects an expired token and leaves the account UNVERIFIED", async () => {
     const { token, user } = await registered();
-    await prisma.authToken.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1_000) } });
+    await prisma.authToken.updateMany({
+      where: { userId: user.id },
+      data: { expiresAt: new Date(Date.now() - 1_000) },
+    });
 
     const res = await verify(token);
 
     expect(res.status).toBe(400);
-    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).state).toBe("UNVERIFIED");
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).state).toBe(
+      "UNVERIFIED",
+    );
   });
 
   it("gives one answer for unknown, used and expired, so the response is not an oracle", async () => {
@@ -260,10 +329,19 @@ describe("TR-9 — consuming the token", () => {
     await verify(token);
     const used = await verify(token);
     const unknown = await verify("A".repeat(43));
-    await prisma.authToken.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(0), usedAt: null } });
+    await prisma.authToken.updateMany({
+      where: { userId: user.id },
+      data: { expiresAt: new Date(0), usedAt: null },
+    });
     const expired = await verify(token);
 
-    expect(new Set([used.body.error.message, unknown.body.error.message, expired.body.error.message]).size).toBe(1);
+    expect(
+      new Set([
+        used.body.error.message,
+        unknown.body.error.message,
+        expired.body.error.message,
+      ]).size,
+    ).toBe(1);
   });
 
   it("does not accept a token of another type — a password-reset token cannot verify an email", async () => {
@@ -271,7 +349,9 @@ describe("TR-9 — consuming the token", () => {
     const resetToken = await issueAuthToken(user.id, "PASSWORD_RESET");
 
     expect((await verify(resetToken)).status).toBe(400);
-    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).state).toBe("UNVERIFIED");
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).state).toBe(
+      "UNVERIFIED",
+    );
   });
 
   it("does not un-suspend a suspended account that opens an old verification link", async () => {
@@ -296,9 +376,24 @@ describe("TR-9 — consuming the token", () => {
   });
 
   it("rejects a malformed body with 400, without touching the database", async () => {
-    expect((await json(request(testServer()).post("/api/v1/auth/verify-email")).send({})).status).toBe(400);
-    expect((await json(request(testServer()).post("/api/v1/auth/verify-email")).send({ token: "short" })).status).toBe(400);
-    expect((await json(request(testServer()).post("/api/v1/auth/verify-email")).send({ token: "x".repeat(5000) })).status).toBe(400);
+    expect(
+      (await json(request(testServer()).post("/api/v1/auth/verify-email")).send({}))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await json(request(testServer()).post("/api/v1/auth/verify-email")).send({
+          token: "short",
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await json(request(testServer()).post("/api/v1/auth/verify-email")).send({
+          token: "x".repeat(5000),
+        })
+      ).status,
+    ).toBe(400);
   });
 
   it("is a POST: a GET on the same path does not consume the token", async () => {
@@ -306,21 +401,31 @@ describe("TR-9 — consuming the token", () => {
     // token, the scanner would spend it before the person saw the email.
     const { token, user } = await registered("scanner@example.test");
 
-    const res = await request(testServer()).get(`/api/v1/auth/verify-email?token=${token}`);
+    const res = await request(testServer()).get(
+      `/api/v1/auth/verify-email?token=${token}`,
+    );
 
     expect(res.status).toBe(404);
-    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).state).toBe("UNVERIFIED");
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).state).toBe(
+      "UNVERIFIED",
+    );
   });
 });
 
 describe("FR-1.7 — resend, 3 an hour per account and 10 an hour per IP", () => {
   const resend = (cookie, ip) => {
-    const req = json(request(testServer()).post("/api/v1/auth/resend-verification").set("Cookie", cookie));
+    const req = json(
+      request(testServer())
+        .post("/api/v1/auth/resend-verification")
+        .set("Cookie", cookie),
+    );
     return ip ? req.set("X-Forwarded-For", ip) : req;
   };
 
   it("requires a signed-in user", async () => {
-    expect((await json(request(testServer()).post("/api/v1/auth/resend-verification"))).status).toBe(401);
+    expect(
+      (await json(request(testServer()).post("/api/v1/auth/resend-verification"))).status,
+    ).toBe(401);
   });
 
   it("sends a fresh email with a working token", async () => {
@@ -350,7 +455,8 @@ describe("FR-1.7 — resend, 3 an hour per account and 10 an hour per IP", () =>
     const { cookie } = await unverifiedUser();
 
     const statuses = [];
-    for (let i = 0; i < 4; i++) statuses.push((await resend(cookie, `198.51.100.${i + 1}`)).status);
+    for (let i = 0; i < 4; i++)
+      statuses.push((await resend(cookie, `198.51.100.${i + 1}`)).status);
 
     // Different IPs each time, so only the ACCOUNT limit can be speaking.
     expect(statuses).toEqual([200, 200, 200, 429]);
@@ -380,7 +486,9 @@ describe("FR-1.7 — resend, 3 an hour per account and 10 an hour per IP", () =>
       expect(res.status).toBe(503);
       expect(res.body.error.code).toBe("SERVER_BUSY");
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
     await getEmailService().flush();
     expect(sink().messages()).toHaveLength(0);

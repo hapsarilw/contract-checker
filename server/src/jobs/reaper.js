@@ -142,7 +142,10 @@ export async function reapStaleAnalyses(now = new Date()) {
  * @param {{ tick?: (now?: Date) => Promise<unknown>, intervalMs?: number }} [options]
  * @returns {NodeJS.Timeout} pass to `stopReaper` to cancel
  */
-export function startReaper({ tick = reapStaleAnalyses, intervalMs = REAP_INTERVAL_MS } = {}) {
+export function startReaper({
+  tick = reapStaleAnalyses,
+  intervalMs = REAP_INTERVAL_MS,
+} = {}) {
   return startRecurring({ job: "reaper", tick: () => tick(), intervalMs });
 }
 

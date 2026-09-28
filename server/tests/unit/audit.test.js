@@ -12,7 +12,8 @@ import { AUDIT_ACTIONS, recordAuditEvent, subjectHash } from "../../src/lib/audi
  * needs Postgres and lives in tests/integration/audit.test.js.
  */
 
-const HMAC = (value) => createHmac("sha256", config.AUDIT_SALT).update(value, "utf8").digest("hex");
+const HMAC = (value) =>
+  createHmac("sha256", config.AUDIT_SALT).update(value, "utf8").digest("hex");
 
 describe("subjectHash", () => {
   it("is hmac(userId, AUDIT_SALT), not a plain hash", () => {
@@ -64,12 +65,16 @@ describe("AUDIT_ACTIONS — NFR-2.12's event types", () => {
 
 describe("recordAuditEvent NEVER throws (NFR-3.8's rule applied to audit too)", () => {
   it("swallows a database failure and logs it instead", async () => {
-    const spy = vi.spyOn(prisma.auditEvent, "create").mockRejectedValueOnce(new Error("connection reset"));
+    const spy = vi
+      .spyOn(prisma.auditEvent, "create")
+      .mockRejectedValueOnce(new Error("connection reset"));
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
     // The audit trail observes something that already happened; it must
     // never become a reason that thing fails to complete for the user.
-    await expect(recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, { userId: "u1" })).resolves.toBeUndefined();
+    await expect(
+      recordAuditEvent(AUDIT_ACTIONS.LOGIN_SUCCEEDED, { userId: "u1" }),
+    ).resolves.toBeUndefined();
 
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({ alert: "audit_write_failed" }),

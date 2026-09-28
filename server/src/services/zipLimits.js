@@ -111,7 +111,11 @@ export function readCentralDirectory(buffer) {
       localHeaderOffset: buffer.readUInt32LE(at + 42),
     });
 
-    at += 46 + buffer.readUInt16LE(at + 28) + buffer.readUInt16LE(at + 30) + buffer.readUInt16LE(at + 32);
+    at +=
+      46 +
+      buffer.readUInt16LE(at + 28) +
+      buffer.readUInt16LE(at + 30) +
+      buffer.readUInt16LE(at + 32);
   }
   return entries;
 }
@@ -137,7 +141,11 @@ export function assertDeclaredSizesWithinLimits(buffer, entries) {
   const ratio = declared / Math.max(buffer.length, 1);
   if (ratio > MAX_EXPANSION_RATIO) {
     throw new AppError("MALFORMED_DOCUMENT", {
-      details: { limit: "ratio", ratio: Number(ratio.toFixed(1)), max: MAX_EXPANSION_RATIO },
+      details: {
+        limit: "ratio",
+        ratio: Number(ratio.toFixed(1)),
+        max: MAX_EXPANSION_RATIO,
+      },
     });
   }
 }

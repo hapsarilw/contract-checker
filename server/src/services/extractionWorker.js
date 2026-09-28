@@ -34,7 +34,11 @@ const WORKER_URL = new URL("../workers/extract.worker.js", import.meta.url);
  * @param {{ timeoutMs?: number }} [options]
  * @returns {Promise<string>}
  */
-export function extractInWorker(buffer, sourceType, { timeoutMs = EXTRACTION_TIMEOUT_MS } = {}) {
+export function extractInWorker(
+  buffer,
+  sourceType,
+  { timeoutMs = EXTRACTION_TIMEOUT_MS } = {},
+) {
   const requestId = getRequestId();
 
   return new Promise((resolve, reject) => {
@@ -86,7 +90,10 @@ export function extractInWorker(buffer, sourceType, { timeoutMs = EXTRACTION_TIM
         }
         const { code, message: text, details, unexpected } = message?.error ?? {};
         if (unexpected) {
-          logger.error({ err: { message: unexpected } }, "extraction worker reported an unexpected failure");
+          logger.error(
+            { err: { message: unexpected } },
+            "extraction worker reported an unexpected failure",
+          );
         }
         // Rebuilt here, because an AppError cannot survive structured
         // cloning as itself. Step 48's ENCRYPTED_DOCUMENT and
@@ -108,7 +115,10 @@ export function extractInWorker(buffer, sourceType, { timeoutMs = EXTRACTION_TIM
       // without answering has failed, and leaving the promise pending
       // would hang the request for ever.
       once(() => {
-        logger.error({ worker: { exitCode: code } }, "extraction worker exited without a result");
+        logger.error(
+          { worker: { exitCode: code } },
+          "extraction worker exited without a result",
+        );
         reject(new AppError("MALFORMED_DOCUMENT"));
       });
     });

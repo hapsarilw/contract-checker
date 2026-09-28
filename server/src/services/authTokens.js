@@ -45,7 +45,8 @@ export const TOKEN_TTL_MS = Object.freeze({
 const TOKEN_BYTES = 32;
 
 /** @param {string} token */
-export const hashToken = (token) => createHash("sha256").update(token, "utf8").digest("hex");
+export const hashToken = (token) =>
+  createHash("sha256").update(token, "utf8").digest("hex");
 
 /** @typedef {import("@prisma/client").AuthTokenType} AuthTokenType */
 
@@ -57,10 +58,16 @@ export const hashToken = (token) => createHash("sha256").update(token, "utf8").d
  * @param {AuthTokenType} type
  * @param {{ now?: Date, db?: Pick<typeof prisma, "authToken"> }} [options]
  */
-export async function issueAuthToken(userId, type, { now = new Date(), db = prisma } = {}) {
+export async function issueAuthToken(
+  userId,
+  type,
+  { now = new Date(), db = prisma } = {},
+) {
   const ttl = TOKEN_TTL_MS[type];
   if (typeof ttl !== "number") {
-    throw new Error(`issueAuthToken: no TTL configured for token type "${type}" — add one to TOKEN_TTL_MS`);
+    throw new Error(
+      `issueAuthToken: no TTL configured for token type "${type}" — add one to TOKEN_TTL_MS`,
+    );
   }
 
   const token = randomBytes(TOKEN_BYTES).toString("base64url");

@@ -37,7 +37,8 @@ const CONTRACT = [
 
 function mockProvider() {
   const backend = getLlmProvider().backend;
-  if (!(backend instanceof MockLlmProvider)) throw new Error("expected the mock provider");
+  if (!(backend instanceof MockLlmProvider))
+    throw new Error("expected the mock provider");
   return backend;
 }
 
@@ -173,12 +174,19 @@ describe("TR-13 — a FAILED analysis still increments both counters (FR-5.2)", 
     expect(res.body.error.code).toBe("LLM_INVALID_OUTPUT");
 
     // Both stores, not just the fast one.
-    await expect(getQuotaState(user.id)).resolves.toMatchObject({ hourly: 1, monthly: 1 });
+    await expect(getQuotaState(user.id)).resolves.toMatchObject({
+      hourly: 1,
+      monthly: 1,
+    });
     expect(await prisma.user.findUnique({ where: { id: user.id } })).toMatchObject({
       monthlyAnalyses: 1,
     });
     // And the analysis itself is on record as FAILED (FR-3.5).
-    expect(await prisma.analysis.count({ where: { documentId: document.id, status: "FAILED" } })).toBe(1);
+    expect(
+      await prisma.analysis.count({
+        where: { documentId: document.id, status: "FAILED" },
+      }),
+    ).toBe(1);
   });
 
   it("counts a timeout the same way", async () => {
@@ -186,7 +194,10 @@ describe("TR-13 — a FAILED analysis still increments both counters (FR-5.2)", 
     mockProvider().scriptTimeout();
 
     expect((await analyze(document.id, cookie)).status).toBe(504);
-    await expect(getQuotaState(user.id)).resolves.toMatchObject({ hourly: 1, monthly: 1 });
+    await expect(getQuotaState(user.id)).resolves.toMatchObject({
+      hourly: 1,
+      monthly: 1,
+    });
   });
 
   it("counts a success exactly once — the finally must not double-count", async () => {
@@ -194,7 +205,10 @@ describe("TR-13 — a FAILED analysis still increments both counters (FR-5.2)", 
     mockProvider().scriptValidResponse({ overall_risk: "low", findings: [] });
 
     expect((await analyze(document.id, cookie)).status).toBe(200);
-    await expect(getQuotaState(user.id)).resolves.toMatchObject({ hourly: 1, monthly: 1 });
+    await expect(getQuotaState(user.id)).resolves.toMatchObject({
+      hourly: 1,
+      monthly: 1,
+    });
   });
 });
 
@@ -213,9 +227,13 @@ describe("FR-5.1 — Redis is the fast path, the database is the fallback of rec
       // outcome for the user — but the point here is that the quota check
       // itself can still answer from the database. Assert that directly.
       expect(res.status).toBe(503);
-      await expect(assertWithinQuota(user.id)).rejects.toMatchObject({ code: "QUOTA_EXCEEDED" });
+      await expect(assertWithinQuota(user.id)).rejects.toMatchObject({
+        code: "QUOTA_EXCEEDED",
+      });
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
   });
 
@@ -226,9 +244,14 @@ describe("FR-5.1 — Redis is the fast path, the database is the fallback of rec
     const { user } = await userWithDocument();
     getRedis().disconnect();
     try {
-      await expect(getQuotaState(user.id)).resolves.toMatchObject({ hourly: null, monthly: null });
+      await expect(getQuotaState(user.id)).resolves.toMatchObject({
+        hourly: null,
+        monthly: null,
+      });
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
   });
 
@@ -244,7 +267,9 @@ describe("FR-5.1 — Redis is the fast path, the database is the fallback of rec
     try {
       await expect(assertWithinQuota(user.id)).resolves.toBeUndefined();
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
   });
 
@@ -261,7 +286,9 @@ describe("FR-5.1 — Redis is the fast path, the database is the fallback of rec
     const after = await prisma.user.findUnique({ where: { id: user.id } });
     // Reset to 1, not incremented to 38, and the period moved with it.
     expect(after?.monthlyAnalyses).toBe(1);
-    expect(periodOf(/** @type {Date} */ (after?.quotaPeriodStart))).toBe(periodOf(new Date()));
+    expect(periodOf(/** @type {Date} */ (after?.quotaPeriodStart))).toBe(
+      periodOf(new Date()),
+    );
   });
 
   it("never throws out of consumeQuota, even with Redis gone", async () => {
@@ -272,7 +299,9 @@ describe("FR-5.1 — Redis is the fast path, the database is the fallback of rec
     try {
       await expect(consumeQuota(user.id)).resolves.toBeUndefined();
     } finally {
-      await getRedis().connect().catch(() => {});
+      await getRedis()
+        .connect()
+        .catch(() => {});
     }
     // The authoritative half still landed.
     expect(await prisma.user.findUnique({ where: { id: user.id } })).toMatchObject({

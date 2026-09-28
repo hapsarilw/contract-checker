@@ -17,7 +17,8 @@ const readFixture = (name) => readFileSync(join(fixturesDir, name));
 
 /** Same convention as authMiddleware.test.js. */
 const cookieFor = (token) => [`${SESSION_COOKIE_NAME}=${token}`];
-const tokenFor = (user) => signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion });
+const tokenFor = (user) =>
+  signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion });
 
 async function loggedInCookie(overrides = {}) {
   const user = await createUser(overrides);
@@ -32,7 +33,10 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
     const { cookie } = await loggedInCookie();
     const text = "INDEPENDENT CONTRACTOR AGREEMENT\n" + wordsOfLength(250);
 
-    const res = await request(testServer()).post("/api/v1/documents").set("Cookie", cookie).send({ text });
+    const res = await request(testServer())
+      .post("/api/v1/documents")
+      .set("Cookie", cookie)
+      .send({ text });
 
     expect(res.status).toBe(201);
     expect(Object.keys(res.body)).toEqual(["document"]);
@@ -52,7 +56,9 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
       .set("Cookie", cookie)
       .send({ text: wordsOfLength(300) });
 
-    const stored = await prisma.document.findUnique({ where: { id: res.body.document.id } });
+    const stored = await prisma.document.findUnique({
+      where: { id: res.body.document.id },
+    });
     if (!stored) throw new Error("expected the document to have been persisted");
     expect(stored.userId).toBe(user.id);
     expect(stored.wordCount).toBe(300);
@@ -82,7 +88,10 @@ describe("POST /api/v1/documents — paste intake (FR-2.1, §4.3)", () => {
 
   it("returns 400 VALIDATION_ERROR when text is missing entirely", async () => {
     const { cookie } = await loggedInCookie();
-    const res = await request(testServer()).post("/api/v1/documents").set("Cookie", cookie).send({});
+    const res = await request(testServer())
+      .post("/api/v1/documents")
+      .set("Cookie", cookie)
+      .send({});
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
@@ -130,7 +139,11 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
     const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
-      .attach("file", readFixture("01-design-services-hostile.pdf"), "../../etc/passwd.pdf");
+      .attach(
+        "file",
+        readFixture("01-design-services-hostile.pdf"),
+        "../../etc/passwd.pdf",
+      );
 
     expect(res.status).toBe(201);
     expect(res.body.document.filename).not.toContain("/");
@@ -142,7 +155,11 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
     const res = await request(testServer())
       .post("/api/v1/documents")
       .set("Cookie", cookie)
-      .attach("file", Buffer.from("plain text pretending to be a pdf", "utf8"), "contract.pdf");
+      .attach(
+        "file",
+        Buffer.from("plain text pretending to be a pdf", "utf8"),
+        "contract.pdf",
+      );
 
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe("UNSUPPORTED_FILE_TYPE");
@@ -182,44 +199,49 @@ describe("POST /api/v1/documents — upload intake stores the right sourceType",
     const { port } = /** @type {import("node:net").AddressInfo} */ (server.address());
 
     try {
-      const { status, body } = await /** @type {Promise<{ status: number | undefined, body: any }>} */ (
-        new Promise((resolve, reject) => {
-          const req = http.request(
-            {
-              host: "127.0.0.1",
-              port,
-              method: "POST",
-              path: "/api/v1/documents",
-              headers: {
-                cookie: cookie.join("; "),
-                "content-type": "multipart/form-data; boundary=clausecheck",
-                "content-length": String(6 * 1024 * 1024),
+      const { status, body } =
+        await /** @type {Promise<{ status: number | undefined, body: any }>} */ (
+          new Promise((resolve, reject) => {
+            const req = http.request(
+              {
+                host: "127.0.0.1",
+                port,
+                method: "POST",
+                path: "/api/v1/documents",
+                headers: {
+                  cookie: cookie.join("; "),
+                  "content-type": "multipart/form-data; boundary=clausecheck",
+                  "content-length": String(6 * 1024 * 1024),
+                },
               },
-            },
-            (res) => {
-              let text = "";
-              res.setEncoding("utf8");
-              res.on("data", (chunk) => (text += chunk));
-              res.on("end", () => {
-                req.destroy();
-                resolve({ status: res.statusCode, body: JSON.parse(text) });
-              });
-            },
-          );
-          // A write after the server has answered and closed may fail; the
-          // response is what is under test.
-          req.on("error", (err) => {
-            const code = /** @type {NodeJS.ErrnoException} */ (err).code;
-            if (code !== "EPIPE" && code !== "ECONNRESET") reject(err);
-          });
-          req.setTimeout(5000, () =>
-            reject(new Error("no response on the declared size alone: the server is waiting for the body")),
-          );
-          req.write(
-            '--clausecheck\r\nContent-Disposition: form-data; name="file"; filename="big.pdf"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.4\n',
-          );
-        })
-      );
+              (res) => {
+                let text = "";
+                res.setEncoding("utf8");
+                res.on("data", (chunk) => (text += chunk));
+                res.on("end", () => {
+                  req.destroy();
+                  resolve({ status: res.statusCode, body: JSON.parse(text) });
+                });
+              },
+            );
+            // A write after the server has answered and closed may fail; the
+            // response is what is under test.
+            req.on("error", (err) => {
+              const code = /** @type {NodeJS.ErrnoException} */ (err).code;
+              if (code !== "EPIPE" && code !== "ECONNRESET") reject(err);
+            });
+            req.setTimeout(5000, () =>
+              reject(
+                new Error(
+                  "no response on the declared size alone: the server is waiting for the body",
+                ),
+              ),
+            );
+            req.write(
+              '--clausecheck\r\nContent-Disposition: form-data; name="file"; filename="big.pdf"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.4\n',
+            );
+          })
+        );
 
       expect(status).toBe(413);
       expect(body.error.code).toBe("FILE_TOO_LARGE");
@@ -235,7 +257,9 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
     const { cookie, user } = await loggedInCookie();
     const document = await createDocument({ userId: user.id });
 
-    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
+    const res = await request(testServer())
+      .get(`/api/v1/documents/${document.id}`)
+      .set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.document.id).toBe(document.id);
@@ -253,15 +277,30 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
       findings: [{ severity: "LOW" }, { severity: "HIGH" }, { severity: "MEDIUM" }],
     });
 
-    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
+    const res = await request(testServer())
+      .get(`/api/v1/documents/${document.id}`)
+      .set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(Object.keys(res.body.analysis).sort()).toEqual(
-      ["createdAt", "discardedFindings", "findings", "id", "missingClauses", "overallRisk", "status", "summary"].sort(),
+      [
+        "createdAt",
+        "discardedFindings",
+        "findings",
+        "id",
+        "missingClauses",
+        "overallRisk",
+        "status",
+        "summary",
+      ].sort(),
     );
     // Ordered HIGH -> MEDIUM -> LOW (FR-4.2 / §2.2 step 12), regardless
     // of the order they were created in.
-    expect(res.body.analysis.findings.map((f) => f.severity)).toEqual(["HIGH", "MEDIUM", "LOW"]);
+    expect(res.body.analysis.findings.map((f) => f.severity)).toEqual([
+      "HIGH",
+      "MEDIUM",
+      "LOW",
+    ]);
   });
 
   it("never returns modelRisk in the response body, anywhere", async () => {
@@ -274,7 +313,9 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
       findings: [{ severity: "LOW" }],
     });
 
-    const res = await request(testServer()).get(`/api/v1/documents/${document.id}`).set("Cookie", cookie);
+    const res = await request(testServer())
+      .get(`/api/v1/documents/${document.id}`)
+      .set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.analysis).not.toHaveProperty("modelRisk");
@@ -290,7 +331,9 @@ describe("GET /api/v1/documents/:id (§4's endpoint table)", () => {
     const userB = await createUser();
     const documentOfB = await createDocument({ userId: userB.id });
 
-    const res = await request(testServer()).get(`/api/v1/documents/${documentOfB.id}`).set("Cookie", cookieA);
+    const res = await request(testServer())
+      .get(`/api/v1/documents/${documentOfB.id}`)
+      .set("Cookie", cookieA);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");

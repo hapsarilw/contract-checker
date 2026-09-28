@@ -4,3 +4,7 @@ dist
 package-lock.json
 prisma/migrations
 tests/fixtures
+# A gitignored runtime artifact (development's email sink writes here),
+# never source: without this, `prettier --check .` fails CI's format gate
+# on whatever happens to be sitting in a contributor's local sink.
+.mail-sink

@@ -144,7 +144,9 @@ describe("clause (c) — the details that make it work", () => {
   });
 
   it("does not apply to safe methods — GET with a foreign Origin still works", async () => {
-    const res = await request(testServer()).get("/api/health").set("Origin", FOREIGN_ORIGIN);
+    const res = await request(testServer())
+      .get("/api/health")
+      .set("Origin", FOREIGN_ORIGIN);
     expect(res.status).toBe(200);
   });
 
@@ -192,7 +194,9 @@ const AUDITED_SIDE_EFFECT_FREE_GET_ROUTES = [
 
 describe("clause (d) — GET routes are audited as side-effect free", () => {
   it("has no GET or HEAD route that has not been audited", () => {
-    const readRoutes = registeredRoutes(app).filter((route) => /^(GET|HEAD) /.test(route));
+    const readRoutes = registeredRoutes(app).filter((route) =>
+      /^(GET|HEAD) /.test(route),
+    );
     const unaudited = readRoutes.filter(
       (route) => !AUDITED_SIDE_EFFECT_FREE_GET_ROUTES.includes(route),
     );
@@ -205,8 +209,12 @@ describe("clause (d) — GET routes are audited as side-effect free", () => {
   });
 
   it("does not list routes that no longer exist", () => {
-    const readRoutes = registeredRoutes(app).filter((route) => /^(GET|HEAD) /.test(route));
-    const stale = AUDITED_SIDE_EFFECT_FREE_GET_ROUTES.filter((route) => !readRoutes.includes(route));
+    const readRoutes = registeredRoutes(app).filter((route) =>
+      /^(GET|HEAD) /.test(route),
+    );
+    const stale = AUDITED_SIDE_EFFECT_FREE_GET_ROUTES.filter(
+      (route) => !readRoutes.includes(route),
+    );
 
     expect(stale, "the audit list has drifted from the app's actual routes").toEqual([]);
   });

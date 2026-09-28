@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { APIConnectionTimeoutError, APIError, APIUserAbortError } from "@anthropic-ai/sdk";
+import {
+  APIConnectionTimeoutError,
+  APIError,
+  APIUserAbortError,
+} from "@anthropic-ai/sdk";
 import { register } from "prom-client";
 import { SPEC_METRICS, routeLabel } from "../../src/observability/metrics.js";
 import { httpStatusLabel } from "../../src/services/llm/index.js";
@@ -19,14 +23,20 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 /** §6.6's table rows: `name` | type | labels. */
 function specTable() {
   const srs = readFileSync(join(ROOT, "docs", "SRS.md"), "utf8");
-  const section = srs.slice(srs.indexOf("### 6.6 Observability"), srs.indexOf("## 7. Frontend requirements"));
+  const section = srs.slice(
+    srs.indexOf("### 6.6 Observability"),
+    srs.indexOf("## 7. Frontend requirements"),
+  );
   /** @type {Record<string, string[]>} */
   const metrics = {};
   for (const line of section.split("\n")) {
     const match = /^\| (`[^|]+`) \| (\w+) \| ([^|]+) \|$/.exec(line.trim());
     if (!match) continue;
     const names = [...match[1].matchAll(/`([a-z_]+)`/g)].map((m) => m[1]);
-    const labels = match[3].trim() === "—" ? [] : match[3].split(",").map((l) => l.trim().split(" ")[0]);
+    const labels =
+      match[3].trim() === "—"
+        ? []
+        : match[3].split(",").map((l) => l.trim().split(" ")[0]);
     for (const name of names) metrics[name] = labels;
   }
   return metrics;
@@ -45,16 +55,22 @@ describe("SRS §6.6 metrics are all registered, with the table's names and label
     const metric = register.getSingleMetric(name);
     expect(metric, `${name} is not registered`).toBeDefined();
     // prom-client keeps the declared label names on the metric.
-    const declared = /** @type {{ labelNames?: string[] }} */ (/** @type {unknown} */ (metric)).labelNames ?? [];
+    const declared =
+      /** @type {{ labelNames?: string[] }} */ (/** @type {unknown} */ (metric))
+        .labelNames ?? [];
     expect([...declared].sort()).toEqual([...labels].sort());
   });
 
   it("types match the table (histogram / counter / gauge)", async () => {
     const srs = readFileSync(join(ROOT, "docs", "SRS.md"), "utf8");
     for (const name of Object.keys(table)) {
-      const row = srs.split("\n").find((line) => line.includes(`\`${name}\``) && line.startsWith("|"));
+      const row = srs
+        .split("\n")
+        .find((line) => line.includes(`\`${name}\``) && line.startsWith("|"));
       const type = /\| (histogram|counter|gauge) \|/.exec(row ?? "")?.[1];
-      const metric = /** @type {import("prom-client").Metric} */ (register.getSingleMetric(name));
+      const metric = /** @type {import("prom-client").Metric} */ (
+        register.getSingleMetric(name)
+      );
       const { type: actual } = await metric.get();
       expect(actual, name).toBe(type);
     }
@@ -62,7 +78,13 @@ describe("SRS §6.6 metrics are all registered, with the table's names and label
 });
 
 describe("routeLabel: the route PATTERN, never the raw path (cardinality)", () => {
-  const req = (baseUrl, path) => /** @type {import("express").Request} */ (/** @type {unknown} */ ({ baseUrl, route: path === undefined ? undefined : { path } }));
+  const req = (baseUrl, path) =>
+    /** @type {import("express").Request} */ (
+      /** @type {unknown} */ ({
+        baseUrl,
+        route: path === undefined ? undefined : { path },
+      })
+    );
 
   it.each([
     ["/api/v1/documents", "/:id", "/api/v1/documents/:id"],
@@ -82,11 +104,20 @@ describe("routeLabel: the route PATTERN, never the raw path (cardinality)", () =
 describe("httpStatusLabel (llm_request_total)", () => {
   it("success is 200", () => expect(httpStatusLabel("success")).toBe("200"));
   it("a provider error is its status", () =>
-    expect(httpStatusLabel("failure", APIError.generate(529, {}, "overloaded", new Headers()))).toBe("529"));
+    expect(
+      httpStatusLabel("failure", APIError.generate(529, {}, "overloaded", new Headers())),
+    ).toBe("529"));
   it.each([
     ["our own abort", new APIUserAbortError()],
     ["the SDK's timeout", new APIConnectionTimeoutError()],
-  ])("%s is 'timeout'", (_label, err) => expect(httpStatusLabel("failure", err)).toBe("timeout"));
+  ])("%s is 'timeout'", (_label, err) =>
+    expect(httpStatusLabel("failure", err)).toBe("timeout"),
+  );
   it("no response at all is 'network'", () =>
-    expect(httpStatusLabel("failure", Object.assign(new Error("reset"), { code: "ECONNRESET" }))).toBe("network"));
+    expect(
+      httpStatusLabel(
+        "failure",
+        Object.assign(new Error("reset"), { code: "ECONNRESET" }),
+      ),
+    ).toBe("network"));
 });

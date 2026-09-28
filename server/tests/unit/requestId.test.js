@@ -65,11 +65,15 @@ describe("requestId middleware (SRS §6.5 — request correlation)", () => {
     const results = [];
     const run = (id) =>
       new Promise((resolve) => {
-        requestIdMiddleware({ headers: { "x-request-id": id } }, { setHeader: vi.fn() }, async () => {
-          await new Promise((r) => setTimeout(r, Math.random() * 10));
-          results.push(getRequestId());
-          resolve(undefined);
-        });
+        requestIdMiddleware(
+          { headers: { "x-request-id": id } },
+          { setHeader: vi.fn() },
+          async () => {
+            await new Promise((r) => setTimeout(r, Math.random() * 10));
+            results.push(getRequestId());
+            resolve(undefined);
+          },
+        );
       });
 
     await Promise.all([run("req-a"), run("req-b"), run("req-c")]);

@@ -91,7 +91,10 @@ async function analyzeDocumentInSpan({ documentId, userId }, span) {
   // After ownership on purpose: a response that depended on verification
   // state BEFORE the document was resolved would let one user probe
   // whether another's document id exists.
-  const account = await prisma.user.findUnique({ where: { id: userId }, select: { state: true } });
+  const account = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { state: true },
+  });
   if (account?.state === "UNVERIFIED") throw new AppError("EMAIL_NOT_VERIFIED");
 
   // Step 2. Platform state, then per-user quota (§3.5) — after ownership,
@@ -223,9 +226,15 @@ async function runAnalysis(document, analysisId, record, startedAt) {
 
   // Steps 5 and 6. One retry on invalid output, with Appendix A's correction
   // appended to the same conversation. One, not a loop.
-  const first = await provider.analyze({ documentText: document.rawText, requestId, deadlineAt });
+  const first = await provider.analyze({
+    documentText: document.rawText,
+    requestId,
+    deadlineAt,
+  });
   addUsage(record, first);
-  let parsed = await withSpan("analysis.validate", () => parseAnalysisResult(first.rawText));
+  let parsed = await withSpan("analysis.validate", () =>
+    parseAnalysisResult(first.rawText),
+  );
   if (!parsed.success) {
     record.retryCount = 1;
     const second = await provider.analyze({
@@ -235,9 +244,13 @@ async function runAnalysis(document, analysisId, record, startedAt) {
       correction: { invalidResponse: first.rawText, errorSummary: parsed.errorSummary },
     });
     addUsage(record, second);
-    parsed = await withSpan("analysis.validate", () => parseAnalysisResult(second.rawText), {
-      "analysis.schema_retry": true,
-    });
+    parsed = await withSpan(
+      "analysis.validate",
+      () => parseAnalysisResult(second.rawText),
+      {
+        "analysis.schema_retry": true,
+      },
+    );
     if (!parsed.success) throw new AppError("LLM_INVALID_OUTPUT");
   }
   const result = parsed.data;

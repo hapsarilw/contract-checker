@@ -9,5 +9,7 @@ import app from "../../../src/app.js";
 
 const server = app.listen(0, () => {
   const address = server.address();
-  process.stdout.write(`LISTENING:${typeof address === "object" && address ? address.port : ""}\n`);
+  process.stdout.write(
+    `LISTENING:${typeof address === "object" && address ? address.port : ""}\n`,
+  );
 });

@@ -57,7 +57,11 @@ export async function requestPasswordReset(email, { detach } = {}) {
       // NFR-3.8's rule applies to the caller too: the request already
       // answered 202, and nothing about this failure may reach it.
       logger.error(
-        { alert: "email_send_failed", email: { type: "password_reset" }, err: { name: /** @type {Error} */ (err)?.name } },
+        {
+          alert: "email_send_failed",
+          email: { type: "password_reset" },
+          err: { name: /** @type {Error} */ (err)?.name },
+        },
         "could not issue a password reset token",
       );
     }

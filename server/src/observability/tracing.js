@@ -62,7 +62,12 @@ export function withSpan(name, fn, attributes = {}) {
   const requestId = getRequestId();
   return tracer().startActiveSpan(
     name,
-    { attributes: { ...(requestId ? { [REQUEST_ID_ATTRIBUTE]: requestId } : {}), ...attributes } },
+    {
+      attributes: {
+        ...(requestId ? { [REQUEST_ID_ATTRIBUTE]: requestId } : {}),
+        ...attributes,
+      },
+    },
     async (span) => {
       try {
         const result = await fn(span);
@@ -87,7 +92,11 @@ export function withSpan(name, fn, attributes = {}) {
  * @param {{ endpoint?: string, serviceName?: string, version?: string }} options
  * @returns {() => Promise<void>}
  */
-export function startTracing({ endpoint, serviceName = "clausecheck-api", version } = {}) {
+export function startTracing({
+  endpoint,
+  serviceName = "clausecheck-api",
+  version,
+} = {}) {
   if (!endpoint) return async () => {};
   const provider = new NodeTracerProvider({
     resource: resourceFromAttributes({

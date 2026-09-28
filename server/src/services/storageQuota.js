@@ -33,7 +33,10 @@ import prisma from "../lib/prisma.js";
  * @param {{ count: number, bytes: number, incomingBytes: number }} usage
  */
 function exceeds({ count, bytes, incomingBytes }) {
-  return count + 1 > config.MAX_DOCS_PER_USER || bytes + incomingBytes > config.MAX_BYTES_PER_USER;
+  return (
+    count + 1 > config.MAX_DOCS_PER_USER ||
+    bytes + incomingBytes > config.MAX_BYTES_PER_USER
+  );
 }
 
 /** 50 MB → "50 MB". Whole megabytes; a quota message is not the place for decimals. */
