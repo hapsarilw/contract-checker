@@ -29,37 +29,44 @@
  *                 now siblings with matching proportions instead of two
  *                 unrelated designs.
  *
- * WEIGHTS are exactly what the stylesheets use, and no more. Literata
- * dropped from five weights to three when it stopped setting headings.
+ * VARIABLE FONTS, ONE FILE PER FAMILY (BUILD-PLAN step 66). This used to
+ * import each weight as its own static file: four for Geist Sans, two
+ * for Geist Mono, three for Literata, each with a latin-ext twin. The
+ * report downloaded twelve font files, about 290 KB, and on FR-7.13's
+ * simulated mid-tier phone over slow 4G those bytes competed with the
+ * app's own JavaScript and held Largest Contentful Paint to 3.15 s on
+ * the report and 2.7 s on upload, against a 2.5 s budget. Measured, not
+ * guessed: the same build with no web fonts at all painted at 1.65 s on
+ * every page, so the fonts were the whole overrun. A variable font carries
+ * every weight in one file: Geist's latin file is 29 KB for weights
+ * 100-900, where the four static weights were 138 KB between them.
  *
- * SUBSETS: latin for all three, plus latin-ext where the family offers
- * it. One honest gap, stated rather than discovered later: @fontsource's
- * Geist Sans ships a latin subset only, with no latin-ext. Western
- * European accents (é, ñ, ü) live in `latin` and are covered; a Central
- * or Eastern European character (ł, ș, ő) in SANS-rendered text would
- * fall back to system-ui for that glyph. That gap does not touch the
- * text where it would matter — quoted contract excerpts are Literata and
- * filenames are Geist Mono, and both of those carry latin-ext — so what
- * is exposed is UI chrome and an email address, which FR-7.14 already
- * scopes to English.
+ * Every weight the stylesheets ask for (400, 500, 600, 700) is now an
+ * exact instance of the variable axis rather than a separate download,
+ * so a new weight costs nothing and cannot silently add a request.
+ *
+ * `wght.css` declares every subset with its unicode-range; the browser
+ * downloads only the subsets whose characters are on the page, which for
+ * English copy is `latin` alone.
+ *
+ * SUBSETS: the variable Geist ships latin-ext, which the static Geist Sans
+ * never did, so the gap this comment used to record (a Central European
+ * character in sans text falling back to system-ui for that glyph) is
+ * closed.
+ *
+ * NO ITALIC: nothing in the stylesheets or the markup sets italic, so no
+ * italic face is imported. If one is ever needed, it is one more import
+ * of `wght-italic.css`, not a synthesized slant.
+ *
+ * Family names are the variable packages' own ("Geist Variable" and so
+ * on); tokens.css names them.
  */
 
 /* The product's voice. */
-import "@fontsource/geist-sans/latin-400.css";
-import "@fontsource/geist-sans/latin-500.css";
-import "@fontsource/geist-sans/latin-600.css";
-import "@fontsource/geist-sans/latin-700.css";
+import "@fontsource-variable/geist/wght.css";
 
 /* The document's voice. */
-import "@fontsource/literata/latin-400.css";
-import "@fontsource/literata/latin-ext-400.css";
-import "@fontsource/literata/latin-400-italic.css";
-import "@fontsource/literata/latin-ext-400-italic.css";
-import "@fontsource/literata/latin-700.css";
-import "@fontsource/literata/latin-ext-700.css";
+import "@fontsource-variable/literata/wght.css";
 
 /* Machine facts. */
-import "@fontsource/geist-mono/latin-400.css";
-import "@fontsource/geist-mono/latin-ext-400.css";
-import "@fontsource/geist-mono/latin-500.css";
-import "@fontsource/geist-mono/latin-ext-500.css";
+import "@fontsource-variable/geist-mono/wght.css";

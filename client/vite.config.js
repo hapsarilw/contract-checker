@@ -17,8 +17,63 @@ import react from "@vitejs/plugin-react";
  * theme-flash preventer, anything of that shape) — verified by
  * `scripts/check-bundle-size.mjs`, which also asserts this on every build.
  */
+/**
+ * FR-7.13 (BUILD-PLAN step 66): preload the body-text font.
+ *
+ * Largest Contentful Paint on every screen is a block of body text set in
+ * Geist, and without a preload the browser cannot even ask for the font
+ * until it has downloaded and parsed the stylesheet and laid out text that
+ * uses it. The preload starts the download alongside the HTML instead.
+ * It is the ONE font preloaded, and only its latin subset: it is used on
+ * every page, so the early bytes are never wasted. Literata (the report's
+ * excerpts) and Geist Mono are left to load on demand; preloading them on
+ * pages that never use them would take bandwidth from the text that is
+ * the LCP.
+ *
+ * The file name is content-hashed, so it is found in the bundle at build
+ * time rather than written into index.html by hand. A build that cannot
+ * find it FAILS, rather than silently shipping without the preload the
+ * LCP budget depends on. `crossorigin` is required for a font preload
+ * even on the same origin, or the browser fetches it twice. A <link> is
+ * not a script, so FR-7.9's no-inline-script rule is untouched.
+ *
+ * @returns {import("vite").Plugin}
+ */
+function preloadBodyFont() {
+  const PATTERN = /(^|\/)geist-latin-wght-normal-[\w-]+\.woff2$/;
+  return {
+    name: "clausecheck:preload-body-font",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        const file = Object.keys(ctx.bundle ?? {}).find((name) => PATTERN.test(name));
+        if (!file) {
+          throw new Error(
+            "preload-body-font: no geist-latin-wght-normal woff2 in the bundle; " +
+              "the body font changed, so update this plugin (FR-7.13 depends on it).",
+          );
+        }
+        return [
+          {
+            tag: "link",
+            attrs: {
+              rel: "preload",
+              href: `/${file}`,
+              as: "font",
+              type: "font/woff2",
+              crossorigin: "",
+            },
+            injectTo: "head",
+          },
+        ];
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), preloadBodyFont()],
   build: {
     // No inline sourcemap script, no legacy inline shims.
     sourcemap: true,

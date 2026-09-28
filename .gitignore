@@ -10,6 +10,7 @@ node_modules/
 dist/
 build/
 client/dist/
+client/.perf-build/
 
 # Test and coverage
 coverage/

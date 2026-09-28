@@ -136,9 +136,9 @@
                app. That is the whole justification for keeping a serif
                here; it is not decoration.
        mono  — machine facts. Filenames, word counts, dates. */
-  --cc-font-sans: "Geist Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --cc-font-serif: "Literata", Georgia, "Times New Roman", serif;
-  --cc-font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --cc-font-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --cc-font-serif: "Literata Variable", Georgia, "Times New Roman", serif;
+  --cc-font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   /* ---- Type — scale (rem, 1rem = 16px) -----------------------------
      Rebuilt on a 1.2 ratio from a 14px base, rather than the previous

@@ -833,7 +833,7 @@ Structured JSON logs via `pino` to stdout, collected by the platform. Every requ
 
 **FR-7.12 Session expiry. [P1.5]** A 401 with `SESSION_REVOKED` or `UNAUTHENTICATED` on any request clears client state and redirects to login with an explanatory message and a return path — not a silent bounce that loses the user's place.
 
-**FR-7.13 Performance budget. [P1.5]** Initial JS bundle ≤ 200 KB gzipped; Largest Contentful Paint ≤ 2.5 s on a simulated mid-tier mobile device over 4G (PRD §2.2 makes phones the first surface). Enforced in CI by a bundle-size check.
+**FR-7.13 Performance budget. [P1.5]** Initial JS bundle ≤ 200 KB gzipped; Largest Contentful Paint ≤ 2.5 s on a simulated mid-tier mobile device over 4G (PRD §2.2 makes phones the first surface). Enforced in CI by a bundle-size check and a Lighthouse LCP check (§10.5); a gate on the bundle alone would let the LCP half ship unverified.
 
 **FR-7.14 Timezones and formatting.** All timestamps arrive as UTC ISO-8601 and are formatted in the viewer's locale and timezone via `Intl`. Copy is English-only in Phase 1; strings are kept out of markup structure so that localization later is a translation task, not a rewrite.
 
@@ -995,7 +995,8 @@ Because this test calls a real model, it is the one place CI reaches the provide
 | Lint and format | clean, `dangerouslySetInnerHTML` banned |
 | Type checks (JSDoc + `checkJs`, or TypeScript) | clean |
 | Dependency vulnerability scan | no known-exploitable criticals |
-| Bundle size | within FR-7.13 |
+| Bundle size | within FR-7.13 (initial JS ≤ 200 KB gzipped) |
+| Largest Contentful Paint | within FR-7.13: ≤ 2.5 s median of 3 Lighthouse runs, default mobile profile (simulated slow 4G, 4× CPU), on `/login`, `/` and a report |
 | Accessibility (axe, E2E) | zero violations at AA |
 | OpenAPI contract test | every documented endpoint and error code reachable |
 

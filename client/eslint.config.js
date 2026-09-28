@@ -34,7 +34,7 @@ const domSafetySelectors = [
 
 export default [
   {
-    ignores: ["node_modules/**", "dist/**", "playwright-report/**", "test-results/**"],
+    ignores: ["node_modules/**", "dist/**", ".perf-build/**", "playwright-report/**", "test-results/**"],
   },
   js.configs.recommended,
   {

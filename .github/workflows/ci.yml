@@ -1,0 +1,65 @@
+# CI. BUILD-PLAN step 70 assembles the full pull-request pipeline in this
+# file (SRS §12.1: install, lint, type check, tests, coverage, image,
+# scans, contract test). Step 66 starts it with the frontend performance
+# gates, so FR-7.13 is enforced from the start rather than left to wait.
+#
+# Not yet run on GitHub: nothing in this repository has been pushed, so
+# the first real run of this file is still ahead. The commands are the
+# same npm scripts that run locally.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  client-performance:
+    # FR-7.13, both halves, each gating:
+    #   bundle:check  initial JS <= 200 KB gzipped, no inline script, body
+    #                 font preloaded
+    #   perf:lcp      LCP <= 2.5 s on /login, / and the report, Lighthouse's
+    #                 simulated mid-tier phone on slow 4G, median of 3
+    name: Client performance budget (FR-7.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install (frozen lockfile)
+        run: npm ci
+
+      # The LCP check drives Playwright's Chromium, the same browser the
+      # E2E suite uses, so there is one browser to install, not two.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Bundle budget
+        run: npm run bundle:check
+
+      - name: LCP budget
+        run: npm run perf:lcp
+
+      - name: Keep the LCP figures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcp-report
+          path: client/.perf-build/lcp-report.json
+          if-no-files-found: ignore
