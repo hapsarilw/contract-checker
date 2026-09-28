@@ -34,6 +34,7 @@ import { attachGracefulShutdown } from "./lib/gracefulShutdown.js";
 import { flushEmails } from "./lib/email.js";
 import { closeRedis } from "./lib/redis.js";
 import { startReaper, stopReaper } from "./jobs/reaper.js";
+import { startRetentionJob, stopRetentionJob } from "./jobs/retention.js";
 
 const server = app.listen(config.PORT, () => {
   logger.info(
@@ -58,6 +59,9 @@ server.headersTimeout = config.timeouts.headers;
 // before: the reaper's first tick is a real database write, and there is
 // no reason for it to race the server's own boot.
 const reaperHandle = startReaper();
+// FR-4.4 — checks every 15 minutes whether tonight's run is due; see
+// jobs/retention.js for why "nightly" is a due-check and not a timer.
+const retentionHandle = startRetentionJob();
 
 attachGracefulShutdown({
   server,
@@ -78,6 +82,10 @@ attachGracefulShutdown({
     // on its way out, and definitely not one that opens a transaction
     // after the pool below has closed.
     stopReaper(reaperHandle);
+    // An in-flight retention run is not awaited: every batch it has
+    // already committed stays deleted, and the next run resumes from
+    // whatever is left.
+    stopRetentionJob(retentionHandle);
     // Email next, because a message one retry from delivered is worth
     // waiting for (bounded — flushEmails gives up after five seconds).
     await flushEmails();

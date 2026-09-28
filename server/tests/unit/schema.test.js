@@ -29,13 +29,17 @@ function tableBody(table) {
 }
 
 describe("Prisma schema conformance with SRS §5.1", () => {
-  it("exposes exactly the six specified models", () => {
+  it("exposes exactly the seven specified models", () => {
+    // Six from the original §5.1, plus JobRun (step 61), which §5.1 now
+    // lists too. A model added here without being added to §5.1 is the
+    // drift this assertion exists to catch.
     expect(Object.values(Prisma.ModelName).sort()).toEqual([
       "Analysis",
       "AuditEvent",
       "AuthToken",
       "Document",
       "Finding",
+      "JobRun",
       "User",
     ]);
   });

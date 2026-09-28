@@ -159,6 +159,22 @@ model AuditEvent {
   @@index([createdAt])
 }
 
+// SRS §12.3: "each job ... exports a last-success metric that Appendix C
+// alerts on." The jobs run on ONE instance under an advisory lock, but the
+// metric is scraped from EVERY instance — so the last-success time cannot
+// live in the winning process's memory, or every other instance would
+// report it as never having run and fire a false alert. It lives here,
+// once, and every instance reads it at scrape time (jobs/jobRuns.js).
+//
+// A table rather than a Redis key: Redis is a cache in this system and can
+// be flushed or evicted, and a flushed key would read as "the retention job
+// has stopped" — a false page about a published privacy-policy claim. One
+// row per job name; step 62's jobs add rows, not columns.
+model JobRun {
+  job           String   @id
+  lastSuccessAt DateTime
+}
+
 // Four states, not five. PRD §8.1's table also lists DELETED, but says of
 // it: "Not a flag — the row is gone." Deletion is the absence of the row
 // (FR-4.6, §12.5); adding DELETED here would quietly convert a hard

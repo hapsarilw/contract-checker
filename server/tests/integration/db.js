@@ -1,7 +1,7 @@
 import prisma from "../../src/lib/prisma.js";
 
 /** Every table §5.1 defines. Keep in sync with schema.prisma's model list. */
-const TABLES = ["User", "AuthToken", "Document", "Analysis", "Finding", "AuditEvent"];
+const TABLES = ["User", "AuthToken", "Document", "Analysis", "Finding", "AuditEvent", "JobRun"];
 
 /**
  * Truncates every table between tests, so one test's rows never leak

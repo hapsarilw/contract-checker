@@ -544,6 +544,16 @@ model AuditEvent {
   @@index([createdAt])
 }
 
+// Added at BUILD-PLAN step 61 (the retention job). §12.3's jobs run on
+// one instance under an advisory lock but their last-success metric is
+// scraped from every instance, so the time is stored here once and every
+// instance reads it. A table rather than Redis because a flushed Redis key
+// would read as "the retention job has stopped" and page someone.
+model JobRun {
+  job           String   @id               // "retention"; step 62 adds more
+  lastSuccessAt DateTime
+}
+
 enum UserState     { UNVERIFIED ACTIVE LOCKED SUSPENDED }
 enum AuthTokenType { EMAIL_VERIFICATION PASSWORD_RESET EMAIL_CHANGE }
 enum SourceType    { UPLOAD_PDF UPLOAD_DOCX PASTE }

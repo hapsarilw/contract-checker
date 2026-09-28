@@ -1,6 +1,7 @@
 import { Gauge, register } from "prom-client";
 import prisma from "../lib/prisma.js";
 import logger from "../observability/logger.js";
+import { startRecurring, stopRecurring } from "./scheduler.js";
 
 /**
  * FR-3.8 / SRS §12.3 — the stale-analysis reaper.
@@ -130,45 +131,22 @@ export async function reapStaleAnalyses(now = new Date()) {
 }
 
 /**
- * Wires `reapStaleAnalyses` to §12.3's every-minute cadence.
+ * Wires `reapStaleAnalyses` to §12.3's every-minute cadence, through the
+ * scheduler every §12.3 job shares (jobs/scheduler.js): once immediately
+ * on boot, then every `intervalMs`, a failed tick logged and dropped.
  *
- * RUNS ONCE IMMEDIATELY, in addition to the interval, which is more than
- * the spec's literal "running every minute" asks for and is worth doing
- * anyway: an instance that just booted may be looking at PENDING rows a
- * PREVIOUS instance orphaned before it crashed, and waiting up to 60
- * seconds to start clearing them has no upside.
- *
- * `tick` is injectable so a test can prove the SCHEDULING (fires
- * immediately, then every `intervalMs`, stops when told to) without a
- * database — `reapStaleAnalyses` itself is tested separately, against a
- * real Postgres, in tests/integration/reaper.test.js.
+ * `tick` is injectable so a test can prove the scheduling without a
+ * database — `reapStaleAnalyses` itself is tested against a real Postgres
+ * in tests/integration/reaper.test.js.
  *
  * @param {{ tick?: (now?: Date) => Promise<unknown>, intervalMs?: number }} [options]
  * @returns {NodeJS.Timeout} pass to `stopReaper` to cancel
  */
 export function startReaper({ tick = reapStaleAnalyses, intervalMs = REAP_INTERVAL_MS } = {}) {
-  const run = () => {
-    // A rejected tick is logged and dropped, never thrown into the
-    // interval's own error handling (which would otherwise be an
-    // unhandled rejection) and never allowed to cancel future ticks —
-    // one bad minute must not end the job for the rest of the process's
-    // life.
-    tick().catch((err) => {
-      logger.error({ job: "reaper", err }, "reaper tick failed");
-    });
-  };
-
-  run();
-  const handle = setInterval(run, intervalMs);
-  // Matches gracefulShutdown.js's own forceExit timer: this must never
-  // be the thing that keeps the process alive. The HTTP server already
-  // does that; this job rides along with it and stops when told to via
-  // stopReaper, not by outliving everything else.
-  handle.unref?.();
-  return handle;
+  return startRecurring({ job: "reaper", tick: () => tick(), intervalMs });
 }
 
 /** @param {NodeJS.Timeout} handle */
 export function stopReaper(handle) {
-  clearInterval(handle);
+  stopRecurring(handle);
 }
