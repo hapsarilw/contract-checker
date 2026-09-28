@@ -1,0 +1,55 @@
+# BUILD-PLAN step 70 (OPS-7) — gitleaks' config, for the secret-scan job in
+# .github/workflows/ci.yml and .github/workflows/scan.yml.
+#
+# Extends gitleaks' own default ruleset (provider-specific key patterns plus
+# a generic high-entropy-string rule) rather than replacing it, so a new
+# rule gitleaks ships later is picked up automatically.
+#
+# THE TWO ALLOWLIST ENTRIES BELOW ARE THE ONLY EXCEPTIONS, and both are
+# scoped to the EXACT literal string that trips the generic entropy rule —
+# not to a file or a directory. That is deliberate: a path-level allowlist
+# (server/tests/**, say) would also hide a real secret accidentally pasted
+# into a test file, which is exactly the case this scan exists to catch.
+# Scoping to the literal value means a genuinely different secret added
+# next to either line still gets caught.
+#
+# Verified locally before this file was written: `gitleaks detect` against
+# a `git archive` of this repository (tracked files only — the same content
+# a CI checkout sees, never server/.env or server/.mail-sink, both
+# gitignored) found exactly these two findings and nothing else.
+#
+# A CUSTOM RULE FOR ANTHROPIC KEYS, ON TOP OF GITLEAKS' OWN. Tested against
+# this repository before relying on it: gitleaks' bundled anthropic-api-key
+# rule caught a real key (found once, locally, while testing this file —
+# never committed; see the incident note in the runbooks) but did NOT catch
+# several synthetic sk-ant-api03-<random> keys of varying length built to
+# rehearse this exact scan, which means it is pickier about the exact
+# published format than this project can afford to depend on for its own
+# most sensitive secret. The rule below matches on Anthropic's fixed,
+# published prefix alone (sk-ant-api03- or sk-ant-admin01-) plus a length
+# floor — no entropy heuristic to be pickier than the thing it is matching.
+# Verified to catch every synthetic key tried, at every length tried.
+[[rules]]
+id = "anthropic-api-key-explicit"
+description = "An Anthropic API key, by its fixed published prefix rather than gitleaks' own heuristic for it"
+regex = '''sk-ant-(api03|admin01)-[A-Za-z0-9_-]{20,}'''
+keywords = ["sk-ant-"]
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known test/reference literals, not credentials"
+regexes = [
+  # server/src/services/breachedPasswords.js — a worked example inside a
+  # comment about k-anonymity breach checking, quoting three common weak
+  # passwords ("password123", "qwerty123456", "iloveyou123") the way a
+  # public breached-password list would. Not a credential this system
+  # holds or issues.
+  '''qwerty123456''',
+  # server/tests/unit/llmClient.test.js — a placeholder JWT_SECRET used to
+  # satisfy config.js's 32-byte-minimum validation in a unit test. Visibly
+  # a fixture, never a real secret; the same string that would appear if
+  # this test's JWT_SECRET literal changes is not this one.
+  '''test-jwt-secret-at-least-32-bytes-long-ok''',
+]

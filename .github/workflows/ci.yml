@@ -1,11 +1,45 @@
-# CI. BUILD-PLAN step 70 assembles the full pull-request pipeline in this
-# file (SRS §12.1: install, lint, type check, tests, coverage, image,
-# scans, contract test). Step 66 starts it with the frontend performance
-# gates, so FR-7.13 is enforced from the start rather than left to wait.
+# CI. BUILD-PLAN step 70 (OPS-7): SRS §12.1's pull-request pipeline —
+# install → lint and format → type check → unit tests → integration tests
+# against ephemeral Postgres and Redis → coverage gates (§10.5) → client
+# build and bundle budget → Lighthouse LCP check → Docker image build →
+# dependency and image vulnerability scan → secret scan → OpenAPI contract
+# test → fixture-generation verification (§11.3).
 #
-# Not yet run on GitHub: nothing in this repository has been pushed, so
-# the first real run of this file is still ahead. The commands are the
-# same npm scripts that run locally.
+# ELEVEN JOBS, NOT ONE LINEAR CHAIN. "Gating" is read as its plain meaning
+# — every one of these must pass before a pull request can merge, enforced
+# by docs/branch-protection.md's required-status-checks list, which names
+# these jobs exactly. Genuine PREREQUISITES are real `needs:` edges (you
+# cannot scan an image before building it; coverage instrumentation is not
+# worth paying for on code that fails lint); checks with no logical
+# dependency on each other (the secret scan, the dependency audit, the
+# OpenAPI contract test, the fixture check) run as soon as their own inputs
+# are ready rather than waiting behind unrelated slow jobs, so a failure in
+# any of them is seen in minutes, not after a Docker build. Nothing here is
+# optional or advisory; the DAG only changes how soon a failure is seen.
+#
+# LLM_PROVIDER IS MOCK, EVERYWHERE, NO EXCEPTIONS (SRS §2.3, BUILD-PLAN step
+# 70's own words: "CI must never call the real provider... LLM_PROVIDER=mock
+# everywhere except the benchmark workflow"). Nothing in this file reads
+# secrets.ANTHROPIC_API_KEY or any provider credential — tests/setup.js
+# already defaults LLM_PROVIDER=mock for every vitest run, and the line
+# below is redundant with that on purpose: a workflow-level default that
+# does not depend on a test file continuing to set it correctly. The one
+# job that DOES hold a provider key is .github/workflows/benchmark.yml
+# (BUILD-PLAN step 72), a different workflow entirely, gated so it can
+# never run from a fork.
+#
+# ADDITIONAL TO SRS §12.1's OWN LIST: `client-e2e`. The PR pipeline SRS
+# §12.1 describes does not mention it — Playwright + axe there runs only
+# after merge, "against staging". But client/e2e/*.spec.js was built from
+# step 32 onward specifically to gate the build against a MOCKED API, no
+# staging required (playwright.config.js explains why), and step 65's own
+# accessibility audit says outright that its axe assertions are meant to
+# fail the build on any WCAG violation. Not running that suite on every PR
+# would let an accessibility regression reach staging before anything
+# catches it, which is the opposite of what step 65 built it for. The two
+# are complementary, not redundant: this one is fast and mocked and lives
+# here; the real one, against a deployed staging environment, is step 71's
+# job to add to the merge-to-main continuation of this pipeline.
 
 name: CI
 
@@ -14,17 +48,115 @@ on:
   push:
     branches: [main]
 
+env:
+  LLM_PROVIDER: mock
+
 permissions:
   contents: read
 
 jobs:
-  client-performance:
+  # ---------------------------------------------------------------- quality
+  server-quality:
+    name: server-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install (frozen lockfile)
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Format
+        run: npx prettier --check .
+      # The workflows are code too: a syntax error in one is otherwise found
+      # only when GitHub refuses to run it. Pinned like every other tool
+      # here. Lives in this job because it is the repository-level "lint"
+      # and needs no install.
+      - name: Lint the workflows (actionlint)
+        working-directory: .
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.7 -color
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+
+  client-quality:
+    name: client-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Install (frozen lockfile)
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Format
+        run: npx prettier --check .
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests
+        run: npx vitest run
+
+  # ------------------------------------------------------------------ tests
+  server-tests:
+    name: server-tests
+    needs: [server-quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install (frozen lockfile)
+        run: npm ci
+      # tests/integration/globalSetup.js launches Postgres and Redis itself,
+      # via testcontainers, against the Docker daemon ubuntu-latest runners
+      # already carry — no services: block needed. A fast signal before
+      # paying for coverage instrumentation.
+      - name: Integration tests (ephemeral Postgres and Redis)
+        run: npm run test:integration
+      # SRS §10.5's gates: 80% lines over server/src, 100% branch on
+      # verify.js and risk.js. `test:coverage` runs unit AND integration
+      # together (vitest.config.js's projects, no --project filter) because
+      # the 80% figure is meant over everything, and re-running the suite a
+      # second time, instrumented, is the price of a coverage-specific
+      # failure message distinct from "a test failed" above. vitest exits
+      # non-zero on its own when a configured threshold is missed — nothing
+      # here re-checks the percentages by hand.
+      - name: Coverage gates (SRS §10.5)
+        run: npm run test:coverage
+
+  # ------------------------------------------------------------------client
+  client-build:
+    name: client-build
+    needs: [client-quality]
     # FR-7.13, both halves, each gating:
     #   bundle:check  initial JS <= 200 KB gzipped, no inline script, body
     #                 font preloaded
     #   perf:lcp      LCP <= 2.5 s on /login, / and the report, Lighthouse's
     #                 simulated mid-tier phone on slow 4G, median of 3
-    name: Client performance budget (FR-7.13)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -32,30 +164,24 @@ jobs:
         working-directory: client
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: server/.nvmrc
           cache: npm
           cache-dependency-path: client/package-lock.json
-
       - name: Install (frozen lockfile)
         run: npm ci
-
-      # The LCP check drives Playwright's Chromium, the same browser the
-      # E2E suite uses, so there is one browser to install, not two.
+      # The LCP check drives Playwright's Chromium, the same browser
+      # client-e2e uses, so there is one browser to install per job, not two
+      # kinds.
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-
       - name: Build
         run: npm run build
-
       - name: Bundle budget
         run: npm run bundle:check
-
       - name: LCP budget
         run: npm run perf:lcp
-
       - name: Keep the LCP figures
         if: always()
         uses: actions/upload-artifact@v4
@@ -63,3 +189,211 @@ jobs:
           name: lcp-report
           path: client/.perf-build/lcp-report.json
           if-no-files-found: ignore
+
+  client-e2e:
+    name: client-e2e
+    needs: [client-quality]
+    # See this file's header: additional to SRS §12.1's own PR list,
+    # because step 65 built this suite specifically to fail the build.
+    # Every spec here mocks the API (page.route()) — no server, no
+    # database, no LLM_PROVIDER to set — except account-live.spec.js, which
+    # is gated on E2E_LIVE_API (unset here) and skips itself.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Install (frozen lockfile)
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: E2E + axe (mocked API)
+        run: npm run e2e
+      - name: Keep the Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: client/playwright-report
+          if-no-files-found: ignore
+
+  # ------------------------------------------------------------------ image
+  docker-build:
+    name: docker-build
+    needs: [server-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build timestamp
+        id: ts
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      # server/Dockerfile's own header explains GIT_SHA/BUILD_TIMESTAMP:
+      # baked in at build time so /api/version answers "which image is
+      # this" rather than trusting a deployer to set it later.
+      - name: Build
+        run: |
+          docker build \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            --build-arg BUILD_TIMESTAMP=${{ steps.ts.outputs.value }} \
+            -t clausecheck-server:${{ github.sha }} \
+            ./server
+      # Handed to image-scan as a plain tarball rather than pushed to a
+      # registry — no registry has been chosen yet (that is step 71's
+      # decision), and this file never pushes an image anywhere.
+      - name: Save image for the scan job
+        run: docker save clausecheck-server:${{ github.sha }} -o /tmp/clausecheck-server.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/clausecheck-server.tar
+          retention-days: 1
+
+  # ----------------------------------------------------------------- scans
+  dependency-scan:
+    name: dependency-scan
+    needs: [server-quality, client-quality]
+    # SRS §10.5: "no known-exploitable criticals." `npm audit
+    # --audit-level=critical` exits non-zero only when a CRITICAL-severity
+    # advisory exists — high/moderate findings (this repository currently
+    # has several, all pre-existing and none critical; see
+    # docs/runbooks/dependency-critical-vuln.md) are printed for visibility
+    # but do not fail the build, matching the policy's own severity floor.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+      - name: server — install (frozen lockfile)
+        working-directory: server
+        run: npm ci
+      - name: server — npm audit (critical)
+        working-directory: server
+        run: npm audit --audit-level=critical
+      - name: client — install (frozen lockfile)
+        working-directory: client
+        run: npm ci
+      - name: client — npm audit (critical)
+        working-directory: client
+        run: npm audit --audit-level=critical
+
+  image-scan:
+    name: image-scan
+    needs: [docker-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+      - name: Load the built image
+        run: docker load -i /tmp/clausecheck-server.tar
+      # Trivy, pinned (not :latest — this project pins every scanning tool
+      # exactly, same reasoning as ops/alerts/run-rule-tests.js's promtool
+      # image). --ignore-unfixed: SRS §2.1's response for an unfixed
+      # critical is "removed within 7 days", a decision this gate cannot
+      # make for a PR unrelated to the dependency — the weekly scan.yml
+      # runs WITHOUT --ignore-unfixed and surfaces those too, as a digest,
+      # so an unfixed critical is never silently uncounted, only non-
+      # blocking on someone else's PR.
+      - name: Trivy (critical, fixed only)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.74.0 image \
+            --severity CRITICAL --ignore-unfixed --exit-code 1 \
+            clausecheck-server:${{ github.sha }}
+
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # gitleaks, pinned. .gitleaks.toml (repo root) extends its default
+      # ruleset with an explicit rule for Anthropic's key prefix — verified
+      # locally that the bundled rule alone did not reliably catch a
+      # synthetic sk-ant-api03-<random> key at several lengths, which this
+      # project cannot accept for its one most sensitive secret type — plus
+      # two narrowly-scoped allowlist entries for known test/reference
+      # literals (see that file's own comments for what and why).
+      # --redact: a finding's secret is masked in the log, so a failed scan
+      # never publishes the credential it found. Scans full git history
+      # (fetch-depth 0), not just the PR's diff — a secret committed and
+      # then deleted is still in history.
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD":/repo -w /repo \
+            zricethezav/gitleaks:v8.30.1 detect \
+            --source=/repo --config=/repo/.gitleaks.toml --redact -v
+      # The scan above proves nothing was found; this proves the scan could
+      # have found something. It plants a synthetic Anthropic key in a
+      # scratch copy and requires it to be caught, so a gitleaks upgrade (or
+      # an edit to .gitleaks.toml) that quietly blinds the scan fails here.
+      # Node built-ins only: no install needed.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+      - name: The config still catches a planted key
+        run: node server/scripts/verify-gitleaks-config.js
+
+  # ---------------------------------------------------------------- contract
+  openapi-contract-test:
+    name: openapi-contract-test
+    needs: [server-quality]
+    # Already part of server-quality's "Unit tests" step (it is a file
+    # under tests/unit/), run again here as its own named, required check —
+    # SRS §12.1 lists it as its own pipeline stage, and a dedicated status
+    # check is what lets branch protection require it by name rather than
+    # by "the unit tests happened to include it this time."
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install (frozen lockfile)
+        run: npm ci
+      - name: OpenAPI contract test
+        run: npx vitest run --project unit tests/unit/openapi.test.js
+
+  fixtures-verify:
+    name: fixtures-verify
+    needs: [server-quality]
+    # SRS §11.3: expected.json's excerpts stay verbatim substrings of the
+    # committed fixtures. No database, no Docker — see
+    # tests/fixtures/verify-fixtures.js's own header.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install (frozen lockfile)
+        run: npm ci
+      - name: Fixture verification
+        run: npm run fixtures:verify

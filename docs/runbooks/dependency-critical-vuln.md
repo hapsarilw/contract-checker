@@ -1,12 +1,16 @@
 # dependency-critical-vuln
 
-**Severity 3, digest.** Reached from `dependency_critical_vuln`: a dependency or container-image scan found a known-exploitable critical vulnerability (raised by CI — BUILD-PLAN step 70 wires the scanner).
+**Severity 3, digest.** Reached from `dependency_critical_vuln`: a dependency or container-image scan found a known-exploitable critical vulnerability (raised by CI: `.github/workflows/scan.yml` weekly, and `ci.yml`'s `dependency-scan` and `image-scan` on every pull request).
 
 ## What you are seeing
 
 A failed scan: on a pull request, the check blocks the merge; on the weekly scan of the default branch, a digest naming a package, an advisory and a severity.
 
 The policy is SRS §2.1's: **a known-exploitable critical in a runtime dependency is patched within 7 days, or the dependency is removed.** The clock starts at the digest.
+
+## Where the alert actually comes from today
+
+Two sources, both GitHub Actions: a pull request's `dependency-scan` (npm audit, critical) or `image-scan` (Trivy, critical **and fixed**) check failing, which blocks that pull request; and the weekly `scan.yml`, which is the one that matters for a repository nobody is touching, and which — unlike the pull-request gate — also fails on a critical that has **no fix yet**. A failed workflow reaches you as GitHub's own failed-run email. It is not yet routed into the Alertmanager digest (`ops/alerts/ci-alerts.yml` declares the alert; nothing posts it), so until that is decided, the email is the alert.
 
 ## First five minutes
 
@@ -48,6 +52,6 @@ Record: the package, the advisory, whether it was reachable and why, what was do
 
 | Date | Where | What was exercised | Result |
 |---|---|---|---|
-| 2026-09-28 | this repository | `npm audit` for server and client, and `--omit=dev` for the server; the reachability questions applied to what it found. | Client: 0. Server: **0 critical**, so the alert's condition is not met — but 4 high and 3 moderate, all present before this step. Applying question 1: the high ones (`prisma`, `@prisma/config`, `deepmerge-ts`, `mysql2`) come through the migration CLI and are not loaded by the running API. Applying question 2: the moderate ones (`qs`, `body-parser`, `express`) sit in the request path — not critical, so not this policy, but the first thing to patch in routine maintenance. The scanner that raises this alert does not exist yet (step 70). |
+| 2026-09-28 | this repository | `npm audit` for server and client, and `--omit=dev` for the server; the reachability questions applied to what it found. | Client: 0. Server: **0 critical**, so the alert's condition is not met — but 4 high and 3 moderate, all present before this step. Applying question 1: the high ones (`prisma`, `@prisma/config`, `deepmerge-ts`, `mysql2`) come through the migration CLI and are not loaded by the running API. Applying question 2: the moderate ones (`qs`, `body-parser`, `express`) sit in the request path — not critical, so not this policy, but the first thing to patch in routine maintenance. The scanner that raises this alert is written (step 70) but has not run on GitHub yet. |
 
-**Staging walkthrough: not applicable** — this runbook acts on the repository, not on an environment. What is still owed is a real digest from the scanner once step 70 builds it.
+**Staging walkthrough: not applicable** — this runbook acts on the repository, not on an environment. What is still owed is a real failed run of the scanner reaching whoever reads the digest.

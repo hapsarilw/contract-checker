@@ -1,0 +1,23 @@
+# BUILD-PLAN step 70 (OPS-7) / SRS §12.1: "a review on any change to
+# services/verify.js, prompts/, migrations, or auth middleware."
+#
+# These four paths are exactly what SRS §12.1 names — not a broader
+# reading of "security-sensitive code" in general. See
+# docs/branch-protection.md for why these four and not others, and for
+# what "review" actually means at today's single-maintainer scale: GitHub
+# cannot require a review from a SECOND person when there is only one
+# person, and this file's job is only to make the four paths REQUEST one
+# (surfacing in the PR UI, and enabling required-review branch protection)
+# — the documented self-review procedure that stands in for a second
+# reviewer is docs/branch-protection.md, not this file.
+#
+# @hapsarilw is every path's owner today because there is no one else;
+# the moment a second maintainer exists, this file is where their name
+# goes, and docs/branch-protection.md's self-review exception should be
+# revisited at the same time.
+
+server/src/services/verify.js   @hapsarilw
+server/src/prompts/             @hapsarilw
+server/prisma/migrations/       @hapsarilw
+server/prisma/schema.prisma     @hapsarilw
+server/src/middleware/auth.js   @hapsarilw

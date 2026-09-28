@@ -13,7 +13,7 @@ The record PRD §9's Phase 1.5 definition of done asks for: every alert in SRS A
 | The two structurally-impossible alerts forced and observed | **Done**, end to end through real HTTP requests |
 | Any of the above repeated **in staging** | **Not done**: there is no staging |
 | A real pager waking a real person | **Not done**: no paging provider chosen |
-| `dependency_critical_vuln` fired from a real scan | **Not done**: the scanner is step 70 |
+| `dependency_critical_vuln` fired from a real scan | **Not done**: the scanner is written (step 70) but has never run on GitHub, and a failed run is not yet wired to the digest |
 
 ---
 
@@ -51,7 +51,7 @@ All nineteen were fired and observed arriving at the destination Appendix C name
 | `stale_pending_analyses` | 3 | digest | The gauge at 6. |
 | `memory_high` | 3 | digest | RSS at 81% and 85% of the configured limit for eleven minutes. |
 | `email_delivery_failures` | 3 | digest | 12.5% and 20% of sends failing over an hour. |
-| `dependency_critical_vuln` | 3 | digest | Posted with the labels `ops/alerts/ci-alerts.yml` declares. Its real source, the CI scanner, does not exist yet (step 70). |
+| `dependency_critical_vuln` | 3 | digest | Posted with the labels `ops/alerts/ci-alerts.yml` declares. Its real source, the CI scan (`.github/workflows/ci.yml`, `scan.yml`), is written but has never run on GitHub. |
 
 Every threshold is pinned from **both** sides: a case just over the line that fires, and one at or just under it that does not. That is not decoration — the first run of these tests passed with the failure-rate threshold moved from 25% to 50%, because the firing case was 80% and the quiet one 25%, and nothing sat in between. Six thresholds had that gap and now have a case in the band.
 
@@ -84,7 +84,7 @@ Both fail closed. Nothing is served when either fires — not the fabricated fin
 
 1. **Repeat all of section 2 in staging** once it exists (step 71). The rules and the routing are proven; what staging adds is that the real Prometheus scrapes the real `/metrics`, that the real Alertmanager has the rules loaded, and that the alerts survive the trip.
 2. **Choose a paging provider and a digest destination**, put their URLs in `ops/alerts/alertmanager.yml` in place of the placeholders, and fire one Sev-1 at it. Until a person has been woken by this, "page" is a label.
-3. **Fire `dependency_critical_vuln` from a real scan** once step 70 has written the scanner.
+3. **Fire `dependency_critical_vuln` from a real scan**: `scan.yml` exists (step 70) but nothing has been pushed, so it has never run. Run it once by hand (`workflow_dispatch`), then decide how a failed run reaches the digest. Today the only route is GitHub's own failed-workflow email to the repository owner.
 4. ~~Write the four missing runbooks~~ — **done at step 69** (2026-09-28): `docs/runbooks/` has one for every alert, the four Appendix C left blank and the `cross_user_access` adaptation included, each walked through on a local rehearsal stack. The step-69 walkthroughs also found that `retention_job_stale` applied one 36-hour threshold to jobs that run weekly and monthly, so it would never have stopped firing; the rule now gives each job its own cadence (`ops/alerts/tests/jobs.yml`).
 
 ## 6. Known weakness, recorded rather than papered over

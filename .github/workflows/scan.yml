@@ -1,0 +1,122 @@
+# Weekly vulnerability scan of the default branch. BUILD-PLAN step 70 /
+# NFR-2.10 / SRS §2.1's dependency policy: a known-exploitable critical in a
+# runtime dependency is patched within 7 days, or the dependency is removed.
+#
+# WHY THIS EXISTS WHEN ci.yml ALREADY SCANS. ci.yml runs on pull requests
+# and gates them. A vulnerability is published against a dependency on a
+# day nobody opened a pull request, and a repository nobody is touching
+# would otherwise learn about it never. This is the clock that keeps ticking
+# when the code is still. It also differs from ci.yml on purpose:
+#
+#   - It runs Trivy WITHOUT --ignore-unfixed. ci.yml's gate ignores
+#     criticals with no fixed version, because blocking an unrelated pull
+#     request on something it cannot fix would just teach people to bypass
+#     the gate. Here an unfixed critical is exactly what the 7-day
+#     "patch or remove" decision is about, so it must be seen.
+#   - It scans HIGH as well as CRITICAL, but only CRITICAL fails the run.
+#     High findings are printed for the maintainer to read, matching how
+#     docs/runbooks/dependency-critical-vuln.md treats them.
+#
+# pdf-parse and mammoth are the highest-risk dependencies in the tree
+# because parsing untrusted uploads is their whole job. Their advisories are
+# checked by name on top of the generic scan, so a critical in either is
+# reported as that, not lost in a long list.
+#
+# A failing run is the `dependency_critical_vuln` alert's source
+# (ops/alerts/ci-alerts.yml): digest, not page. Reading it is
+# docs/runbooks/dependency-critical-vuln.md.
+#
+# No provider key, here or anywhere in this file (SRS §2.3).
+
+name: Weekly vulnerability scan
+
+on:
+  schedule:
+    # Mondays, 03:00 UTC.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+env:
+  LLM_PROVIDER: mock
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    name: npm audit (server, client)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+      - name: server — install (frozen lockfile)
+        working-directory: server
+        run: npm ci
+      - name: server — full audit report
+        working-directory: server
+        run: npm audit || true
+      - name: server — fail on critical
+        working-directory: server
+        run: npm audit --audit-level=critical
+      # The two parsers of untrusted input, by name. A critical in either
+      # is an escalation, not a routine bump (runbook question 2).
+      - name: server — the untrusted-input parsers
+        working-directory: server
+        run: |
+          for pkg in pdf-parse mammoth; do
+            echo "== $pkg =="
+            npm ls "$pkg" --all
+            npm audit --json | node -e '
+              const pkg = process.argv[1];
+              const a = JSON.parse(require("fs").readFileSync(0, "utf8"));
+              const hit = a.vulnerabilities?.[pkg];
+              if (hit) { console.log(pkg, "has advisories:", hit.severity); if (hit.severity === "critical") process.exit(1); }
+              else console.log(pkg, "has no advisories");
+            ' "$pkg"
+          done
+      - name: client — install (frozen lockfile)
+        working-directory: client
+        run: npm ci
+      - name: client — fail on critical
+        working-directory: client
+        run: npm audit --audit-level=critical
+
+  image:
+    name: Trivy (server image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Build
+        run: docker build -t clausecheck-server:weekly ./server
+      - name: Trivy — everything CRITICAL and HIGH, printed
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.74.0 image --severity CRITICAL,HIGH clausecheck-server:weekly || true
+      # Unlike ci.yml: no --ignore-unfixed. See this file's header.
+      - name: Trivy — fail on any critical, fixed or not
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.74.0 image --severity CRITICAL --exit-code 1 clausecheck-server:weekly
+
+  secrets:
+    name: gitleaks (full history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD":/repo -w /repo \
+            zricethezav/gitleaks:v8.30.1 detect \
+            --source=/repo --config=/repo/.gitleaks.toml --redact -v

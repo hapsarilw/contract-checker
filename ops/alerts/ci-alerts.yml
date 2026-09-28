@@ -9,14 +9,16 @@
 #
 # It is declared here, in the same shape as the rules in alerts.yml, so that
 # the catalogue is complete in one place and one test can check all nineteen
-# of Appendix C's alerts against it. BUILD-PLAN step 70 wires the scanner
-# itself; what this file fixes now is the severity, the destination, the
-# owner and the procedure, so that step 70 has nothing left to decide.
+# of Appendix C's alerts against it. BUILD-PLAN step 70 wrote the scanner
+# (.github/workflows/scan.yml and ci.yml's scan jobs). What this file fixes is
+# the severity, the destination, the owner and the procedure. What is NOT yet
+# wired is delivery: a failed workflow reaches the maintainer as GitHub's own
+# email, and nothing posts it to Alertmanager's digest.
 
 alerts:
   - alert: dependency_critical_vuln
     source: ci
-    # The workflow that raises it (step 70 creates the second one).
+    # The workflows that raise it.
     fired_by:
       - .github/workflows/ci.yml
       - .github/workflows/scan.yml
