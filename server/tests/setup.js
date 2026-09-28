@@ -39,3 +39,9 @@ process.env.METRICS_TOKEN ??= "test-metrics-token-at-least-32-bytes-ok";
 process.env.SYNTHETIC_CHECK_TOKEN ??= "test-synthetic-token-at-least-32-bytes";
 process.env.SYNTHETIC_CHECK_IPS ??= "127.0.0.1,::1,198.51.100.0/24";
 process.env.SYNTHETIC_ACCOUNT_EMAIL ??= "synthetic@example.test";
+// Step 68. A memory limit so Appendix C's memory_high has a denominator, and
+// the drill token that mounts routes/drills.js — the staging-only way to
+// force the two Sev-1 alerts whose conditions the pipeline prevents.
+// config.js refuses to boot in production with the drill token set at all.
+process.env.MEMORY_LIMIT_BYTES ??= "536870912";
+process.env.ALERT_DRILL_TOKEN ??= "test-alert-drill-token-at-least-32-b";

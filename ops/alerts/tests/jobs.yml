@@ -1,0 +1,85 @@
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: a failed backup verification pages
+    input_series:
+      - series: "backup_verify_failed"
+        values: "0 0 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: backup_verify_failed
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: jobs }
+
+  - interval: 1m
+    name: a passing check does not page, and a later pass clears it
+    input_series:
+      - series: "backup_verify_failed"
+        values: "1 1 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: backup_verify_failed
+        exp_alerts: []
+
+  - interval: 1m
+    name: more than five stuck PENDING analyses digests; five does not
+    input_series:
+      - series: "stale_pending_analyses"
+        values: "6x10"
+      - series: "backup_verify_failed"
+        values: "0x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: stale_pending_analyses
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: jobs }
+
+  - interval: 1m
+    name: exactly five is not more than five
+    input_series:
+      - series: "stale_pending_analyses"
+        values: "5x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: stale_pending_analyses
+        exp_alerts: []
+
+  - interval: 1h
+    name: a job that has never succeeded reads as maximally stale and fires
+    # jobs/jobRuns.js publishes 0 for "never succeeded" rather than leaving
+    # the series absent, precisely so this fires. An absent series would make
+    # the subtraction yield nothing, and a retention job that had never once
+    # run would never alert anybody — the silent failure §12.3 is about.
+    input_series:
+      - series: 'retention_job_last_success_timestamp{job="retention"}'
+        values: "0x40"
+      - series: 'retention_job_last_success_timestamp{job="quota-reset"}'
+        values: "0+3600x40"
+    alert_rule_test:
+      - eval_time: 40h
+        alertname: retention_job_stale
+        # Only the job that is stale, and the `job` label says which.
+        exp_alerts:
+          - exp_labels:
+              { severity: "3", route: digest, owner: maintainer, domain: jobs, job: retention }
+
+  - interval: 1h
+    name: a job that succeeded 35 hours ago is not stale yet
+    input_series:
+      # Last success at t=1h, evaluated at 36h: 35 hours ago, under the
+      # 36-hour threshold. The retention job runs nightly, so 36 hours means
+      # it has missed one run, not that it is late for tonight's.
+      - series: 'retention_job_last_success_timestamp{job="retention"}'
+        values: "3600x40"
+    alert_rule_test:
+      - eval_time: 36h
+        alertname: retention_job_stale
+        exp_alerts: []
+      - eval_time: 38h
+        alertname: retention_job_stale
+        exp_alerts:
+          - exp_labels:
+              { severity: "3", route: digest, owner: maintainer, domain: jobs, job: retention }

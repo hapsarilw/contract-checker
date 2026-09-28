@@ -1,0 +1,113 @@
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: the breaker open for five minutes pages, and four minutes does not
+    input_series:
+      - series: 'llm_circuit_state{instance="a:3000"}'
+        values: "1x20"
+    alert_rule_test:
+      # `for: 5m`, so four minutes in it is pending, not firing. This is the
+      # difference between "the provider hiccupped" and "the provider is out".
+      - eval_time: 4m
+        alertname: circuit_open
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: circuit_open
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: provider }
+
+  - interval: 1m
+    name: a breaker that closes again before five minutes never pages
+    input_series:
+      - series: 'llm_circuit_state{instance="a:3000"}'
+        values: "1 1 1 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: circuit_open
+        exp_alerts: []
+
+  - interval: 1m
+    name: a 401 from the provider is a configuration defect and pages at once
+    input_series:
+      - series: 'llm_request_total{outcome="failure",http_status="401"}'
+        values: "0 0 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: llm_config_error
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: provider }
+
+  - interval: 1m
+    name: a retryable status is not a configuration defect
+    # 429 and 529 are FR-3.10's retryable set. A rate limit or an overloaded
+    # provider is the retry layer's business and must not page anybody.
+    input_series:
+      - series: 'llm_request_total{outcome="failure",http_status="429"}'
+        values: "0+1x10"
+      - series: 'llm_request_total{outcome="failure",http_status="529"}'
+        values: "0+1x10"
+      - series: 'llm_request_total{outcome="failure",http_status="timeout"}'
+        values: "0+1x10"
+      - series: 'llm_request_total{outcome="failure",http_status="network"}'
+        values: "0+1x10"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: llm_config_error
+        exp_alerts: []
+
+  - interval: 1m
+    name: four analyses in five failing pages
+    input_series:
+      - series: 'analysis_total{outcome="failed",error_code="LLM_UNAVAILABLE"}'
+        values: "0+4x20"
+      - series: 'analysis_total{outcome="completed",error_code="none"}'
+        values: "0+1x20"
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: analysis_failure_rate
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: provider }
+
+  - interval: 1m
+    name: exactly a quarter failing does not page — the threshold is above 25%
+    # One failure in four. Both series are extrapolated by the same factor
+    # over the same window, so the ratio is exactly 0.25 and `> 0.25` is false.
+    input_series:
+      - series: 'analysis_total{outcome="failed",error_code="LLM_TIMEOUT"}'
+        values: "0+1x20"
+      - series: 'analysis_total{outcome="completed",error_code="none"}'
+        values: "0+3x20"
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: analysis_failure_rate
+        exp_alerts: []
+
+  - interval: 1m
+    name: a third failing is over the threshold — 25% is the number, not "a lot"
+    # Between the threshold and anywhere a lazier number would land. Without
+    # a case in this band, moving 0.25 to 0.5 passes every other test here.
+    input_series:
+      - series: 'analysis_total{outcome="failed",error_code="LLM_INVALID_OUTPUT"}'
+        values: "0+1x20"
+      - series: 'analysis_total{outcome="completed",error_code="none"}'
+        values: "0+2x20"
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: analysis_failure_rate
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: provider }
+
+  - interval: 1m
+    name: no analyses at all is not a failure rate
+    # The denominator is absent, so the expression yields nothing. An idle
+    # service must not look like a broken one.
+    input_series:
+      - series: 'llm_circuit_state{instance="a:3000"}'
+        values: "0x20"
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: analysis_failure_rate
+        exp_alerts: []

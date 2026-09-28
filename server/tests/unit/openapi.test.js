@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import app from "../../src/app.js";
+import config from "../../src/config.js";
 import { ERROR_CODES } from "../../src/lib/errorCodes.js";
 import { buildOpenApiDocument, expressPathToOpenApiPath, ROUTES } from "../../src/openapi/build.js";
 import { registeredRoutes } from "../helpers/registeredRoutes.js";
@@ -45,6 +46,22 @@ function normalizeTrailingSlash(path) {
   return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
 }
 
+/**
+ * The one set of live routes the contract deliberately does not describe:
+ * step 68's staging-only alert drills. They are mounted only when
+ * ALERT_DRILL_TOKEN is set, which config.js refuses to allow in production at
+ * all, so they are not API surface — documenting them in a contract clients
+ * read would advertise endpoints that must never answer in production.
+ *
+ * Narrow on purpose, and guarded: the test below asserts that this exclusion
+ * removes EXACTLY the drill routes and nothing else, so it cannot become a
+ * place to hide an undocumented endpoint.
+ */
+const STAGING_ONLY_PREFIX = "/api/v1/drills/";
+
+/** @param {string} entry "METHOD /path" */
+const isStagingOnly = (entry) => entry.split(" ")[1].startsWith(STAGING_ONLY_PREFIX);
+
 describe("OpenAPI contract (SRS §4, step 59)", () => {
   it("documents every method+path the live Express app actually registers", () => {
     const live = registeredRoutes(app)
@@ -55,6 +72,7 @@ describe("OpenAPI contract (SRS §4, step 59)", () => {
       // Express's catch-all 404 handler (app.js) is `app.use(...)` with no
       // `.route`, so registeredRoutes() never sees it — nothing to filter
       // out here. Every entry that DOES appear is a real, routed endpoint.
+      .filter((entry) => !isStagingOnly(entry))
       .sort();
 
     const doc = buildOpenApiDocument();
@@ -101,10 +119,28 @@ describe("OpenAPI contract (SRS §4, step 59)", () => {
     // one catches the count drifting even when both sets happen to
     // match (e.g. a duplicate ROUTES entry masking a genuinely missing
     // one, or the reverse).
-    const live = registeredRoutes(app).filter((entry) =>
-      HTTP_METHODS_WITH_A_ROUTE_TABLE_ENTRY.has(entry.split(" ")[0].toLowerCase()),
+    const live = registeredRoutes(app).filter(
+      (entry) =>
+        HTTP_METHODS_WITH_A_ROUTE_TABLE_ENTRY.has(entry.split(" ")[0].toLowerCase()) &&
+        !isStagingOnly(entry),
     );
     expect(ROUTES.length).toBe(live.length);
+  });
+
+  it("excludes exactly the staging-only drill routes, and nothing else, from the contract", () => {
+    // The exclusion above is the only hole in "every live route is
+    // documented", so this pins its size and shape. If a drill route is
+    // added, it must appear here; if anything else ever matches the prefix,
+    // this fails.
+    const excluded = registeredRoutes(app).filter(isStagingOnly).sort();
+    expect(excluded).toEqual([
+      "POST /api/v1/drills/cross-user-access",
+      "POST /api/v1/drills/unverified-excerpt",
+    ]);
+    // And they exist here only because the token is set, which is the same
+    // switch production is forbidden to turn on (see tests/unit/config.test.js).
+    expect(config.ALERT_DRILL_TOKEN).toBeTruthy();
+    expect(config.isProduction).toBe(false);
   });
 
   it("the committed docs/openapi.yaml is exactly what the generator produces right now — not hand-edited, not stale", () => {

@@ -183,6 +183,41 @@ describe("config.js — observability (step 67)", () => {
     expect(result.stderr).toMatch(/set together or not at all/);
   });
 
+  it("refuses to boot in production without MEMORY_LIMIT_BYTES, naming it", () => {
+    // Appendix C's memory_high is "RSS > 80% of limit". With no limit the
+    // rule's denominator is absent and the alert can never fire, which is
+    // worse than not having it: it looks like coverage.
+    const result = runConfig({ NODE_ENV: "production", METRICS_TOKEN: "m".repeat(32) });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("MEMORY_LIMIT_BYTES");
+  });
+
+  it("refuses to boot in production when the alert-drill token is set at all", () => {
+    // The drill routes plant an unverifiable excerpt and read a document
+    // across users (step 68). This is the layer that makes them impossible in
+    // production regardless of any mistake in the mounting or the token check.
+    const result = runConfig({
+      NODE_ENV: "production",
+      METRICS_TOKEN: "m".repeat(32),
+      MEMORY_LIMIT_BYTES: "536870912",
+      EMAIL_PROVIDER: "sink",
+      ALERT_DRILL_TOKEN: "d".repeat(32),
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("ALERT_DRILL_TOKEN");
+    expect(result.stderr).toMatch(/must not be set in production/);
+  });
+
+  it("accepts the alert-drill token outside production", () => {
+    expect(runConfig({ ALERT_DRILL_TOKEN: "d".repeat(32) }).status).toBe(0);
+  });
+
+  it("rejects an alert-drill token shorter than 32 bytes", () => {
+    const result = runConfig({ ALERT_DRILL_TOKEN: "short" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("ALERT_DRILL_TOKEN");
+  });
+
   it("refuses an allowlist entry that is not an address or a range, naming it", () => {
     const result = runConfig({ ...SYNTHETIC, SYNTHETIC_CHECK_IPS: "203.0.113.0/24, checker.example.com" });
     expect(result.status).not.toBe(0);

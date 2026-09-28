@@ -1,0 +1,42 @@
+# The one alert in SRS Appendix C that is not a Prometheus rule.
+#
+# `dependency_critical_vuln` fires when a SCANNER finds something, and the
+# scanner runs in CI (weekly on the default branch, NFR-2.10, plus on every
+# pull request). There is no metric a running server could publish that
+# would carry it: the server has no idea what its dependencies' advisories
+# say, and inventing a pushed gauge to route it through Prometheus would add
+# a moving part whose failure mode is silence.
+#
+# It is declared here, in the same shape as the rules in alerts.yml, so that
+# the catalogue is complete in one place and one test can check all nineteen
+# of Appendix C's alerts against it. BUILD-PLAN step 70 wires the scanner
+# itself; what this file fixes now is the severity, the destination, the
+# owner and the procedure, so that step 70 has nothing left to decide.
+
+alerts:
+  - alert: dependency_critical_vuln
+    source: ci
+    # The workflow that raises it (step 70 creates the second one).
+    fired_by:
+      - .github/workflows/ci.yml
+      - .github/workflows/scan.yml
+    condition: >-
+      A dependency or container-image scan reports a known-exploitable critical
+      vulnerability.
+    labels:
+      severity: "3"
+      route: digest
+      owner: maintainer
+      domain: dependencies
+    annotations:
+      summary: A scanner found a known-exploitable critical vulnerability
+      description: >-
+        §2.1's dependency policy: patched within 7 days, or the dependency is removed. pdf-parse
+        and mammoth are the highest-risk entries in the tree, because they parse untrusted input
+        by design — a critical in either is an escalation, not a routine bump.
+      runbook: dependency-critical-vuln
+      runbook_url: docs/runbooks/dependency-critical-vuln.md
+    # Digest, not page, and deliberately: a failing scan blocks the pull
+    # request it ran on, so the change cannot ship regardless. The digest is
+    # for the weekly run against a branch nobody is touching, where the
+    # response is a patch within seven days rather than tonight.

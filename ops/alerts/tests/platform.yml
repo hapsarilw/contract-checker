@@ -1,0 +1,162 @@
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: more than 2% of requests 5xx pages
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents/:id/analyze",method="POST",status="500"}'
+        values: "0+1x30"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="200"}'
+        values: "0+20x30"
+    alert_rule_test:
+      # 1 in 21 is about 4.8%.
+      - eval_time: 11m
+        alertname: api_5xx_rate
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
+
+  - interval: 1m
+    name: three percent is over the two percent threshold
+    # 3 in 100. The firing case above is nearly 5%, which would keep firing if
+    # the threshold were quietly raised; this one pins it.
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="POST",status="500"}'
+        values: "0+3x30"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="200"}'
+        values: "0+97x30"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: api_5xx_rate
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
+
+  - interval: 1m
+    name: a 4xx rate is not a 5xx rate, however high
+    # Deliberate refusals — a wrong password, an over-quota analyze, a file
+    # that is not a PDF — are the system working. Paging on them would page
+    # on users making ordinary mistakes.
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/v1/auth/login",method="POST",status="401"}'
+        values: "0+10x30"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="POST",status="422"}'
+        values: "0+10x30"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="200"}'
+        values: "0+1x30"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: api_5xx_rate
+        exp_alerts: []
+
+  - interval: 1m
+    name: readiness failing on every instance since boot still fires
+    # The case the `or vector(0)` exists for: Postgres was unreachable from
+    # the first request, so there has never been a status="200" series for
+    # /api/ready at all. A bare `== 0` against a missing series yields
+    # nothing, and the alert would stay silent through the whole outage.
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/ready",method="GET",status="503"}'
+        values: "0+2x20"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: readiness_failing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: readiness_failing
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
+
+  - interval: 1m
+    name: one instance still answering readiness is not an outage
+    # "failing on ALL instances" — a single unhealthy instance is the
+    # platform's business to replace, not a person's to be woken for.
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/ready",method="GET",status="503"}'
+        values: "0+2x20"
+      - series: 'http_request_duration_seconds_count{route="/api/ready",method="GET",status="200"}'
+        values: "0+2x20"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: readiness_failing
+        exp_alerts: []
+
+  - interval: 1m
+    name: a pool with queries waiting for five minutes pages
+    input_series:
+      - series: 'db_pool_waiting{instance="a:3000"}'
+        values: "0 1 2 2 3 3 3 3 3 3 3 3"
+      - series: 'db_pool_waiting{instance="b:3000"}'
+        values: "0x12"
+    alert_rule_test:
+      # Waiting since the second sample, so five minutes of `for` is up at 6m.
+      - eval_time: 4m
+        alertname: db_pool_saturated
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: db_pool_saturated
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
+
+  - interval: 1m
+    name: a momentary queue is not saturation
+    input_series:
+      - series: 'db_pool_waiting{instance="a:3000"}'
+        values: "0 3 2 0 0 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: db_pool_saturated
+        exp_alerts: []
+
+  - interval: 1m
+    name: 85% of the memory limit for ten minutes digests, per instance
+    input_series:
+      - series: 'process_resident_memory_bytes{instance="a:3000"}'
+        values: "446676598x20" # 0.85 of 512 MiB
+      - series: 'memory_limit_bytes{instance="a:3000"}'
+        values: "536870912x20"
+      - series: 'process_resident_memory_bytes{instance="b:3000"}'
+        values: "100000000x20"
+      - series: 'memory_limit_bytes{instance="b:3000"}'
+        values: "536870912x20"
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: memory_high
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: memory_high
+        # Digest, not page, as Appendix C marks it. Only the instance over
+        # the line, and the instance label survives the division.
+        exp_alerts:
+          - exp_labels:
+              { severity: "3", route: digest, owner: maintainer, domain: platform, instance: "a:3000" }
+
+  - interval: 1m
+    name: 81% is over the line, and 79% is not
+    input_series:
+      - series: 'process_resident_memory_bytes{instance="a:3000"}'
+        values: "434865766x20" # 0.81 of 512 MiB
+      - series: 'memory_limit_bytes{instance="a:3000"}'
+        values: "536870912x20"
+      - series: 'process_resident_memory_bytes{instance="b:3000"}'
+        values: "424124252x20" # 0.79
+      - series: 'memory_limit_bytes{instance="b:3000"}'
+        values: "536870912x20"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: memory_high
+        exp_alerts:
+          - exp_labels:
+              { severity: "3", route: digest, owner: maintainer, domain: platform, instance: "a:3000" }
+
+  - interval: 1m
+    name: a bigger limit for the same RSS is not an alert
+    input_series:
+      - series: 'process_resident_memory_bytes{instance="a:3000"}'
+        values: "446676598x20"
+      - series: 'memory_limit_bytes{instance="a:3000"}'
+        values: "1073741824x20"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: memory_high
+        exp_alerts: []

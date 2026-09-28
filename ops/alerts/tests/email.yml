@@ -1,0 +1,70 @@
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: a fifth of emails failing digests
+    input_series:
+      - series: 'email_send_total{type="verification",outcome="failed"}'
+        values: "0+1x70"
+      - series: 'email_send_total{type="verification",outcome="sent"}'
+        values: "0+4x70"
+    alert_rule_test:
+      - eval_time: 61m
+        alertname: email_delivery_failures
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: email }
+
+  - interval: 1m
+    name: an eighth failing is over the threshold
+    input_series:
+      - series: 'email_send_total{type="verification",outcome="failed"}'
+        values: "0+1x70"
+      - series: 'email_send_total{type="verification",outcome="sent"}'
+        values: "0+7x70"
+    alert_rule_test:
+      - eval_time: 61m
+        alertname: email_delivery_failures
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: email }
+
+  - interval: 1m
+    name: one failure in twenty is under the threshold
+    input_series:
+      - series: 'email_send_total{type="password_reset",outcome="failed"}'
+        values: "0+1x70"
+      - series: 'email_send_total{type="password_reset",outcome="sent"}'
+        values: "0+19x70"
+    alert_rule_test:
+      - eval_time: 61m
+        alertname: email_delivery_failures
+        exp_alerts: []
+
+  - interval: 1m
+    name: failures across message types count together
+    # The ratio is over all mail, not per type: 10% of a small verification
+    # volume matters as much as 10% of a large one, and the `type` label is
+    # on the metric for the operator to read once the alert has arrived.
+    input_series:
+      - series: 'email_send_total{type="verification",outcome="failed"}'
+        values: "0+1x70"
+      - series: 'email_send_total{type="password_reset",outcome="failed"}'
+        values: "0+1x70"
+      - series: 'email_send_total{type="verification",outcome="sent"}'
+        values: "0+8x70"
+    alert_rule_test:
+      - eval_time: 61m
+        alertname: email_delivery_failures
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: email }
+
+  - interval: 1m
+    name: an hour with no email at all is not a failure
+    input_series:
+      - series: 'email_send_total{type="verification",outcome="sent"}'
+        values: "0x70"
+    alert_rule_test:
+      - eval_time: 61m
+        alertname: email_delivery_failures
+        exp_alerts: []

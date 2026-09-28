@@ -1,0 +1,84 @@
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: 80% of the ceiling digests, and does not page
+    input_series:
+      - series: 'llm_spend_usd_month{model="claude-sonnet-5"}'
+        values: "80x10"
+      - series: "llm_spend_ceiling_usd"
+        values: "100x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: spend_ceiling_80
+        # max() drops the model label, so the alert carries only its own.
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: cost }
+      - eval_time: 5m
+        alertname: spend_ceiling_100
+        exp_alerts: []
+
+  - interval: 1m
+    name: 79% is not 80%
+    input_series:
+      - series: 'llm_spend_usd_month{model="claude-sonnet-5"}'
+        values: "79x10"
+      - series: "llm_spend_ceiling_usd"
+        values: "100x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: spend_ceiling_80
+        exp_alerts: []
+
+  - interval: 1m
+    name: at the ceiling both fire, and Alertmanager is what drops the quieter one
+    # Both conditions are true at 100%, and that is correct: a rule should
+    # state one fact. Suppressing the 80% notification is a routing decision,
+    # and it lives in alertmanager.yml's inhibit_rules where it can be seen
+    # next to the other suppressions.
+    input_series:
+      - series: 'llm_spend_usd_month{model="claude-sonnet-5"}'
+        values: "100x10"
+      - series: "llm_spend_ceiling_usd"
+        values: "100x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: spend_ceiling_100
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: cost }
+      - eval_time: 5m
+        alertname: spend_ceiling_80
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: cost }
+
+  - interval: 1m
+    name: spend over the ceiling still fires — the ceiling is not a cap on the metric
+    input_series:
+      - series: 'llm_spend_usd_month{model="claude-sonnet-5"}'
+        values: "137.5x10"
+      - series: "llm_spend_ceiling_usd"
+        values: "100x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: spend_ceiling_100
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: cost }
+
+  - interval: 1m
+    name: an unavailable spend figure is not a zero
+    # services/spend.js reports null rather than 0 when both stores are
+    # unreachable, and the gauge leaves the series absent. Neither alert may
+    # read that as "nothing spent" (and neither may it read it as trouble:
+    # that is the readiness alert's job).
+    input_series:
+      - series: "llm_spend_ceiling_usd"
+        values: "100x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: spend_ceiling_80
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: spend_ceiling_100
+        exp_alerts: []

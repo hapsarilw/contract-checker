@@ -1,0 +1,57 @@
+# The two Sev-1s. Both fire on any occurrence, so what is worth testing is
+# that "any" means one, and that a series sitting at 0 — which is what these
+# look like when everything is working — never fires.
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: one unverified excerpt is enough
+    input_series:
+      - series: 'unverified_excerpt_displayed_total{path="report"}'
+        values: "0 0 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: unverified_excerpt_displayed
+        exp_alerts:
+          - exp_labels: { severity: "1", route: page, owner: maintainer, domain: safety }
+
+  - interval: 1m
+    name: a counter that never moves never fires
+    input_series:
+      - series: 'unverified_excerpt_displayed_total{path="report"}'
+        values: "0x20"
+      - series: "cross_user_access_total"
+        values: "0x20"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: unverified_excerpt_displayed
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: cross_user_access
+        exp_alerts: []
+
+  - interval: 1m
+    name: one cross-user access is enough
+    input_series:
+      - series: "cross_user_access_total"
+        values: "0 0 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: cross_user_access
+        exp_alerts:
+          - exp_labels: { severity: "1", route: page, owner: maintainer, domain: safety }
+
+  - interval: 1m
+    name: both paths count into the same alert, and it fires once
+    input_series:
+      - series: 'unverified_excerpt_displayed_total{path="report"}'
+        values: "0 0 1 1 1 1 1"
+      - series: 'unverified_excerpt_displayed_total{path="analyze"}'
+        values: "0 0 0 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: unverified_excerpt_displayed
+        exp_alerts:
+          - exp_labels: { severity: "1", route: page, owner: maintainer, domain: safety }

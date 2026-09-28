@@ -2,6 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { AppError } from "../lib/AppError.js";
 import { loadOwnedDocument } from "../lib/ownership.js";
+import { assertExcerptsVerified } from "../lib/defensiveAssertions.js";
 import { serializeDocument, serializeAnalysis, serializeDocumentListRow } from "../lib/serializers.js";
 import { requireAuth } from "../middleware/auth.js";
 import { analyzeLimiter } from "../middleware/rateLimits.js";
@@ -230,6 +231,17 @@ router.get("/:id", requireAuth, async (req, res, next) => {
       orderBy: { createdAt: "desc" },
       include: { findings: true },
     });
+
+    // Appendix C's unverified_excerpt_displayed, on the read path too: a
+    // report is served from stored rows, which is where a finding that never
+    // passed §5.3 would surface (lib/defensiveAssertions.js).
+    if (analysis) {
+      assertExcerptsVerified(analysis.findings, document.rawText, {
+        path: "report",
+        analysisId: analysis.id,
+        documentId: document.id,
+      });
+    }
 
     res.status(200).json({
       document: serializeDocument(document),

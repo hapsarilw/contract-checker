@@ -182,6 +182,29 @@ const envSchema = z
         message: "must be at least 32 bytes",
       })
       .optional(),
+    // Step 68 / Appendix C's `memory_high` alert, which is "RSS > 80% of
+    // LIMIT". A Node process cannot discover its own container limit, so the
+    // limit is configuration, published as the memory_limit_bytes gauge
+    // (observability/metrics.js) for the alert rule to divide by. Required
+    // in production, below: unset, that alert can never fire, and an alert
+    // that silently never fires is worse than not having one.
+    MEMORY_LIMIT_BYTES: positiveInt().optional(),
+
+    // Step 68 / Appendix C. Two Sev-1 alerts fire on conditions the
+    // pipeline structurally prevents (a fabricated excerpt reaching a user,
+    // one user's document reaching another), so they cannot be drilled
+    // without a way to force them. This token enables routes/drills.js,
+    // which plants exactly those conditions. Production refuses to boot
+    // with it set (below) — the drills write deliberately corrupt rows and
+    // read across users, which is not a thing that may be possible in
+    // production at any price.
+    ALERT_DRILL_TOKEN: z
+      .string()
+      .refine((val) => Buffer.byteLength(val, "utf8") >= 32, {
+        message: "must be at least 32 bytes",
+      })
+      .optional(),
+
     // The OTLP/HTTP collector traces go to. Unset, tracing is off and
     // costs nothing. The exporter reads this and the other standard
     // OTEL_EXPORTER_OTLP_* variables (e.g. _HEADERS for an authenticated
@@ -248,6 +271,29 @@ const envSchema = z
         message:
           "required in production: without it GET /metrics is disabled, nothing can be " +
           "scraped, and no alert in Appendix C can fire",
+      });
+    }
+
+    // Appendix C's memory_high needs the limit to compare against.
+    if (env.NODE_ENV === "production" && env.MEMORY_LIMIT_BYTES === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["MEMORY_LIMIT_BYTES"],
+        message:
+          "required in production: Appendix C's memory_high alert is \"RSS > 80% of limit\", " +
+          "and with no limit it can never fire",
+      });
+    }
+
+    // The drill routes plant a corrupt finding and read a document across
+    // users. Neither may be possible in production, whatever the token.
+    if (env.NODE_ENV === "production" && env.ALERT_DRILL_TOKEN) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ALERT_DRILL_TOKEN"],
+        message:
+          "must not be set in production: it enables routes that deliberately plant an " +
+          "unverifiable excerpt and read a document across users (step 68)",
       });
     }
 

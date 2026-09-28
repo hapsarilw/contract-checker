@@ -14,6 +14,7 @@ import {
   llmTokensTotal,
 } from "../observability/metrics.js";
 import { withSpan } from "../observability/tracing.js";
+import { assertExcerptsVerified } from "../lib/defensiveAssertions.js";
 import { PROMPT_VERSION } from "../prompts/analyze.js";
 import { parseAnalysisResult } from "../schemas/analysisResult.js";
 import { getLlmProvider } from "./llm/index.js";
@@ -267,7 +268,7 @@ async function runAnalysis(document, analysisId, record, startedAt) {
   // Step 10. COMPLETED and every finding commit together or not at all
   // (FR-3.13): a completed analysis missing its findings reads as a clean
   // contract. Step 12's ordering happens where the report is serialized.
-  return withSpan("analysis.persist", () =>
+  const persisted = await withSpan("analysis.persist", () =>
     prisma.$transaction(async (tx) => {
       await tx.analysis.update({
         where: { id: analysisId },
@@ -298,6 +299,17 @@ async function runAnalysis(document, analysisId, record, startedAt) {
       });
     }),
   );
+  // PRD §11.1 / Appendix C's unverified_excerpt_displayed. Redundant here
+  // by construction — these are the findings verifyFindings just admitted —
+  // and asserted anyway, because "every excerpt displayed" has no exception
+  // for the one that was verified a moment ago, and because the row that
+  // gets served is the one read back out of the database, not the array.
+  assertExcerptsVerified(persisted.findings, document.rawText, {
+    path: "analyze",
+    analysisId,
+    documentId: document.id,
+  });
+  return persisted;
 }
 
 /**

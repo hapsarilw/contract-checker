@@ -37,7 +37,9 @@ export async function createDocument({ userId, ...rest } = {}) {
     data: {
       userId: resolvedUserId,
       sourceType: "PASTE",
-      rawText: "This Agreement is made between Client and Contractor for testing purposes.",
+      // findingDefaults' excerpt is a substring of this on purpose: see
+      // DEFAULT_EXCERPT below.
+      rawText: DEFAULT_RAW_TEXT,
       textSha256: randomUUID(),
       wordCount: 12,
       byteSize: 76,
@@ -47,6 +49,21 @@ export async function createDocument({ userId, ...rest } = {}) {
 }
 
 /**
+ * The default document text, and an excerpt that really appears in it.
+ *
+ * They have to agree. Since step 68 the report route re-verifies every stored
+ * excerpt against its document before serving it (Appendix C's Sev-1
+ * `unverified_excerpt_displayed`), so a fixture pairing this text with an
+ * excerpt that is not in it produces a 500 — correctly, because that is what
+ * the assertion is for. Before that assertion existed the two defaults had
+ * drifted apart and nothing noticed, which is a fair illustration of what it
+ * catches. A test that WANTS a mismatch passes `clauseExcerpt` explicitly.
+ */
+const DEFAULT_RAW_TEXT =
+  "This Agreement is made between Client and Contractor for testing purposes.";
+const DEFAULT_EXCERPT = "made between Client and Contractor";
+
+/**
  * @param {{ category?: import("@prisma/client").Category, severity?: import("@prisma/client").Severity, clauseExcerpt?: string, explanation?: string, suggestedChange?: string }} [finding]
  * @returns {{ category: import("@prisma/client").Category, severity: import("@prisma/client").Severity, clauseExcerpt: string, explanation: string, suggestedChange: string }}
  */
@@ -54,7 +71,7 @@ function findingDefaults(finding = {}) {
   return {
     category: finding.category ?? "OTHER",
     severity: finding.severity ?? "MEDIUM",
-    clauseExcerpt: finding.clauseExcerpt ?? "Sample clause excerpt for testing.",
+    clauseExcerpt: finding.clauseExcerpt ?? DEFAULT_EXCERPT,
     explanation: finding.explanation ?? "Sample explanation for testing.",
     suggestedChange: finding.suggestedChange ?? "Sample suggested change for testing.",
   };

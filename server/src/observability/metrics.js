@@ -8,9 +8,12 @@ import { getCircuitState } from "../services/llm/circuitBreaker.js";
 import { getSpendState } from "../services/spend.js";
 import logger from "./logger.js";
 // Registered by their own modules (they predate this file and own their
-// read-at-scrape logic); imported here so that loading this module is
-// enough for every §6.6 metric to exist.
+// read-at-scrape logic); imported here so that loading this module is enough
+// for every metric §6.6 and Appendix C name to exist. reaper.js joined the
+// list at step 68, when an alert rule referenced stale_pending_analyses and
+// the catalogue test found nothing registered under that name.
 import "../jobs/jobRuns.js";
+import "../jobs/reaper.js";
 import "../lib/email.js";
 
 /**
@@ -243,6 +246,65 @@ export const uploadsInFlightGauge = once(
 );
 
 /**
+ * Appendix C's two Sev-1 alerts (step 68). Both count something the
+ * pipeline structurally prevents, which is exactly why they are counted:
+ * the value of a defensive assertion is that it fires when the structure
+ * has been broken by a change nobody realised could break it. A series
+ * that sits at 0 forever is this working.
+ *
+ * "any occurrence" is the condition for both, so the alert is on
+ * `increase() > 0` and there is no threshold to tune.
+ */
+export const unverifiedExcerptDisplayedTotal = once(
+  "unverified_excerpt_displayed_total",
+  () =>
+    new Counter({
+      name: "unverified_excerpt_displayed_total",
+      help:
+        "Findings whose excerpt failed re-verification against the document at the moment it " +
+        "was about to be served (§5.3, PRD §11.1). Any nonzero value is a Sev-1: the " +
+        "verification defence has failed. Nothing is served when this increments.",
+      labelNames: ["path"],
+    }),
+);
+
+export const crossUserAccessTotal = once(
+  "cross_user_access_total",
+  () =>
+    new Counter({
+      name: "cross_user_access_total",
+      help:
+        "Documents loaded whose owner is not the session's subject, caught by the defensive " +
+        "assertion in lib/defensiveAssertions.js (FR-1.5). Any nonzero value is a Sev-1. " +
+        "Nothing is served when this increments.",
+    }),
+);
+
+/**
+ * Appendix C's `memory_high` is "RSS > 80% of LIMIT", and the limit is a
+ * deploy-time fact no Node process can discover for itself (a container's
+ * cgroup limit is not process_resident_memory_bytes's business). Exported
+ * as a gauge from configuration, like llm_spend_ceiling_usd, so the alert
+ * rule divides two series this server publishes instead of carrying a
+ * number someone typed into a dashboard and then changed the plan.
+ *
+ * Required in production (config.js): with no limit the alert cannot fire
+ * at all, and an alert that silently never fires is worse than none.
+ */
+export const memoryLimitBytes = once(
+  "memory_limit_bytes",
+  () =>
+    new Gauge({
+      name: "memory_limit_bytes",
+      help: "The instance's configured memory limit in bytes (MEMORY_LIMIT_BYTES); absent when unset.",
+      collect() {
+        if (config.MEMORY_LIMIT_BYTES === undefined) this.reset();
+        else this.set(config.MEMORY_LIMIT_BYTES);
+      },
+    }),
+);
+
+/**
  * @param {string} metric
  * @param {unknown} err
  */
@@ -317,6 +379,21 @@ export async function metricsHandler(req, res) {
   res.setHeader("Content-Type", register.contentType);
   res.end(await register.metrics());
 }
+
+/**
+ * The metrics Appendix C's alert rules read that §6.6's table does not
+ * name. ops/alerts/alerts.yml may only reference these and SPEC_METRICS
+ * (plus prom-client's process metrics); tests/unit/alertCatalogue.test.js
+ * enforces that.
+ */
+export const ALERT_METRICS = Object.freeze({
+  unverified_excerpt_displayed_total: ["path"],
+  cross_user_access_total: [],
+  memory_limit_bytes: [],
+  backup_verify_failed: [],
+  stale_pending_analyses: [],
+  llm_spend_ceiling_usd: [],
+});
 
 /**
  * Every metric SRS §6.6's table names, as the table spells them. The test

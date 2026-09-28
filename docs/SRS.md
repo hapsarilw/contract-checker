@@ -1331,6 +1331,8 @@ All are validated by a Zod schema at boot (§8); a missing or malformed required
 | `SYNTHETIC_CHECK_TOKEN` | | — | ≥ 32 bytes. With the next two, lets §6.6's synthetic login check past the auth limiter; all three or none |
 | `SYNTHETIC_CHECK_IPS` | | — | Comma-separated IPs/CIDR ranges of the monitoring provider's checkers; validated at boot |
 | `SYNTHETIC_ACCOUNT_EMAIL` | | — | The one account the synthetic check signs in as |
+| `MEMORY_LIMIT_BYTES` | ✓ in production [P1.5] | — | The instance's memory limit, published as `memory_limit_bytes` so Appendix C's `memory_high` has a denominator |
+| `ALERT_DRILL_TOKEN` | | — | ≥ 32 bytes. STAGING ONLY: enables the routes that force the two structurally-impossible Sev-1 alerts (step 68). Production refuses to boot with it set |
 | `LOG_LEVEL` | | `info` | §6.5 |
 | `ANALYSIS_ENABLED` | | `true` | Feature flag behind FR-5.4 and PRD §15 rollback |
 | `GIT_SHA` | ✓ [P1.5] | — | Reported by `/api/version` |

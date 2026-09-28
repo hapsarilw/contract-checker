@@ -18,6 +18,7 @@
     "lint:scripts": "cd .. && server/node_modules/.bin/eslint --config server/eslint.config.js scripts ops",
     "benchmark": "node --env-file=.env ../scripts/benchmark.js",
     "generate:openapi": "node ../scripts/generate-openapi.js",
+    "test:alerts": "node scripts/run-alert-rule-tests.js",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "db:migrate:dev": "prisma migrate dev",

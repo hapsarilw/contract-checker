@@ -1,0 +1,180 @@
+rule_files:
+  - ../alerts.yml
+# A 5-minute interval, matching the rule group: these are 7-day windows, and
+# evaluating them every minute in a test is 10,080 samples per series for no
+# extra confidence.
+evaluation_interval: 5m
+
+tests:
+  - interval: 1h
+    name: more than a tenth of reported findings discarded digests
+    # 2 discarded per hour against 8 shown: 2/(2+8) = 20%.
+    input_series:
+      - series: "analysis_findings_discarded_total"
+        values: "0+2x170"
+      - series: 'analysis_findings_total{severity="high"}'
+        values: "0+3x170"
+      - series: 'analysis_findings_total{severity="medium"}'
+        values: "0+3x170"
+      - series: 'analysis_findings_total{severity="low"}'
+        values: "0+2x170"
+    alert_rule_test:
+      - eval_time: 168h
+        alertname: discard_rate_high
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: quality }
+
+  - interval: 1h
+    name: an eighth discarded is over the threshold
+    # 1 in 8 is 12.5%: over 10% and under any rounder number someone might
+    # reach for. The 20% case above would keep firing if the threshold moved.
+    input_series:
+      - series: "analysis_findings_discarded_total"
+        values: "0+1x170"
+      - series: 'analysis_findings_total{severity="medium"}'
+        values: "0+7x170"
+    alert_rule_test:
+      - eval_time: 168h
+        alertname: discard_rate_high
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: quality }
+
+  - interval: 1h
+    name: PRD §11.1's 5% target is not the alert threshold — 10% is
+    # 1 discarded against 19 shown is 5%: over the target PRD §11.1 sets, and
+    # under the threshold Appendix C alerts on. Nothing fires, deliberately:
+    # the target is a thing to watch on the dashboard, the guardrail is a
+    # thing to be told about.
+    input_series:
+      - series: "analysis_findings_discarded_total"
+        values: "0+1x170"
+      - series: 'analysis_findings_total{severity="high"}'
+        values: "0+19x170"
+    alert_rule_test:
+      - eval_time: 168h
+        alertname: discard_rate_high
+        exp_alerts: []
+
+  - interval: 1h
+    name: no findings at all does not divide by zero into an alert
+    input_series:
+      - series: "analysis_findings_discarded_total"
+        values: "0x170"
+      - series: 'analysis_findings_total{severity="high"}'
+        values: "0x170"
+    alert_rule_test:
+      - eval_time: 168h
+        alertname: discard_rate_high
+        exp_alerts: []
+
+  - interval: 1h
+    name: the rule and the model disagreeing on a third of analyses digests
+    input_series:
+      - series: 'analysis_risk_drift_total{rule_risk="high",model_risk="medium"}'
+        values: "0+1x170"
+      - series: 'analysis_total{outcome="completed",error_code="none"}'
+        values: "0+3x170"
+    alert_rule_test:
+      - eval_time: 168h
+        alertname: risk_drift_high
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: quality }
+
+  - interval: 1h
+    name: 27% disagreeing is over the threshold
+    input_series:
+      - series: 'analysis_risk_drift_total{rule_risk="medium",model_risk="low"}'
+        values: "0+27x170"
+      - series: 'analysis_total{outcome="completed",error_code="none"}'
+        values: "0+100x170"
+    alert_rule_test:
+      - eval_time: 168h
+        alertname: risk_drift_high
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: quality }
+
+  - interval: 1h
+    name: a fifth disagreeing is under the threshold
+    input_series:
+      - series: 'analysis_risk_drift_total{rule_risk="high",model_risk="medium"}'
+        values: "0+1x170"
+      - series: 'analysis_total{outcome="completed",error_code="none"}'
+        values: "0+5x170"
+    alert_rule_test:
+      - eval_time: 168h
+        alertname: risk_drift_high
+        exp_alerts: []
+
+  - interval: 1h
+    name: drift is measured against completed analyses, not failed ones
+    # A week of failures with no completions must not produce a drift ratio:
+    # a failed analysis has no risk to disagree about. Left as a divide by an
+    # absent denominator, which yields nothing.
+    input_series:
+      - series: 'analysis_risk_drift_total{rule_risk="high",model_risk="medium"}'
+        values: "0+1x170"
+      - series: 'analysis_total{outcome="failed",error_code="LLM_TIMEOUT"}'
+        values: "0+9x170"
+    alert_rule_test:
+      - eval_time: 168h
+        alertname: risk_drift_high
+        exp_alerts: []
+
+  - interval: 1m
+    name: p95 analysis duration over 45 seconds digests
+    # Cumulative histogram buckets. Nearly every analysis lands between 45
+    # and 60 seconds, so p95 interpolates into that bucket, above the SLO.
+    input_series:
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="30"}'
+        values: "0+0x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="45"}'
+        values: "0+1x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="60"}'
+        values: "0+20x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="90"}'
+        values: "0+20x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="+Inf"}'
+        values: "0+20x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: analysis_latency_p95
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: quality }
+
+  - interval: 1m
+    name: p95 just over the SLO still alerts, and just under does not
+    # p95 lands a little past 45 s: the SLO is 45, not "about a minute".
+    input_series:
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="30"}'
+        values: "0+0x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="45"}'
+        values: "0+18x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="60"}'
+        values: "0+20x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="90"}'
+        values: "0+20x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="+Inf"}'
+        values: "0+20x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: analysis_latency_p95
+        exp_alerts:
+          - exp_labels: { severity: "3", route: digest, owner: maintainer, domain: quality }
+
+  - interval: 1m
+    name: analyses comfortably inside the SLO do not alert
+    input_series:
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="30"}'
+        values: "0+20x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="45"}'
+        values: "0+20x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="60"}'
+        values: "0+20x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="90"}'
+        values: "0+20x40"
+      - series: 'analysis_duration_seconds_bucket{outcome="completed",le="+Inf"}'
+        values: "0+20x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: analysis_latency_p95
+        exp_alerts: []

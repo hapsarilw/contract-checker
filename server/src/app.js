@@ -3,6 +3,7 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import config from "./config.js";
+import logger from "./observability/logger.js";
 import { requestIdMiddleware } from "./middleware/requestId.js";
 import { httpMetricsMiddleware, metricsHandler } from "./observability/metrics.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -13,6 +14,7 @@ import opsRouter from "./routes/ops.js";
 import authRouter from "./routes/auth.js";
 import documentsRouter from "./routes/documents.js";
 import accountRouter from "./routes/account.js";
+import drillsRouter from "./routes/drills.js";
 
 const app = express();
 
@@ -231,6 +233,17 @@ app.use("/api", opsRouter);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/documents", documentsRouter);
 app.use("/api/v1/account", accountRouter);
+
+// STAGING ONLY (step 68). Mounted only when ALERT_DRILL_TOKEN is set, which
+// config.js refuses to allow in production at all — so in a real deployment
+// these paths do not exist. See routes/drills.js.
+if (config.ALERT_DRILL_TOKEN) {
+  app.use("/api/v1/drills", drillsRouter);
+  logger.warn(
+    { drills: "mounted" },
+    "ALERT DRILL routes are mounted — staging only, never production (step 68)",
+  );
+}
 
 // Catch-all for any path that reaches here unmatched by a real route.
 app.use((req, res, next) => {

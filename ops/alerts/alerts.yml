@@ -1,0 +1,399 @@
+# SRS Appendix C's alert catalogue, as Prometheus alerting rules
+# (BUILD-PLAN step 68). Eighteen of the nineteen alerts are expressions over
+# the metrics this server publishes; the nineteenth,
+# `dependency_critical_vuln`, comes from the CI scanner and lives in
+# ci-alerts.yml beside this file.
+#
+# EVERY RULE CARRIES, because Appendix C requires each alert to name them:
+#   severity  1, 2 or 3, from the table
+#   route     page or digest, from the table. Sev 1 and 2 page; Sev 3
+#             digests. Alertmanager routes on this label, so a rule cannot
+#             be promoted to paging by editing a dashboard.
+#   owner     who must act. "maintainer" throughout, which is the honest
+#             answer at single-maintainer scale; `domain` is what a second
+#             person would be given a share of (see ops/README.md).
+#   domain    what kind of thing broke. Alertmanager groups on it, so a
+#             provider outage arrives as one notification instead of four.
+#   runbook / runbook_url  the procedure, as a repo-relative path.
+#
+# FOUR ALERTS HAVE NO RUNBOOK YET, which Appendix C itself leaves blank:
+# db_pool_saturated, analysis_latency_p95, memory_high and
+# email_delivery_failures. They are marked `runbook_state: missing` and
+# BUILD-PLAN step 69 writes them; `cross_user_access` is marked `adapted`
+# because it borrows another alert's procedure. A test asserts that exactly
+# those five carry the marker, so a sixth gap cannot appear quietly and a
+# runbook cannot be written without the marker being cleared.
+#
+# THRESHOLDS ARE THE TABLE'S, unchanged. Where a condition names a duration
+# ("open > 5 min") it is a `for:`; where it names a window ("over 15 min")
+# it is the range in the expression. One consequence worth knowing before
+# the first week of real traffic: the ratio alerts have no minimum volume,
+# so two analyses of which one failed is 50% and pages. That is Appendix C's
+# condition as written, and weakening a Sev-2 quietly would be worse than
+# living with it until there is traffic data to set a floor from
+# (ops/README.md records it as an open item).
+
+groups:
+  # ---------------------------------------------------------------- safety
+  # The two Sev-1s. Both count something the pipeline structurally prevents,
+  # both fail the request closed, and both fire on any occurrence, so there
+  # is no threshold and no `for:`. See
+  # server/src/lib/defensiveAssertions.js.
+  - name: clausecheck-safety
+    interval: 1m
+    rules:
+      - alert: unverified_excerpt_displayed
+        expr: sum(increase(unverified_excerpt_displayed_total[5m])) > 0
+        for: 0s
+        labels:
+          severity: "1"
+          route: page
+          owner: maintainer
+          domain: safety
+        annotations:
+          summary: A stored finding's excerpt is not in its document
+          description: >-
+            The verification defence (§5.3) has failed: a finding was about to be served whose
+            excerpt does not appear in its document. The request was refused, so nothing was
+            shown, but a path exists that can write an unverified finding. PRD §11.1 makes
+            this a Sev-1.
+          runbook: fabricated-excerpt-reported
+          runbook_url: docs/runbooks/fabricated-excerpt-reported.md
+      - alert: cross_user_access
+        expr: sum(increase(cross_user_access_total[5m])) > 0
+        for: 0s
+        labels:
+          severity: "1"
+          route: page
+          owner: maintainer
+          domain: safety
+        annotations:
+          summary: A document was loaded for a subject that does not own it
+          description: >-
+            FR-1.5's ownership filter did not hold: a document whose owner is not the session's
+            subject reached the defensive assertion. The request was refused, so nothing was
+            served. Treat as a potential breach until the path is found.
+          runbook: fabricated-excerpt-reported
+          runbook_url: docs/runbooks/fabricated-excerpt-reported.md
+          runbook_state: adapted
+
+  # -------------------------------------------------------------- provider
+  - name: clausecheck-provider
+    interval: 1m
+    rules:
+      - alert: circuit_open
+        expr: max(llm_circuit_state) == 1
+        for: 5m
+        labels:
+          severity: "2"
+          route: page
+          owner: maintainer
+          domain: provider
+        annotations:
+          summary: The provider circuit breaker has been open for 5 minutes
+          description: >-
+            FR-3.12's breaker is open, so analyze returns 503 LLM_UNAVAILABLE without calling
+            the provider and the interface is in degraded mode (FR-7.10). Reads, history and
+            login are unaffected by design (PRD D13).
+          runbook: provider-outage
+          runbook_url: docs/runbooks/provider-outage.md
+      - alert: llm_config_error
+        expr: sum(increase(llm_request_total{http_status=~"400|401|403|404"}[5m])) > 0
+        for: 0s
+        labels:
+          severity: "2"
+          route: page
+          owner: maintainer
+          domain: provider
+        annotations:
+          summary: The provider rejected a call with a non-retryable 4xx
+          description: >-
+            FR-3.11: a 400, 401, 403 or 404 from the provider is a configuration defect, not a
+            transient failure — a wrong or revoked API key, or a model identifier that no
+            longer exists. Every analysis will fail until it is fixed. Not retried, by design.
+          runbook: provider-outage
+          runbook_url: docs/runbooks/provider-outage.md
+      - alert: analysis_failure_rate
+        expr: >-
+          sum(increase(analysis_total{outcome="failed"}[15m]))
+          / sum(increase(analysis_total[15m])) > 0.25
+        for: 0s
+        labels:
+          severity: "2"
+          route: page
+          owner: maintainer
+          domain: provider
+        annotations:
+          summary: More than a quarter of analyses are failing
+          description: >-
+            Over the last 15 minutes, more than 25% of analyses reaching a terminal state
+            failed. The error_code labels on analysis_total say which failure it is; that is
+            the first thing the runbook asks for.
+          runbook: analysis-failure-rate-high
+          runbook_url: docs/runbooks/analysis-failure-rate-high.md
+
+  # -------------------------------------------------------------- platform
+  - name: clausecheck-platform
+    interval: 1m
+    rules:
+      - alert: api_5xx_rate
+        expr: >-
+          sum(rate(http_request_duration_seconds_count{status=~"5.."}[10m]))
+          / sum(rate(http_request_duration_seconds_count[10m])) > 0.02
+        for: 0s
+        labels:
+          severity: "2"
+          route: page
+          owner: maintainer
+          domain: platform
+        annotations:
+          summary: More than 2% of requests are answered 5xx
+          description: >-
+            Over the last 10 minutes more than 2% of requests failed with a server error. A
+            provider outage raises this too, because analyze answers 503 — Alertmanager
+            suppresses this one while circuit_open is firing, so a provider outage pages once.
+          runbook: analysis-failure-rate-high
+          runbook_url: docs/runbooks/analysis-failure-rate-high.md
+      - alert: readiness_failing
+        # "or vector(0)" matters: if readiness has been failing since boot
+        # there is no status="200" series at all, and a bare == 0 against a
+        # missing series yields nothing, so the alert would never fire in the
+        # exact case it is for.
+        expr: >-
+          sum(rate(http_request_duration_seconds_count{route="/api/ready",status!="200"}[5m])) > 0
+          and
+          (sum(rate(http_request_duration_seconds_count{route="/api/ready",status="200"}[5m])) or vector(0)) == 0
+        for: 2m
+        labels:
+          severity: "2"
+          route: page
+          owner: maintainer
+          domain: platform
+        annotations:
+          summary: /api/ready is failing on every instance
+          description: >-
+            No instance has answered /api/ready with a 200 for two minutes, so Postgres or
+            Redis is unreachable from all of them (FR-4.7). The response body names which.
+          runbook: database-restore
+          runbook_url: docs/runbooks/database-restore.md
+      - alert: db_pool_saturated
+        expr: max(db_pool_waiting) > 0
+        for: 5m
+        labels:
+          severity: "2"
+          route: page
+          owner: maintainer
+          domain: platform
+        annotations:
+          summary: Queries have been waiting for a database connection for 5 minutes
+          description: >-
+            db_pool_waiting has been above zero for five minutes on at least one instance:
+            every pool connection is checked out and requests are queueing for one. §6.1's
+            capacity model (instances x DATABASE_POOL_SIZE) is the place to start.
+          runbook: db-pool-saturated
+          runbook_url: docs/runbooks/db-pool-saturated.md
+          runbook_state: missing
+      - alert: memory_high
+        # Both series are per instance, so this divides each instance's RSS
+        # by its own limit. memory_limit_bytes is configuration
+        # (MEMORY_LIMIT_BYTES), required in production so this cannot be an
+        # alert that silently never fires.
+        expr: process_resident_memory_bytes / memory_limit_bytes > 0.8
+        for: 10m
+        labels:
+          # Digest, as the table marks it: a slow climb toward a limit is a
+          # thing to fix on a working day, and Appendix C's closing note is
+          # that paging on what does not need an answer now is how paging
+          # stops working.
+          severity: "3"
+          route: digest
+          owner: maintainer
+          domain: platform
+        annotations:
+          summary: An instance has been above 80% of its memory limit for 10 minutes
+          description: >-
+            Resident memory on at least one instance has been over 80% of MEMORY_LIMIT_BYTES
+            for ten minutes. The platform will kill it at 100%, mid-analysis.
+          runbook: memory-high
+          runbook_url: docs/runbooks/memory-high.md
+          runbook_state: missing
+
+  # ------------------------------------------------------------------ cost
+  - name: clausecheck-cost
+    interval: 1m
+    rules:
+      - alert: spend_ceiling_100
+        expr: max(llm_spend_usd_month) / max(llm_spend_ceiling_usd) >= 1
+        for: 0s
+        labels:
+          severity: "2"
+          route: page
+          owner: maintainer
+          domain: cost
+        annotations:
+          summary: Monthly provider spend has reached the ceiling
+          description: >-
+            FR-5.4's ceiling is reached, so analyze now returns 503 SPEND_LIMIT_REACHED and the
+            interface is in degraded mode. Existing reports, history, login and deletion keep
+            working (PRD D13).
+          runbook: spend-ceiling-approaching
+          runbook_url: docs/runbooks/spend-ceiling-approaching.md
+      - alert: spend_ceiling_80
+        expr: max(llm_spend_usd_month) / max(llm_spend_ceiling_usd) >= 0.8
+        for: 0s
+        labels:
+          severity: "3"
+          route: digest
+          owner: maintainer
+          domain: cost
+        annotations:
+          summary: Monthly provider spend is at 80% of the ceiling
+          description: >-
+            Four fifths of the month's budget is spent. Alertmanager suppresses this once
+            spend_ceiling_100 is firing, so the two do not arrive together.
+          runbook: spend-ceiling-approaching
+          runbook_url: docs/runbooks/spend-ceiling-approaching.md
+
+  # --------------------------------------------------------------- quality
+  # Digest, not page: both are prompts to review a decision with a week of
+  # data behind it, and neither has an action that cannot wait for morning.
+  - name: clausecheck-quality
+    interval: 5m
+    rules:
+      - alert: discard_rate_high
+        # Denominator is every finding the model REPORTED: the ones shown
+        # plus the ones discarded. Same as the quality dashboard's panel.
+        expr: >-
+          sum(increase(analysis_findings_discarded_total[7d]))
+          / (sum(increase(analysis_findings_discarded_total[7d])) + sum(increase(analysis_findings_total[7d])))
+          > 0.1
+        for: 0s
+        labels:
+          severity: "3"
+          route: digest
+          owner: maintainer
+          domain: quality
+        annotations:
+          summary: More than 10% of findings are being discarded by excerpt verification
+          description: >-
+            PRD §11.1's guardrail: over 7 days more than a tenth of reported findings failed
+            §5.3's verbatim match. PRD D9 says the response is to review the matcher's
+            strictness with the data, not to loosen it by reflex.
+          runbook: discard-rate-high
+          runbook_url: docs/runbooks/discard-rate-high.md
+      - alert: risk_drift_high
+        expr: >-
+          sum(increase(analysis_risk_drift_total[7d]))
+          / sum(increase(analysis_total{outcome="completed"}[7d])) > 0.25
+        for: 0s
+        labels:
+          severity: "3"
+          route: digest
+          owner: maintainer
+          domain: quality
+        annotations:
+          summary: The risk rule and the model disagree on more than a quarter of analyses
+          description: >-
+            PRD §11.1: over 7 days the rule-derived overall risk (what users see) differed from
+            the model's own claim on more than 25% of completed analyses. Prompts a review of
+            FR-3.9's rule, not a change to what is displayed.
+          runbook: risk-drift-high
+          runbook_url: docs/runbooks/risk-drift-high.md
+      - alert: analysis_latency_p95
+        expr: histogram_quantile(0.95, sum by (le) (rate(analysis_duration_seconds_bucket[30m]))) > 45
+        for: 0s
+        labels:
+          severity: "3"
+          route: digest
+          owner: maintainer
+          domain: quality
+        annotations:
+          summary: p95 analysis duration is over 45 seconds
+          description: >-
+            PRD §14.1's SLO is p95 under 45 s. The analyze ceiling is 90 s (FR-3.10), so this
+            is the warning before analyses start being cut off. The trace stages
+            (analysis.provider_call and the rest) say which part is slow.
+          runbook: analysis-latency-p95
+          runbook_url: docs/runbooks/analysis-latency-p95.md
+          runbook_state: missing
+
+  # ------------------------------------------------------------------ jobs
+  - name: clausecheck-jobs
+    interval: 5m
+    rules:
+      - alert: backup_verify_failed
+        expr: max(backup_verify_failed) == 1
+        for: 0s
+        labels:
+          severity: "2"
+          route: page
+          owner: maintainer
+          domain: jobs
+        annotations:
+          summary: The weekly backup verification failed
+          description: >-
+            §12.3's check could not find a recent, plausibly sized backup. The JobRun row's
+            lastFailureReason says which of no_source_configured, source_unreadable,
+            no_backups, too_old, too_small or shrunk it was. Pages because a backup nobody
+            has verified is a hope.
+          runbook: database-restore
+          runbook_url: docs/runbooks/database-restore.md
+      - alert: retention_job_stale
+        # 0 means "never succeeded" (jobs/jobRuns.js sets it deliberately
+        # rather than leaving the series absent), so a job that has never run
+        # reads as maximally stale and fires here, which is the point.
+        expr: time() - max by (job) (retention_job_last_success_timestamp) > 36 * 3600
+        for: 0s
+        labels:
+          severity: "3"
+          route: digest
+          owner: maintainer
+          domain: jobs
+        annotations:
+          summary: A scheduled job has not succeeded in 36 hours
+          description: >-
+            §12.3's staleness check, per job (the `job` label says which). For the retention
+            job this is also a compliance matter: PRD §12.4 publishes a 90-day retention that
+            a stopped job does not deliver.
+          runbook: stale-scheduled-job
+          runbook_url: docs/runbooks/stale-scheduled-job.md
+      - alert: stale_pending_analyses
+        expr: max(stale_pending_analyses) > 5
+        for: 0s
+        labels:
+          severity: "3"
+          route: digest
+          owner: maintainer
+          domain: jobs
+        annotations:
+          summary: More than five analyses are stuck PENDING
+          description: >-
+            FR-3.8's reaper counts PENDING rows older than five minutes at the start of each
+            tick. More than five means either the reaper is not running or analyses are dying
+            without recording a terminal state.
+          runbook: stuck-pending-analyses
+          runbook_url: docs/runbooks/stuck-pending-analyses.md
+
+  # ----------------------------------------------------------------- email
+  - name: clausecheck-email
+    interval: 5m
+    rules:
+      - alert: email_delivery_failures
+        expr: >-
+          sum(increase(email_send_total{outcome="failed"}[1h]))
+          / sum(increase(email_send_total[1h])) > 0.1
+        for: 0s
+        labels:
+          severity: "3"
+          route: digest
+          owner: maintainer
+          domain: email
+        annotations:
+          summary: More than 10% of emails failed to send in the last hour
+          description: >-
+            Verification and password-reset links are the two things a new account cannot
+            proceed without, so this is a signup outage even though nothing is 5xx-ing. The
+            `type` label says which kind of message is failing.
+          runbook: email-delivery-failures
+          runbook_url: docs/runbooks/email-delivery-failures.md
+          runbook_state: missing

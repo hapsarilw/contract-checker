@@ -1,0 +1,115 @@
+# Alertmanager: where Appendix C's alerts go, and how they are grouped so
+# that one incident is one notification (BUILD-PLAN step 68, item 4).
+#
+# PRD §9's Phase 1.5 DoD item 3 sets the bar this file has to clear: a
+# simulated five-minute provider outage must produce ONE alert, not a pager
+# storm. That outage fires four rules at once — circuit_open (the cause),
+# analysis_failure_rate (analyses are failing), api_5xx_rate (analyze answers
+# 503, which is a server error) and in time analysis_latency_p95. Without the
+# inhibitions below, degraded mode working perfectly still pages four times,
+# and the operator learns to skim.
+#
+# TWO MECHANISMS, doing different jobs:
+#
+#   grouping     collapses alerts that share a destination and a domain into
+#                one notification, and keeps collapsing later ones into the
+#                same one. This is what makes two provider alerts arrive as
+#                one message.
+#   inhibition   suppresses an alert entirely while a more specific one is
+#                firing. This is what handles alerts in DIFFERENT domains
+#                that share one cause: api_5xx_rate is a platform alert, and
+#                during a provider outage it is not news.
+#
+# The receiver URLs are placeholders. No paging provider has been chosen yet
+# (ops/README.md); the shape is what is being fixed here, not the vendor.
+# Whatever is chosen, the two destinations must stay distinct: `page` wakes
+# someone, `digest` does not.
+
+global:
+  # How long a firing alert may go un-refreshed before Alertmanager treats it
+  # as resolved. Comfortably more than the slowest rule group's evaluation
+  # interval (5m) so a digest alert does not flap between firing and resolved
+  # while it is still true.
+  resolve_timeout: 15m
+
+route:
+  # The default receiver is the digest, not the pager: an alert that reaches
+  # this file without a `route` label is a mistake in a rule, and a mistake
+  # should not wake anybody. Every rule in alerts.yml sets the label; a test
+  # checks that.
+  receiver: digest
+  # Alerts that share a destination AND a cause arrive together. `alertname`
+  # is deliberately NOT here: grouping by it would put every alert in its own
+  # group, which is the storm this exists to prevent.
+  group_by: [route, domain]
+  # How long to wait for siblings before sending the first notification for a
+  # new group. 30 s costs half a minute of paging latency and buys the
+  # grouping above, because rules in the same group are evaluated together.
+  group_wait: 30s
+  # How long before sending an update when a new alert joins an existing
+  # group.
+  group_interval: 5m
+  # How long before saying it again while nothing has changed. Four hours for
+  # a page is short enough not to lose an unacknowledged incident overnight.
+  repeat_interval: 4h
+
+  routes:
+    - matchers: [route = page]
+      receiver: page
+      group_by: [route, domain]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+
+    - matchers: [route = digest]
+      receiver: digest
+      group_by: [route, domain]
+      # A digest is a digest: wait a quarter of an hour before the first
+      # message, then at most one an hour, and repeat daily while it is still
+      # true. None of these alerts has an action that cannot wait.
+      group_wait: 15m
+      group_interval: 1h
+      repeat_interval: 24h
+
+receivers:
+  - name: page
+    webhook_configs:
+      - url: https://REPLACE-WITH-PAGING-PROVIDER.invalid/clausecheck-page
+        send_resolved: true
+  - name: digest
+    webhook_configs:
+      - url: https://REPLACE-WITH-DIGEST-DESTINATION.invalid/clausecheck-digest
+        send_resolved: true
+
+inhibit_rules:
+  # A provider outage is one incident. The breaker being open is the precise
+  # statement of it; the rest are its symptoms.
+  #
+  # No `equal:` on purpose. `equal` requires the named labels to match
+  # between source and target, and these alerts have no label in common that
+  # identifies "the same incident" — there is one provider and one service,
+  # so the breaker being open anywhere means the provider is the cause
+  # everywhere. If this ever becomes multi-region or multi-provider, `equal`
+  # on a region or provider label is what would need to be added, and that is
+  # the moment to add it, not before.
+  - source_matchers: [alertname = circuit_open]
+    target_matchers: [alertname =~ "analysis_failure_rate|api_5xx_rate|analysis_latency_p95"]
+
+  # The same reasoning for the configuration defect: a revoked key fails
+  # every analysis, and the failure rate is not a second thing to look at.
+  - source_matchers: [alertname = llm_config_error]
+    target_matchers: [alertname =~ "analysis_failure_rate|api_5xx_rate"]
+
+  # Past the ceiling, being past 80% is not news.
+  - source_matchers: [alertname = spend_ceiling_100]
+    target_matchers: [alertname = spend_ceiling_80]
+
+  # The database being unreachable from every instance explains a pool with
+  # everything waiting on it, and explains analyses failing.
+  - source_matchers: [alertname = readiness_failing]
+    target_matchers: [alertname =~ "db_pool_saturated|analysis_failure_rate|api_5xx_rate"]
+
+  # A Sev-1 is never suppressed by anything. There is no inhibition above
+  # whose target is unverified_excerpt_displayed or cross_user_access, and
+  # ops/alerts tests assert that stays true: those two are the reason the
+  # rest of this exists.

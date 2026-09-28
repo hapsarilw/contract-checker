@@ -40,6 +40,38 @@ Set `OTEL_EXPORTER_OTLP_ENDPOINT` to an OTLP/HTTP collector. For an authenticate
 
 Spans: `document.extract` (at upload, where extraction happens), then `analysis` with its children `analysis.prompt`, `analysis.provider_call`, `analysis.validate`, `analysis.verify` and `analysis.persist`. Every span carries `clausecheck.request_id`. Spans carry ids, counts and error codes only. They never carry document text, and a failed span records the error code, never the message. `server/tests/integration/observability.test.js` checks this with a planted phrase.
 
+## Alerts
+
+`alerts/alerts.yml` is SRS Appendix C's catalogue as Prometheus alerting rules (eighteen of the nineteen; `dependency_critical_vuln` comes from the CI scanner and is declared in `alerts/ci-alerts.yml` in the same shape). `alerts/alertmanager.yml` is where they go and how they are grouped.
+
+Load the rules into the Prometheus that scrapes `/metrics`:
+
+```yaml
+rule_files:
+  - /etc/prometheus/alerts.yml
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+```
+
+**Two destinations, and they must stay distinct.** `route: page` wakes someone; `route: digest` does not. Appendix C decides which is which, and a test asserts that every Sev-1 and Sev-2 pages and every Sev-3 digests, so a rule cannot be promoted by editing a dashboard. The receiver URLs in the committed file are placeholders: no paging provider has been chosen.
+
+**Grouping and inhibition are what make an incident one notification.** A provider outage fires four rules at once; the inhibitions in `alertmanager.yml` suppress the three symptoms so the breaker is the only thing that pages. `docs/alert-drills.md` records that drill and the rest.
+
+Testing:
+
+```bash
+cd server && npm run test:alerts     # promtool, every rule's expression and threshold
+cd server && npx vitest run --project integration tests/integration/alertRouting.test.js
+```
+
+The first needs Docker (promtool comes from the Prometheus image); the second runs a real Alertmanager against the committed config and watches the webhooks arrive.
+
+**An open decision, for when there is traffic.** The ratio alerts have no minimum volume, so two analyses of which one failed is a 50% failure rate and pages. That is Appendix C's condition as written and it is implemented as written; the fix is a floor, and the number for it should come from a week of real traffic rather than a guess. See `docs/alert-drills.md` §6.
+
+**Four runbooks do not exist yet** — `db_pool_saturated`, `analysis_latency_p95`, `memory_high` and `email_delivery_failures` — and `cross_user_access` borrows another. They are marked `runbook_state` in `alerts.yml`, and BUILD-PLAN step 69 writes them.
+
 ## Synthetic uptime checks
 
 §6.6 asks for checks against `/api/health` and a full login → list round trip, **from at least two regions, every minute.** `synthetics/login-list.mjs` is that check. It has no dependencies and exits non-zero on failure, so any provider that runs a Node script can use it (Checkly, Grafana Synthetic Monitoring, or a scheduler of your own). An integration test runs it against the real app.

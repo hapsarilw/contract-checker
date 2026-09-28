@@ -1,5 +1,6 @@
 import prisma from "./prisma.js";
 import { AppError } from "./AppError.js";
+import { assertOwnDocument } from "./defensiveAssertions.js";
 
 /**
  * FR-1.5 — loads a document only if it belongs to this user, and throws
@@ -28,5 +29,8 @@ export async function loadOwnedDocument(documentId, userId) {
     throw new AppError("NOT_FOUND");
   }
 
-  return document;
+  // Appendix C's cross_user_access: the query above already filtered by
+  // userId, so this only fires if that filter is ever lost. See
+  // lib/defensiveAssertions.js for why it is worth asserting anyway.
+  return assertOwnDocument(document, userId);
 }
