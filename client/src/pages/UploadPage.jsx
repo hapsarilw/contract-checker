@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { apiFetch, ApiError } from "../api/client.js";
 import { checkFileBeforeUpload, resolveServerUploadError } from "./uploadErrors.js";
 import AnalyzingPanel from "./AnalyzingPanel.jsx";
+import VerifyEmailBanner from "../components/VerifyEmailBanner.jsx";
 import SkipLink from "../components/SkipLink.jsx";
 import Tabs from "../components/Tabs.jsx";
 import Banner from "../components/Banner.jsx";
@@ -200,6 +201,9 @@ export default function UploadPage() {
       </div>
 
       <main id="main" tabIndex={-1}>
+        <div className="cc-upload-page__verify">
+          <VerifyEmailBanner />
+        </div>
         <div className="cc-upload-card">
           <Tabs
             label="How to provide your contract"

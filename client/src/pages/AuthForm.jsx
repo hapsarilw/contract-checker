@@ -3,12 +3,10 @@ import { useNavigate, useSearchParams, Link } from "react-router";
 import { apiFetch, ApiError } from "../api/client.js";
 import { useAuth } from "../auth/useAuth.js";
 import { sanitizeReturnTo } from "../auth/returnTo.js";
-import Card from "../components/Card.jsx";
 import TextField from "../components/TextField.jsx";
 import Button from "../components/Button.jsx";
 import Banner from "../components/Banner.jsx";
-import SkipLink from "../components/SkipLink.jsx";
-import "./AuthForm.css";
+import AuthShell from "../components/AuthShell.jsx";
 
 const MIN_PASSWORD_LENGTH = 10;
 const MAX_PASSWORD_LENGTH = 200;
@@ -44,6 +42,34 @@ const COPY = {
 };
 
 /**
+ * Why a visitor may have been sent to /login. Keyed by the `reason` query
+ * parameter, so a redirect from anywhere in the app (api/client.js's 401
+ * handler, the settings screen's sign-out-everywhere and delete-account)
+ * can say what just happened instead of dropping someone on a bare form.
+ * An unknown `reason` shows nothing, so a hand-edited URL cannot make the
+ * page say something it never said.
+ *
+ * @type {Record<string, { tone: "info" | "warning", title: string, body: string }>}
+ */
+const NOTICES = {
+  session_expired: {
+    tone: "warning",
+    title: "You were signed out",
+    body: "Your session expired. Sign in again to pick up where you left off.",
+  },
+  signed_out_everywhere: {
+    tone: "info",
+    title: "You were signed out everywhere",
+    body: "Every device that was signed in has to sign in again, this one included.",
+  },
+  account_deleted: {
+    tone: "info",
+    title: "Your account was deleted",
+    body: "Your contracts, reports and account are gone. A confirmation is on its way to your inbox.",
+  },
+};
+
+/**
  * BUILD-PLAN step 32 — the prototype's single "0. AUTH" screen
  * (toggled in place via `authMode`) split into what FR-7.1 actually
  * requires: two routes, /login and /register, sharing this form. The
@@ -71,7 +97,7 @@ export default function AuthForm({ mode }) {
   );
   const [submitting, setSubmitting] = useState(false);
 
-  const sessionExpired = searchParams.get("reason") === "session_expired";
+  const notice = NOTICES[searchParams.get("reason") ?? ""] ?? null;
 
   /** @param {import("react").FormEvent<HTMLFormElement>} event */
   async function handleSubmit(event) {
@@ -119,103 +145,65 @@ export default function AuthForm({ mode }) {
   }
 
   return (
-    <div className="cc-auth-page">
-      <SkipLink />
-      <div className="cc-auth-page__frame">
-        {/* The ink half. It carries the brand and the one thing a
-            signed-out visitor needs to know, which is also what stops
-            this screen from being a lone card floating in dead space.
-            aria-hidden is deliberately NOT set: this is real content, and
-            the heading order (the form's h1 comes after) still reads
-            correctly because nothing here is a heading. */}
-        <aside className="cc-auth-panel">
-          <div className="cc-auth-panel__brand">
-            <span className="cc-auth-page__brand-mark" aria-hidden="true" />
-            <span className="cc-auth-page__brand-name">ClauseCheck</span>
+    <AuthShell>
+      <h1 className="cc-auth-card__title">{copy.title}</h1>
+      <p className="cc-auth-card__blurb">{copy.blurb}</p>
+
+      {notice ? (
+        <Banner tone={notice.tone} className="cc-auth-card__error" title={notice.title}>
+          {notice.body}
+        </Banner>
+      ) : null}
+
+      {submitError ? (
+        <Banner tone="danger" className="cc-auth-card__error" title={submitError.title}>
+          {submitError.message}
+          <div className="cc-auth-card__error-code">
+            {submitError.code} · {submitError.status}
           </div>
-          <p className="cc-auth-panel__statement">Know what you are signing.</p>
-          <p className="cc-auth-panel__body">
-            ClauseCheck reads a contract and points at the clauses that could cost you.
-            Every clause it flags is quoted from your own file, so you can check it
-            against the page.
+        </Banner>
+      ) : null}
+
+      <form onSubmit={handleSubmit} noValidate>
+        <div className="cc-auth-card__field">
+          <TextField
+            label="Email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@studio.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            error={fieldErrors.email}
+          />
+        </div>
+        <div className="cc-auth-card__field">
+          <TextField
+            label="Password"
+            type="password"
+            autoComplete={mode === "register" ? "new-password" : "current-password"}
+            placeholder="••••••••••"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            hint={copy.passwordHint}
+            error={fieldErrors.password}
+          />
+        </div>
+        {mode === "signin" ? (
+          <p className="cc-auth-card__forgot">
+            <Link to="/forgot-password">Forgot your password?</Link>
           </p>
-          <p className="cc-auth-panel__note">
-            Your contracts are private to your account, and you can delete any of them
-            permanently once you&apos;re done.
-          </p>
-        </aside>
+        ) : null}
+        <Button type="submit" fullWidth disabled={submitting}>
+          {submitting ? "Working…" : copy.cta}
+        </Button>
+      </form>
 
-        {/* tabIndex={-1}: a <main> is not focusable by default, so
-            activating the skip link above would scroll here without ever
-            moving actual keyboard focus — programmatically focusable
-            (never in the Tab order otherwise) is what makes the skip
-            link's target real. */}
-        <main id="main" tabIndex={-1} className="cc-auth-page__main">
-          <Card accent className="cc-auth-card">
-            <h1 className="cc-auth-card__title">{copy.title}</h1>
-            <p className="cc-auth-card__blurb">{copy.blurb}</p>
-
-            {sessionExpired ? (
-              <Banner
-                tone="warning"
-                className="cc-auth-card__error"
-                title="You were signed out"
-              >
-                Your session expired. Sign in again to pick up where you left off.
-              </Banner>
-            ) : null}
-
-            {submitError ? (
-              <Banner
-                tone="danger"
-                className="cc-auth-card__error"
-                title={submitError.title}
-              >
-                {submitError.message}
-                <div className="cc-auth-card__error-code">
-                  {submitError.code} · {submitError.status}
-                </div>
-              </Banner>
-            ) : null}
-
-            <form onSubmit={handleSubmit} noValidate>
-              <div className="cc-auth-card__field">
-                <TextField
-                  label="Email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@studio.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  error={fieldErrors.email}
-                />
-              </div>
-              <div className="cc-auth-card__field">
-                <TextField
-                  label="Password"
-                  type="password"
-                  autoComplete={mode === "register" ? "new-password" : "current-password"}
-                  placeholder="••••••••••"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  hint={copy.passwordHint}
-                  error={fieldErrors.password}
-                />
-              </div>
-              <Button type="submit" fullWidth disabled={submitting}>
-                {submitting ? "Working…" : copy.cta}
-              </Button>
-            </form>
-
-            <div className="cc-auth-card__switch">
-              {copy.switchText}{" "}
-              <Link className="cc-auth-card__switch-link" to={copy.switchTo}>
-                {copy.switchCta}
-              </Link>
-            </div>
-          </Card>
-        </main>
+      <div className="cc-auth-card__switch">
+        {copy.switchText}{" "}
+        <Link className="cc-auth-card__switch-link" to={copy.switchTo}>
+          {copy.switchCta}
+        </Link>
       </div>
-    </div>
+    </AuthShell>
   );
 }

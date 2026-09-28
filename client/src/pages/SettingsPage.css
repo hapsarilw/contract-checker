@@ -1,0 +1,118 @@
+/**
+ * The settings screen: a single readable column of sections, each one a
+ * surface of its own so that "change password" and "delete account" are
+ * never visually part of the same block.
+ */
+
+.cc-settings {
+  max-width: var(--cc-container-narrow);
+  margin: 0 auto;
+  padding: var(--cc-space-9) var(--cc-space-6) var(--cc-space-10);
+}
+
+.cc-settings__title {
+  margin: 0 0 var(--cc-space-2);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-4xl);
+  line-height: var(--cc-leading-tight);
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-tighter);
+  color: var(--cc-ink);
+}
+
+.cc-settings__account {
+  margin: 0 0 var(--cc-space-7);
+  font-size: var(--cc-text-lg);
+  color: var(--cc-ink-secondary);
+  overflow-wrap: anywhere;
+}
+
+.cc-settings__section {
+  margin-bottom: var(--cc-space-5);
+  padding: var(--cc-space-6);
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+}
+
+/* Set apart from the routine sections above it: more air, and a danger
+   edge, so it reads as a different kind of thing before it is read. */
+.cc-settings__section--danger {
+  margin-top: var(--cc-space-8);
+  border-color: color-mix(in srgb, var(--cc-danger) 30%, var(--cc-rule));
+}
+
+.cc-settings__heading {
+  margin: 0 0 var(--cc-space-2);
+  font-size: var(--cc-text-2xl);
+  line-height: var(--cc-leading-tight);
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-tight);
+  color: var(--cc-ink);
+}
+
+.cc-settings__section--danger .cc-settings__heading {
+  color: var(--cc-danger);
+}
+
+.cc-settings__lede {
+  margin: 0 0 var(--cc-space-5);
+  max-width: var(--cc-measure);
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-settings__form {
+  display: grid;
+  gap: var(--cc-space-5);
+  max-width: 28rem;
+}
+
+.cc-settings__banner {
+  margin-bottom: var(--cc-space-5);
+}
+
+.cc-settings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cc-space-3) var(--cc-space-4);
+}
+
+/* Empty until there is something to say (see ResendVerification). */
+.cc-settings__status {
+  flex: 1 1 14rem;
+  margin: 0;
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-snug);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-settings__status--error {
+  color: var(--cc-danger);
+  font-weight: 500;
+}
+
+/* An outlined danger trigger rather than the solid destructive variant,
+   which is reserved for the dialog's own confirm button. */
+.cc-settings__delete-trigger.cc-button--secondary {
+  border-color: color-mix(in srgb, var(--cc-danger) 40%, transparent);
+  color: var(--cc-danger);
+}
+.cc-settings__delete-trigger.cc-button--secondary:hover:not(:disabled) {
+  background: var(--cc-severity-high-tint);
+}
+
+@media (max-width: 767px) {
+  .cc-settings {
+    padding: var(--cc-space-7) var(--cc-space-4) var(--cc-space-9);
+  }
+  .cc-settings__title {
+    font-size: var(--cc-text-3xl);
+  }
+  .cc-settings__section {
+    padding: var(--cc-space-5) var(--cc-space-4);
+  }
+}

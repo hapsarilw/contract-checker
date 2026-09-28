@@ -17,7 +17,7 @@ async function signIn(page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        user: { id: "u1", email: "person@example.com", accountState: "VERIFIED" },
+        user: { id: "u1", email: "person@example.com", state: "ACTIVE" },
       }),
     }),
   );
@@ -61,6 +61,20 @@ async function startAnalyzing(page) {
 
 test.beforeEach(async ({ page }) => {
   await signIn(page);
+  // The report screen this file's success path navigates to fetches the
+  // document on mount. Left unmocked, that request goes to whatever is on
+  // :3000: nothing (a network error, the URL stays put) on a bare
+  // machine, but a real dev server answers 401 and bounces the page to
+  // /login. Answering it here makes the result independent of that.
+  await page.route("**/api/v1/documents/doc1", (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { code: "NOT_FOUND", message: "x", requestId: "req_e2e" },
+      }),
+    }),
+  );
 });
 
 test.describe("the analyzing screen (BUILD-PLAN step 34, FR-7.4)", () => {

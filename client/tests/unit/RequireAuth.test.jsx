@@ -1,18 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Routes, Route, useSearchParams } from "react-router";
+import { MemoryRouter, Routes, Route, useLocation, useSearchParams } from "react-router";
 import { RequireAuth } from "../../src/auth/RequireAuth.jsx";
 import { AuthContext } from "../../src/auth/AuthContext.js";
+
+function SearchProbe() {
+  return <p>{useLocation().search}</p>;
+}
 
 /**
  * @param {{
  *   status: "loading" | "authenticated" | "unauthenticated",
+ *   endedBecause?: string,
  *   initialEntries?: string[],
  * }} options
  */
-function renderGuarded({ status, initialEntries = ["/documents/abc"] }) {
+function renderGuarded({ status, endedBecause, initialEntries = ["/documents/abc"] }) {
   const value = {
     status,
+    endedBecause,
     user: status === "authenticated" ? { id: "u1", email: "a@b.com" } : null,
     setUser: () => {},
     signOut: () => {},
@@ -83,5 +89,34 @@ describe("RequireAuth (BUILD-PLAN step 32, FR-7.1)", () => {
       </MemoryRouter>,
     );
     expect(screen.getByText("returnTo=/documents/abc?tab=findings")).toBeInTheDocument();
+  });
+
+  it("sends a session the app ended on purpose to /login with the reason and NO returnTo", () => {
+    render(
+      <MemoryRouter initialEntries={["/documents/abc"]}>
+        <AuthContext.Provider
+          value={{
+            status: "unauthenticated",
+            endedBecause: "account_deleted",
+            user: null,
+            setUser: () => {},
+            signOut: () => {},
+          }}
+        >
+          <Routes>
+            <Route
+              path="/documents/abc"
+              element={
+                <RequireAuth>
+                  <p>Protected content</p>
+                </RequireAuth>
+              }
+            />
+            <Route path="/login" element={<SearchProbe />} />
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("?reason=account_deleted")).toBeInTheDocument();
   });
 });

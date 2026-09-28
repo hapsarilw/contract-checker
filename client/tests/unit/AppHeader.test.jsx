@@ -9,7 +9,7 @@ import { I18nProvider } from "../../src/i18n/index.js";
 function renderHeader({ path, signOut = vi.fn() }) {
   const value = {
     status: "authenticated",
-    user: { id: "u1", email: "a@b.com", accountState: "ACTIVE" },
+    user: { id: "u1", email: "a@b.com", state: "ACTIVE" },
     setUser: () => {},
     signOut,
   };
@@ -31,6 +31,26 @@ describe("AppHeader (BUILD-PLAN step 39)", () => {
     expect(screen.getByRole("link", { name: "New contract" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+  });
+
+  it("links to Settings, and marks it current only on /settings", () => {
+    const { unmount } = renderHeader({ path: "/settings" });
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "New contract" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    unmount();
+    renderHeader({ path: "/" });
+    expect(screen.getByRole("link", { name: "Settings" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 
   it("marks 'New contract' current on /, and 'History' on neither / nor /documents", () => {

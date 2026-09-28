@@ -15,6 +15,7 @@ import { DISCLAIMER_LOCKED } from "../disclaimer.js";
 export const id = {
   navNew: "Kontrak baru",
   navHistory: "Riwayat",
+  navSettings: "Pengaturan",
   navSignOut: "Keluar",
   back: "Kembali ke riwayat",
   overallRisk: "Risiko keseluruhan",

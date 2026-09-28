@@ -30,6 +30,15 @@ describe("resolveAnalyzeError (BUILD-PLAN step 34 — all four ANALYZE_ERRORS st
     expect(result.primary).toBe("Wait for it");
   });
 
+  it("EMAIL_NOT_VERIFIED (FR-1.7) says the upload is safe and what to do, and offers a retry for someone who just verified", () => {
+    const result = resolveAnalyzeError({ code: "EMAIL_NOT_VERIFIED", message: "x" });
+    expect(result.title).toBe("Confirm your email to run a check.");
+    expect(result.body).toMatch(/uploaded and safe/);
+    expect(result.body).toMatch(/link we sent/);
+    expect(result.primary).toBe("Try again");
+    expect(result.code).toBe("EMAIL_NOT_VERIFIED · 403");
+  });
+
   it("an unrecognised code still renders something actionable, using the server's own message", () => {
     const result = resolveAnalyzeError({
       code: "SOME_FUTURE_CODE",

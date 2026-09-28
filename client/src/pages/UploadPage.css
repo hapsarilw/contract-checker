@@ -312,3 +312,10 @@
     gap: var(--cc-space-1);
   }
 }
+
+/* The unverified-email notice sits above the card, and takes no space at
+   all when it renders nothing (an empty block with margin would leave a
+   gap for every verified user). */
+.cc-upload-page__verify:not(:empty) {
+  margin-bottom: var(--cc-space-5);
+}

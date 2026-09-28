@@ -34,6 +34,7 @@ export default function AppHeader() {
 
   const isUpload = location.pathname === "/";
   const isHistory = location.pathname.startsWith("/documents");
+  const isSettings = location.pathname === "/settings";
 
   return (
     <header className="cc-app-header">
@@ -56,6 +57,13 @@ export default function AppHeader() {
             className={`cc-app-header__link ${isHistory ? "cc-app-header__link--active" : ""}`.trim()}
           >
             {t.navHistory}
+          </Link>
+          <Link
+            to="/settings"
+            aria-current={isSettings ? "page" : undefined}
+            className={`cc-app-header__link ${isSettings ? "cc-app-header__link--active" : ""}`.trim()}
+          >
+            {t.navSettings}
           </Link>
           <button
             type="button"

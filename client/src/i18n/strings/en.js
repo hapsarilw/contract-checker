@@ -17,6 +17,7 @@ import { DISCLAIMER_LOCKED } from "../disclaimer.js";
 export const en = {
   navNew: "New contract",
   navHistory: "History",
+  navSettings: "Settings",
   navSignOut: "Sign out",
   back: "Back to history",
   overallRisk: "Overall risk",

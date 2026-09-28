@@ -227,7 +227,8 @@ export function createEmailService({
  * Kept here, not in the templates, so a template stays a pure function of
  * its inputs and cannot reach for config.
  *
- * The paths are provisional until step 63 builds the screens they point at.
+ * The paths are the client's real routes (step 63 built /verify-email and
+ * /reset-password); /confirm-email-change has no screen yet.
  *
  * @param {string} type
  * @param {Record<string, string>} params

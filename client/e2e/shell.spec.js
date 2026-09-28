@@ -22,7 +22,7 @@ async function mockMe(page, { authenticated = false } = {}) {
       contentType: "application/json",
       body: authenticated
         ? JSON.stringify({
-            user: { id: "u1", email: "person@example.com", accountState: "VERIFIED" },
+            user: { id: "u1", email: "person@example.com", state: "ACTIVE" },
           })
         : JSON.stringify({
             error: { code: "UNAUTHENTICATED", message: "x", requestId: "r" },
@@ -32,11 +32,11 @@ async function mockMe(page, { authenticated = false } = {}) {
 }
 
 test.describe("route table and guards (BUILD-PLAN step 39, FR-7.1)", () => {
-  test.describe("the three password/verification placeholders — reachable without signing in, no app chrome", () => {
+  test.describe("the three password/verification screens — reachable without signing in, no app chrome", () => {
     for (const [path, title] of /** @type {const} */ ([
-      ["/verify-email", "Verify your email"],
+      ["/verify-email", "This link is incomplete"],
       ["/forgot-password", "Forgot your password?"],
-      ["/reset-password", "Reset your password"],
+      ["/reset-password", "This link is incomplete"],
     ])) {
       test(path, async ({ page }) => {
         await mockMe(page, { authenticated: false });
@@ -55,7 +55,7 @@ test.describe("route table and guards (BUILD-PLAN step 39, FR-7.1)", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("/settings renders its placeholder with the app chrome once authenticated", async ({
+  test("/settings renders the settings screen with the app chrome once authenticated", async ({
     page,
   }) => {
     await mockMe(page, { authenticated: true });
@@ -77,7 +77,7 @@ test.describe("route table and guards (BUILD-PLAN step 39, FR-7.1)", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("axe reports zero violations on a placeholder and on the 404 page", async ({
+  test("axe reports zero violations on an auth-flow screen and on the 404 page", async ({
     page,
   }) => {
     await mockMe(page, { authenticated: false });
@@ -171,7 +171,7 @@ test.describe("the full authenticated journey (BUILD-PLAN step 39)", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          user: { id: "u1", email: "person@example.com", accountState: "VERIFIED" },
+          user: { id: "u1", email: "person@example.com", state: "ACTIVE" },
         }),
       }),
     );

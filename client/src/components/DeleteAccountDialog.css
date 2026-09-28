@@ -1,0 +1,29 @@
+.cc-delete-account__lead {
+  margin: 0 0 var(--cc-space-2);
+  font-size: var(--cc-text-md);
+  font-weight: 600;
+  color: var(--cc-ink);
+}
+
+.cc-delete-account__list {
+  margin: 0 0 var(--cc-space-4);
+  padding-left: var(--cc-space-5);
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-delete-account__fine {
+  margin: 0 0 var(--cc-space-5);
+  font-size: var(--cc-text-base);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-delete-account__error {
+  margin-bottom: var(--cc-space-4);
+}
+
+.cc-delete-account__actions {
+  margin-top: var(--cc-space-5);
+}

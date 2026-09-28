@@ -93,9 +93,50 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  /**
+   * Forgets the session locally, with NO request. For the two moments the
+   * server has already ended it: sign-out-everywhere (which clears the
+   * cookie itself) and account deletion (where the user row is gone).
+   * Calling `signOut()` there would POST /logout with a cookie that no
+   * longer works, get a 401, and bounce the user through the
+   * "your session expired" redirect, which is the wrong message for a
+   * sign-out the user just asked for.
+   *
+   * `reason` is why, and RequireAuth turns it into the redirect to
+   * /login?reason=... itself. The caller must NOT navigate on its own:
+   * clearing the session makes RequireAuth redirect within the same
+   * render, and that redirect (which would carry a returnTo to a page the
+   * person no longer has access to) wins any race against a navigate() of
+   * the caller's, so the reason would be lost.
+   *
+   * @param {string} [reason]
+   */
+  const clearSession = useCallback((reason) => {
+    setState({ status: "unauthenticated", user: null, endedBecause: reason });
+  }, []);
+
+  /**
+   * Re-reads GET /auth/me. Used once the account's state has changed on
+   * the server behind the SPA's back, i.e. an email was just verified, so
+   * the UNVERIFIED banner clears without a page reload. A failure is
+   * swallowed on purpose: the caller has already done the thing it cared
+   * about, and a stale banner is a smaller problem than an error dialog
+   * about a refresh nobody asked for.
+   */
+  const refreshUser = useCallback(async () => {
+    try {
+      const body = /** @type {{ user: import("./AuthContext.js").AuthUser }} */ (
+        await apiFetch("/api/v1/auth/me", { suppressAuthRedirect: true })
+      );
+      setState({ status: "authenticated", user: body.user });
+    } catch {
+      // See above.
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ ...state, setUser, signOut }),
-    [state, setUser, signOut],
+    () => ({ ...state, setUser, signOut, clearSession, refreshUser }),
+    [state, setUser, signOut, clearSession, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

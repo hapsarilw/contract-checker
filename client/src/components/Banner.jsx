@@ -18,11 +18,14 @@ const DEFAULT_ROLE = {
  * (polite). Either can be overridden, but a screen introducing a new
  * tone combination should have a reason to pick a different role, not
  * just accept whichever this component happened to default to.
+ * `role="group"` is the silent one: for a standing notice that contains
+ * its own live region (VerifyEmailBanner's resend status), where making
+ * the container live as well would announce everything twice.
  *
  * @param {{
  *   tone?: "danger" | "warning" | "info",
  *   title?: string,
- *   role?: "alert" | "status",
+ *   role?: "alert" | "status" | "group",
  *   className?: string,
  *   children?: import("react").ReactNode,
  * } & import("react").ComponentPropsWithoutRef<"div">} props

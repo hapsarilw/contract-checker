@@ -1,7 +1,7 @@
 /**
  * BUILD-PLAN step 34 — the prototype's ANALYZE_ERRORS map
  * (docs/design/ClauseCheck.html), mapped to the real server codes. All
- * four are static copy: unlike uploadErrors.js's DOCUMENT_TOO_LONG/
+ * of these are static copy: unlike uploadErrors.js's DOCUMENT_TOO_LONG/
  * DOCUMENT_TOO_SHORT, none of the prototype's wording here bakes in a
  * fabricated number that needs a real one substituted, so the prototype's
  * copy is used verbatim (step 34: "with its exact copy") — except one.
@@ -43,6 +43,12 @@ export const ANALYZE_ERRORS = Object.freeze({
     title: "This contract is already being checked.",
     body: "Another check on the same document is running — that usually finishes in about 30 seconds. If the earlier attempt crashed instead of finishing, though, it can take up to about 6 minutes before our system notices and clears it, and you’re able to try again.",
     primary: "Wait for it",
+  }),
+  EMAIL_NOT_VERIFIED: Object.freeze({
+    code: "EMAIL_NOT_VERIFIED · 403",
+    title: "Confirm your email to run a check.",
+    body: "Your contract is uploaded and safe. Checks start once your email address is confirmed: open the link we sent when you signed up, or go back to the upload page to have it sent again. Already confirmed it? Try again.",
+    primary: "Try again",
   }),
 });
 

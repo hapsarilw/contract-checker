@@ -16,7 +16,7 @@ async function signIn(page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        user: { id: "u1", email: "person@example.com", accountState: "VERIFIED" },
+        user: { id: "u1", email: "person@example.com", state: "ACTIVE" },
       }),
     }),
   );

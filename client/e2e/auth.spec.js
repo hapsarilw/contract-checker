@@ -105,7 +105,7 @@ test.describe("/login", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          user: { id: "u1", email: "person@example.com", accountState: "UNVERIFIED" },
+          user: { id: "u1", email: "person@example.com", state: "UNVERIFIED" },
         }),
       }),
     );
@@ -118,7 +118,7 @@ test.describe("/login", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          user: { id: "u1", email: "person@example.com", accountState: "UNVERIFIED" },
+          user: { id: "u1", email: "person@example.com", state: "UNVERIFIED" },
         }),
       }),
     );
@@ -220,7 +220,7 @@ test.describe("/register", () => {
         status: 201,
         contentType: "application/json",
         body: JSON.stringify({
-          user: { id: "u2", email: "new@example.com", accountState: "UNVERIFIED" },
+          user: { id: "u2", email: "new@example.com", state: "UNVERIFIED" },
         }),
       }),
     );
@@ -230,7 +230,7 @@ test.describe("/register", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          user: { id: "u2", email: "new@example.com", accountState: "UNVERIFIED" },
+          user: { id: "u2", email: "new@example.com", state: "UNVERIFIED" },
         }),
       }),
     );
@@ -336,7 +336,7 @@ test.describe("route guard (FR-7.1)", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          user: { id: "u1", email: "person@example.com", accountState: "UNVERIFIED" },
+          user: { id: "u1", email: "person@example.com", state: "UNVERIFIED" },
         }),
       }),
     );
@@ -350,7 +350,7 @@ test.describe("route guard (FR-7.1)", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          user: { id: "u1", email: "person@example.com", accountState: "UNVERIFIED" },
+          user: { id: "u1", email: "person@example.com", state: "UNVERIFIED" },
         }),
       }),
     );

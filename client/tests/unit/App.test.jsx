@@ -21,9 +21,7 @@ function renderApp({ path, status = "authenticated" }) {
   const value = {
     status,
     user:
-      status === "authenticated"
-        ? { id: "u1", email: "a@b.com", accountState: "ACTIVE" }
-        : null,
+      status === "authenticated" ? { id: "u1", email: "a@b.com", state: "ACTIVE" } : null,
     setUser: () => {},
     signOut: () => {},
   };
@@ -63,7 +61,7 @@ describe("App (BUILD-PLAN step 39, FR-7.1)", () => {
     expect(screen.queryByRole("link", { name: "New contract" })).not.toBeInTheDocument();
   });
 
-  it("shows no app chrome on the auth-flow placeholders (verify-email, forgot-password, reset-password)", () => {
+  it("shows no app chrome on the auth-flow screens (verify-email, forgot-password, reset-password)", () => {
     for (const path of ["/verify-email", "/forgot-password", "/reset-password"]) {
       const { unmount } = renderApp({ path, status: "unauthenticated" });
       expect(screen.queryByRole("banner")).not.toBeInTheDocument();
@@ -71,11 +69,11 @@ describe("App (BUILD-PLAN step 39, FR-7.1)", () => {
     }
   });
 
-  it("the three auth-flow placeholders render without requiring authentication", () => {
+  it("the three auth-flow screens render without requiring authentication", () => {
     for (const [path, title] of /** @type {const} */ ([
-      ["/verify-email", "Verify your email"],
+      ["/verify-email", "This link is incomplete"],
       ["/forgot-password", "Forgot your password?"],
-      ["/reset-password", "Reset your password"],
+      ["/reset-password", "This link is incomplete"],
     ])) {
       const { unmount } = renderApp({ path, status: "unauthenticated" });
       expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
@@ -90,7 +88,7 @@ describe("App (BUILD-PLAN step 39, FR-7.1)", () => {
     ).toBeInTheDocument();
   });
 
-  it("/settings renders its coming-soon placeholder, with chrome, once authenticated", () => {
+  it("/settings renders the settings screen, with chrome, once authenticated", () => {
     renderApp({ path: "/settings" });
     expect(
       screen.getByRole("heading", { level: 1, name: "Settings" }),

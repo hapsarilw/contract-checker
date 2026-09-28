@@ -1,0 +1,22 @@
+.cc-resend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cc-space-2) var(--cc-space-4);
+  margin-top: var(--cc-space-3);
+}
+
+/* Empty until there is something to say, and takes no space while it is:
+   an empty block has no height, so only the spacing is conditional. */
+.cc-resend__status {
+  flex: 1 1 16rem;
+  margin: 0;
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-snug);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-resend__status--error {
+  color: var(--cc-danger);
+  font-weight: 500;
+}

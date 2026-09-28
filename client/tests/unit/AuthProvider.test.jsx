@@ -16,7 +16,7 @@ describe("AuthProvider (BUILD-PLAN step 32, FR-7.7)", () => {
 
   it("starts loading, then authenticated when /me succeeds", async () => {
     vi.mocked(apiFetch).mockResolvedValue({
-      user: { id: "u1", email: "a@b.com", accountState: "VERIFIED" },
+      user: { id: "u1", email: "a@b.com", state: "ACTIVE" },
     });
 
     render(
@@ -68,7 +68,7 @@ describe("AuthProvider (BUILD-PLAN step 32, FR-7.7)", () => {
 
   it("clears to unauthenticated on a clausecheck:session-expired event", async () => {
     vi.mocked(apiFetch).mockResolvedValue({
-      user: { id: "u1", email: "a@b.com", accountState: "VERIFIED" },
+      user: { id: "u1", email: "a@b.com", state: "ACTIVE" },
     });
 
     render(
@@ -96,7 +96,7 @@ describe("AuthProvider (BUILD-PLAN step 32, FR-7.7)", () => {
         <button
           type="button"
           onClick={() =>
-            auth.setUser({ id: "u2", email: "new@b.com", accountState: "UNVERIFIED" })
+            auth.setUser({ id: "u2", email: "new@b.com", state: "UNVERIFIED" })
           }
         >
           simulate login

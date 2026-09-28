@@ -20,7 +20,8 @@ import { useAuth } from "./useAuth.js";
  * @param {{ children: import("react").ReactNode }} props
  */
 export function RequireAuth({ children }) {
-  const { status } = useAuth();
+  const auth = useAuth();
+  const { status } = auth;
   const location = useLocation();
 
   if (status === "loading") {
@@ -32,6 +33,14 @@ export function RequireAuth({ children }) {
   }
 
   if (status === "unauthenticated") {
+    // A session the app itself ended on purpose (sign-out-everywhere,
+    // account deletion) goes to /login saying so, with no returnTo: there
+    // is nothing to return to.
+    if (auth.endedBecause) {
+      return (
+        <Navigate to={`/login?reason=${encodeURIComponent(auth.endedBecause)}`} replace />
+      );
+    }
     const returnTo = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
   }

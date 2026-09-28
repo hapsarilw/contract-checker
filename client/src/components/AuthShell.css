@@ -222,3 +222,54 @@
     padding: var(--cc-space-7) var(--cc-space-5);
   }
 }
+
+/* ---- Step 63: the account-lifecycle screens ------------------------------
+   verify-email, forgot-password and reset-password reuse this card, so
+   the few rules they need beyond sign-in's live here with it. */
+
+.cc-auth-card__forgot {
+  margin: calc(var(--cc-space-2) * -1) 0 var(--cc-space-5);
+  font-size: var(--cc-text-md);
+}
+
+.cc-auth-card__status {
+  margin: 0 0 var(--cc-space-5);
+  font-size: var(--cc-text-lg);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-ink-secondary);
+}
+
+/* The result of an action, told in the card's own voice rather than in a
+   banner: a confirmation the user is meant to read is not an alert. */
+.cc-auth-card__result {
+  margin: 0 0 var(--cc-space-5);
+  padding: var(--cc-space-4) var(--cc-space-5);
+  border-radius: var(--cc-radius-control);
+  border: var(--cc-border-width) solid
+    color-mix(in srgb, var(--cc-success) 28%, transparent);
+  background: var(--cc-success-tint);
+  color: var(--cc-ink);
+  font-size: var(--cc-text-md);
+  line-height: var(--cc-leading-normal);
+}
+
+.cc-auth-card__result strong {
+  display: block;
+  margin-bottom: var(--cc-space-1);
+  color: var(--cc-success);
+  font-size: var(--cc-text-lg);
+}
+
+.cc-auth-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cc-space-3);
+  margin-top: var(--cc-space-5);
+}
+
+.cc-auth-card__aside {
+  margin: var(--cc-space-5) 0 0;
+  font-size: var(--cc-text-md);
+  color: var(--cc-ink-secondary);
+}
