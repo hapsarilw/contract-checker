@@ -26,7 +26,17 @@ import { APIError, APIUserAbortError } from "@anthropic-ai/sdk";
  */
 export class MockLlmProvider {
   #queue = [];
+  #defaultDelayMs;
   calls = [];
+
+  /**
+   * @param {{ defaultDelayMs?: number }} [options] `defaultDelayMs` delays
+   *   every UNSCRIPTED analysis (config's MOCK_LLM_DELAY_MS, step 71's
+   *   timeout-chain rehearsal). A scripted response keeps its own delay.
+   */
+  constructor({ defaultDelayMs = 0 } = {}) {
+    this.#defaultDelayMs = defaultDelayMs;
+  }
 
   /** The body scriptValidResponse() serializes, factored out so the no-script default (below) can build the same shape without queueing-then-recursing into analyze(). */
   static #validResponseBody(overrides = {}) {
@@ -176,8 +186,8 @@ export class MockLlmProvider {
     this.calls.push({ documentText, requestId, correction, at: startedAt });
 
     const script = this.#queue.shift();
-    if (script?.delayMs)
-      await new Promise((resolve) => setTimeout(resolve, script.delayMs));
+    const delayMs = script ? script.delayMs : this.#defaultDelayMs;
+    if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
 
     if (script?.kind === "error") {
       throw script.build();

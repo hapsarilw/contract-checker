@@ -1,0 +1,410 @@
+# Deploy. BUILD-PLAN step 71 (OPS-8) / SRS §8's deployment procedure, for a
+# merge to the default branch:
+#
+#   image (built ONCE, deployed to both environments)
+#   -> staging migrations, as a discrete step -> staging API -> staging frontend
+#   -> smoke, the timeout-chain check, E2E + accessibility, against staging
+#   -> MANUAL APPROVAL (the `production` environment's required reviewer)
+#   -> production migrations -> rolling production API -> production frontend
+#   -> smoke -> watch the error rate for 15 minutes
+#
+# Rollback (PRD §15, SRS §8) is the same workflow run by hand with
+# `rollback_to`: the API is put back on THAT commit's already-built image,
+# with no migration step at all — SRS §5.5's expand/contract rule is what
+# makes the previous image safe on the current schema, and
+# ops/deploy/rehearsal proves it for the migrations that exist. The frontend
+# rolls back on its own, by rebuilding and publishing that commit's client.
+#
+# NOT RUNNABLE YET, deliberately: no hosting platform has been chosen, so
+# scripts/deploy/platform.sh fails the first deploy step, loudly. Every
+# step around it is real. docs/deployment.md is the procedure, the owed
+# decisions, and what the local rehearsal did and did not prove.
+#
+# SECRETS. Every job that needs one declares an `environment:`, and every
+# secret is ENVIRONMENT-scoped (Settings -> Environments), never repository-
+# wide, so staging's job cannot read production's database and the two can
+# never share a credential by accident. The application's own provider key
+# is NOT here at all: it lives in the hosting platform's secret store, per
+# environment (the owner's rule, and SRS §2.3's "separate from production,
+# with its own spend ceiling"). ciPipeline.test.js enforces both.
+#
+# LLM_PROVIDER=mock below is for the tools this workflow runs itself (none
+# of which call a provider). It configures nothing that is deployed: the
+# deployed application reads its configuration from the platform, and
+# refuses LLM_PROVIDER=mock in production mode anyway.
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      rollback_to:
+        description: Commit SHA (full) whose already-built image and client to put back.
+        required: true
+      rollback_what:
+        description: What to roll back. The two are independent (PRD §15).
+        type: choice
+        options: [api, frontend]
+        default: api
+
+# One deploy at a time, and never cancel one half-way: a cancelled rolling
+# deploy leaves instances on two images with nobody watching.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  LLM_PROVIDER: mock
+  IMAGE: ghcr.io/hapsarilw/clausecheck-server
+
+permissions:
+  contents: read
+
+jobs:
+  # ------------------------------------------------------------ deploy path
+  image:
+    name: image
+    # Only after CI passed on a PUSH to main — never a pull request's run,
+    # and never a fork's.
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.sha.outputs.value }}
+    steps:
+      - id: sha
+        run: echo "value=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.value }}
+      - name: Build timestamp
+        id: ts
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      # Tagged by the full commit SHA, and never :latest: rollback is
+      # "deploy the image of commit X", which needs X's image to still
+      # exist under a name nothing else overwrites.
+      - name: Build and push
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker build \
+            --build-arg GIT_SHA=${{ steps.sha.outputs.value }} \
+            --build-arg BUILD_TIMESTAMP=${{ steps.ts.outputs.value }} \
+            -t "$IMAGE:${{ steps.sha.outputs.value }}" ./server
+          docker push "$IMAGE:${{ steps.sha.outputs.value }}"
+
+  migrate-staging:
+    name: migrate-staging
+    needs: [image]
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install (frozen lockfile)
+        working-directory: server
+        run: npm ci
+      # SRS §5.5: a discrete step, BEFORE the application deploy, never at
+      # boot (with two instances, boot-time migrations race). The API image
+      # cannot run this even by mistake: its runtime stage has no Prisma CLI.
+      - name: Migrations (discrete step)
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+  deploy-staging:
+    name: deploy-staging
+    needs: [image, migrate-staging]
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+      - name: Roll the API onto the new image
+        env:
+          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
+          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+        run: scripts/deploy/platform.sh deploy-api staging "$IMAGE:${{ needs.image.outputs.sha }}"
+
+  frontend-staging:
+    name: frontend-staging
+    # After the API, not beside it: a new client may call an endpoint only
+    # the new API has, never the reverse (the API stays compatible with the
+    # previous client, which is what lets each roll back alone).
+    needs: [image, deploy-staging]
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Install (frozen lockfile)
+        working-directory: client
+        run: npm ci
+      - name: Build against staging's API
+        working-directory: client
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_URL }}
+        run: npm run build
+      - name: Publish
+        env:
+          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
+          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+        run: scripts/deploy/platform.sh deploy-frontend staging client/dist
+
+  verify-staging:
+    name: verify-staging
+    needs: [image, frontend-staging]
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEPLOY_BASE_URL: ${{ vars.API_URL }}
+      DEPLOY_EXPECTED_SHA: ${{ needs.image.outputs.sha }}
+      SMOKE_ACCOUNT_EMAIL: ${{ vars.SMOKE_ACCOUNT_EMAIL }}
+      SMOKE_ACCOUNT_PASSWORD: ${{ secrets.SMOKE_ACCOUNT_PASSWORD }}
+      SYNTHETIC_CHECK_TOKEN: ${{ secrets.SYNTHETIC_CHECK_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Smoke (every instance on this SHA, ready, signed-in round trip)
+        run: node ops/deploy/checks.mjs smoke
+      # FR-3.7, verified in staging on every deploy rather than once: a
+      # platform setting can change under a deploy that changed nothing.
+      # Exit 3 (inconclusive: finished, but too fast to stretch the chain)
+      # does not fail the deploy; docs/deployment.md says what to do with it.
+      - name: Timeout chain (a long analysis through the platform proxy)
+        run: |
+          set +e
+          node ops/deploy/checks.mjs long-analysis
+          code=$?
+          if [ "$code" = 3 ]; then echo "::warning::Timeout chain not stretched this run (see docs/deployment.md)"; exit 0; fi
+          exit "$code"
+      - name: Install (frozen lockfile)
+        working-directory: client
+        run: npm ci
+      - name: Install Chromium
+        working-directory: client
+        run: npx playwright install --with-deps chromium
+      - name: E2E + accessibility against staging
+        working-directory: client
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ vars.FRONTEND_URL }}
+          E2E_STAGING: "1"
+          E2E_ACCOUNT_EMAIL: ${{ vars.SMOKE_ACCOUNT_EMAIL }}
+          E2E_ACCOUNT_PASSWORD: ${{ secrets.SMOKE_ACCOUNT_PASSWORD }}
+        run: npx playwright test e2e/staging.spec.js
+
+  migrate-production:
+    name: migrate-production
+    needs: [image, verify-staging]
+    # The manual approval: the `production` environment has a required
+    # reviewer, so this job — the first to touch production — waits for one.
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install (frozen lockfile)
+        working-directory: server
+        run: npm ci
+      - name: Migrations (discrete step)
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+  deploy-production:
+    name: deploy-production
+    needs: [image, migrate-production]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+      - name: Roll the API onto the new image (rolling, 90 s drain)
+        env:
+          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
+          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+        run: scripts/deploy/platform.sh deploy-api production "$IMAGE:${{ needs.image.outputs.sha }}"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+      - name: Smoke
+        env:
+          DEPLOY_BASE_URL: ${{ vars.API_URL }}
+          DEPLOY_EXPECTED_SHA: ${{ needs.image.outputs.sha }}
+          SMOKE_ACCOUNT_EMAIL: ${{ vars.SMOKE_ACCOUNT_EMAIL }}
+          SMOKE_ACCOUNT_PASSWORD: ${{ secrets.SMOKE_ACCOUNT_PASSWORD }}
+          SYNTHETIC_CHECK_TOKEN: ${{ secrets.SYNTHETIC_CHECK_TOKEN }}
+        run: node ops/deploy/checks.mjs smoke
+
+  frontend-production:
+    name: frontend-production
+    needs: [image, deploy-production]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Install (frozen lockfile)
+        working-directory: client
+        run: npm ci
+      - name: Build against production's API
+        working-directory: client
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_URL }}
+        run: npm run build
+      - name: Publish
+        env:
+          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
+          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+        run: scripts/deploy/platform.sh deploy-frontend production client/dist
+
+  watch-production:
+    name: watch-production
+    needs: [image, frontend-production]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+      # A failure here does not undo anything by itself: rolling back is a
+      # decision (docs/deployment.md, "Rolling back"), made by a person
+      # looking at what failed. This job's job is to make sure someone looks.
+      - name: Watch the error rate for 15 minutes
+        env:
+          DEPLOY_BASE_URL: ${{ vars.API_URL }}
+          DEPLOY_EXPECTED_SHA: ${{ needs.image.outputs.sha }}
+          SMOKE_ACCOUNT_EMAIL: ${{ vars.SMOKE_ACCOUNT_EMAIL }}
+          SMOKE_ACCOUNT_PASSWORD: ${{ secrets.SMOKE_ACCOUNT_PASSWORD }}
+          SYNTHETIC_CHECK_TOKEN: ${{ secrets.SYNTHETIC_CHECK_TOKEN }}
+          PROMETHEUS_URL: ${{ vars.PROMETHEUS_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_TOKEN }}
+          WATCH_MINUTES: "15"
+        run: node ops/deploy/checks.mjs watch
+
+  # ---------------------------------------------------------- rollback path
+  rollback-api:
+    name: rollback-api
+    if: github.event_name == 'workflow_dispatch' && inputs.rollback_what == 'api'
+    # Behind the same approval as a deploy: a rollback is a production
+    # change, and the reviewer is the person who should see it happen.
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+      # NO migration step, on purpose. Migrations only ever move forward;
+      # the previous image runs on the current schema because every
+      # migration is expand-only (SRS §5.5). A rollback that needed a
+      # down-migration would be a new deploy, not a rollback.
+      - name: Put the API back on that commit's image
+        env:
+          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
+          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+        run: scripts/deploy/platform.sh deploy-api production "$IMAGE:${{ inputs.rollback_to }}"
+      - name: Smoke (every instance on the rolled-back SHA)
+        env:
+          DEPLOY_BASE_URL: ${{ vars.API_URL }}
+          DEPLOY_EXPECTED_SHA: ${{ inputs.rollback_to }}
+          SMOKE_ACCOUNT_EMAIL: ${{ vars.SMOKE_ACCOUNT_EMAIL }}
+          SMOKE_ACCOUNT_PASSWORD: ${{ secrets.SMOKE_ACCOUNT_PASSWORD }}
+          SYNTHETIC_CHECK_TOKEN: ${{ secrets.SYNTHETIC_CHECK_TOKEN }}
+        run: node ops/deploy/checks.mjs smoke
+      - name: Watch the error rate for 15 minutes
+        env:
+          DEPLOY_BASE_URL: ${{ vars.API_URL }}
+          DEPLOY_EXPECTED_SHA: ${{ inputs.rollback_to }}
+          SMOKE_ACCOUNT_EMAIL: ${{ vars.SMOKE_ACCOUNT_EMAIL }}
+          SMOKE_ACCOUNT_PASSWORD: ${{ secrets.SMOKE_ACCOUNT_PASSWORD }}
+          SYNTHETIC_CHECK_TOKEN: ${{ secrets.SYNTHETIC_CHECK_TOKEN }}
+          PROMETHEUS_URL: ${{ vars.PROMETHEUS_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_TOKEN }}
+        run: node ops/deploy/checks.mjs watch
+
+  rollback-frontend:
+    name: rollback-frontend
+    if: github.event_name == 'workflow_dispatch' && inputs.rollback_what == 'frontend'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # The client build is a pure function of its commit and VITE_API_BASE_URL,
+      # so "the previous build" is that commit, built again.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_to }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Install (frozen lockfile)
+        working-directory: client
+        run: npm ci
+      - name: Build that commit's client against production's API
+        working-directory: client
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_URL }}
+        run: npm run build
+      - name: Publish
+        env:
+          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
+          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+        run: scripts/deploy/platform.sh deploy-frontend production client/dist

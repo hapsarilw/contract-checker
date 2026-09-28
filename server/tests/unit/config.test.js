@@ -37,6 +37,24 @@ describe("config.js — validated at boot (SRS §8, Appendix B)", () => {
     expect(config.ANTHROPIC_MODEL).toBe("claude-haiku-4-5");
   });
 
+  it("treats an empty value as unset, so a copy of .env.example boots", () => {
+    const result = runConfig({
+      LLM_TIMEOUT_MS: "",
+      DEPLOY_ENV: "",
+      LLM_PROVIDER: "",
+      MOCK_LLM_DELAY_MS: "",
+    });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).timeouts.llm).toBe(60_000);
+  });
+
+  it("still refuses a REQUIRED variable left blank, naming it", () => {
+    const result = runConfig({ DATABASE_URL: "" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("DATABASE_URL");
+  });
+
   it("exits non-zero and names a missing required variable", () => {
     const envWithoutDatabaseUrl = Object.fromEntries(
       Object.entries(VALID_ENV).filter(([key]) => key !== "DATABASE_URL"),
@@ -228,6 +246,76 @@ describe("config.js — observability (step 67)", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("ALERT_DRILL_TOKEN");
     expect(result.stderr).toMatch(/must not be set in production/);
+  });
+
+  // Step 71. Staging runs the production image in production mode, so none
+  // of these can reach exit 0 today — the sink email provider is refused in
+  // production mode and no other provider exists yet. Each test therefore
+  // asserts on WHICH variables the refusal names, by the "  NAME: message"
+  // line formatIssue prints, not on the exit code alone.
+  const PROD_MODE = {
+    NODE_ENV: "production",
+    METRICS_TOKEN: "m".repeat(32),
+    MEMORY_LIMIT_BYTES: "536870912",
+  };
+  /** @param {string} stderr */
+  const namedIssues = (stderr) =>
+    [...stderr.matchAll(/^ {2}([A-Z_]+):/gm)].map((m) => m[1]);
+
+  it("requires DEPLOY_ENV in production mode, naming it", () => {
+    expect(namedIssues(runConfig(PROD_MODE).stderr)).toContain("DEPLOY_ENV");
+  });
+
+  it("accepts either deployment name in production mode", () => {
+    for (const DEPLOY_ENV of ["staging", "production"]) {
+      expect(
+        namedIssues(runConfig({ ...PROD_MODE, DEPLOY_ENV }).stderr),
+        DEPLOY_ENV,
+      ).not.toContain("DEPLOY_ENV");
+    }
+  });
+
+  it("refuses DEPLOY_ENV outside production mode", () => {
+    const result = runConfig({ DEPLOY_ENV: "staging" });
+    expect(result.status).not.toBe(0);
+    expect(namedIssues(result.stderr)).toContain("DEPLOY_ENV");
+  });
+
+  it("refuses the mock provider in production mode, staging included", () => {
+    // A canned analysis that no model wrote, served as a real report.
+    for (const DEPLOY_ENV of ["staging", "production"]) {
+      const result = runConfig({ ...PROD_MODE, DEPLOY_ENV, LLM_PROVIDER: "mock" });
+      expect(namedIssues(result.stderr), DEPLOY_ENV).toContain("LLM_PROVIDER");
+    }
+    expect(
+      namedIssues(
+        runConfig({ ...PROD_MODE, DEPLOY_ENV: "production", LLM_PROVIDER: "anthropic" })
+          .stderr,
+      ),
+    ).not.toContain("LLM_PROVIDER");
+  });
+
+  it("allows the alert-drill token in staging, and only there among production-mode deployments", () => {
+    const token = { ALERT_DRILL_TOKEN: "d".repeat(32) };
+    expect(
+      namedIssues(runConfig({ ...PROD_MODE, DEPLOY_ENV: "staging", ...token }).stderr),
+    ).not.toContain("ALERT_DRILL_TOKEN");
+    expect(
+      namedIssues(runConfig({ ...PROD_MODE, DEPLOY_ENV: "production", ...token }).stderr),
+    ).toContain("ALERT_DRILL_TOKEN");
+    // Production mode that does not say which it is counts as production.
+    expect(namedIssues(runConfig({ ...PROD_MODE, ...token }).stderr)).toContain(
+      "ALERT_DRILL_TOKEN",
+    );
+  });
+
+  it("accepts MOCK_LLM_DELAY_MS with the mock provider, and refuses it with the real one", () => {
+    expect(runConfig({ LLM_PROVIDER: "mock", MOCK_LLM_DELAY_MS: "50000" }).status).toBe(
+      0,
+    );
+    const result = runConfig({ LLM_PROVIDER: "anthropic", MOCK_LLM_DELAY_MS: "50000" });
+    expect(result.status).not.toBe(0);
+    expect(namedIssues(result.stderr)).toContain("MOCK_LLM_DELAY_MS");
   });
 
   it("accepts the alert-drill token outside production", () => {

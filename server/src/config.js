@@ -79,6 +79,15 @@ const nonNegativeNumber = () => z.coerce.number().nonnegative();
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]),
+    // Step 71 / SRS §2.3. Staging and production run the SAME image with the
+    // same NODE_ENV=production ("configured from the same manifests,
+    // differing only in scale and secrets"), so NODE_ENV cannot tell them
+    // apart — and two things must: the alert drills (step 68), which exist
+    // to be run in staging and must be impossible in production, and
+    // nothing else yet. Required whenever NODE_ENV=production, and refused
+    // otherwise (below), so every production-mode process says which of the
+    // two it is and nothing else can claim to be either.
+    DEPLOY_ENV: z.enum(["staging", "production"]).optional(),
     PORT: positiveInt(3000),
 
     DATABASE_URL: z.string().min(1, "required"),
@@ -123,6 +132,12 @@ const envSchema = z
     // real provider from CI. `anthropic` calls the real API; `mock`
     // selects server/src/services/llm/mockProvider.js.
     LLM_PROVIDER: z.enum(["anthropic", "mock"]).default("anthropic"),
+    // Step 71: holds every UNSCRIPTED mock analysis back this long, so a
+    // local rehearsal can push a real analysis request through a real proxy
+    // for 50 s (FR-3.7's timeout chain) without a provider key. Mock only
+    // (below), and the mock is refused in production-mode processes, so
+    // this can never slow a real user's analysis.
+    MOCK_LLM_DELAY_MS: z.coerce.number().int().nonnegative().optional(),
     LLM_TIMEOUT_MS: positiveInt(60_000),
     LLM_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
     // Required since step 46. FR-5.3's estimate is computed from these, so
@@ -304,15 +319,70 @@ const envSchema = z
       });
     }
 
+    // Step 71: which production-mode deployment this is. See DEPLOY_ENV.
+    if (env.NODE_ENV === "production" && env.DEPLOY_ENV === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["DEPLOY_ENV"],
+        message:
+          'required when NODE_ENV=production: "staging" or "production" (SRS §2.3) — ' +
+          "the same image runs as both, and the alert drills depend on knowing which",
+      });
+    }
+    if (env.NODE_ENV !== "production" && env.DEPLOY_ENV !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["DEPLOY_ENV"],
+        message:
+          "only meaningful with NODE_ENV=production; a staging or production deployment runs in production mode",
+      });
+    }
+
+    // The mock provider returns a canned, document-independent analysis.
+    // In a production-mode process that is a report served to a user that
+    // no model ever wrote — with no error anywhere, because the canned
+    // answer is well-formed. Staging is included on purpose: SRS §2.3 gives
+    // it a real key, and a staging on the mock tests a system nobody runs.
+    // Before step 71 nothing refused this; the image's own NODE_ENV and a
+    // stray LLM_PROVIDER=mock were enough.
+    if (env.NODE_ENV === "production" && env.LLM_PROVIDER === "mock") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["LLM_PROVIDER"],
+        message:
+          'must not be "mock" in production mode (staging or production): it serves a canned ' +
+          "analysis that no model wrote, as if it were real (SRS §2.3)",
+      });
+    }
+    if (env.MOCK_LLM_DELAY_MS !== undefined && env.LLM_PROVIDER !== "mock") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["MOCK_LLM_DELAY_MS"],
+        message:
+          "only applies to LLM_PROVIDER=mock; it would do nothing here, which is a misconfiguration",
+      });
+    }
+
     // The drill routes plant a corrupt finding and read a document across
     // users. Neither may be possible in production, whatever the token.
-    if (env.NODE_ENV === "production" && env.ALERT_DRILL_TOKEN) {
+    // Staging is where they are FOR (step 68's drills, repeated against the
+    // real Prometheus and Alertmanager), so the refusal is keyed on
+    // DEPLOY_ENV, not NODE_ENV — keyed on NODE_ENV, as it was until step 71,
+    // it made the drills impossible in the one place they were meant to
+    // run, since staging runs in production mode. A production-mode process
+    // that does not say it is staging is treated as production.
+    if (
+      env.NODE_ENV === "production" &&
+      env.DEPLOY_ENV !== "staging" &&
+      env.ALERT_DRILL_TOKEN
+    ) {
       ctx.addIssue({
         code: "custom",
         path: ["ALERT_DRILL_TOKEN"],
         message:
           "must not be set in production: it enables routes that deliberately plant an " +
-          "unverifiable excerpt and read a document across users (step 68)",
+          "unverifiable excerpt and read a document across users (step 68). Staging " +
+          "(DEPLOY_ENV=staging) is the only production-mode deployment that may set it",
       });
     }
 
@@ -367,7 +437,16 @@ const envSchema = z
  * nothing here is untestable-by-construction.
  */
 export function parseConfig(rawEnv) {
-  const parsed = envSchema.parse(rawEnv);
+  // An empty value is an UNSET value. `.env.example` ships every variable as
+  // `NAME=` and hosting dashboards routinely keep a variable present but
+  // blank; parsed as "", an optional LLM_TIMEOUT_MS= became 0 and failed
+  // boot, and an optional DEPLOY_ENV= failed its enum. Found in step 71 by
+  // booting from a copy of .env.example. A REQUIRED variable left blank
+  // still fails, now with "required" rather than a type error.
+  const present = Object.fromEntries(
+    Object.entries(rawEnv).filter(([, value]) => value !== ""),
+  );
+  const parsed = envSchema.parse(present);
   const llmParamProfile = MODEL_PARAM_PROFILES[parsed.ANTHROPIC_MODEL];
 
   return Object.freeze({

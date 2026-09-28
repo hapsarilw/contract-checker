@@ -23,6 +23,7 @@ Ordinary GitHub branch protection, no exception needed:
 | `dependency-scan` | `npm audit`, both packages, gated on CRITICAL |
 | `image-scan` | Trivy against the built image, gated on CRITICAL |
 | `secret-scan` | gitleaks against the repository |
+| `deploy-rehearsal` | step 71's rehearsal: the previous image on the current schema, the timeout chain behind a proxy, a rolling restart mid-analysis, the staging E2E spec against a real API |
 | `openapi-contract-test` | every documented endpoint and error code reachable |
 | `fixtures-verify` | SRS §11.3's fixture-generation check |
 

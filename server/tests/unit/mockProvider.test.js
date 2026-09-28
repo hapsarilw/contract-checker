@@ -165,4 +165,25 @@ describe("MockLlmProvider — delayed responses", () => {
     await provider.analyze({});
     expect(Date.now() - started).toBeGreaterThanOrEqual(50);
   });
+
+  it("delays an UNSCRIPTED analysis by the configured default (MOCK_LLM_DELAY_MS, step 71)", async () => {
+    const provider = new MockLlmProvider({ defaultDelayMs: 60 });
+    const started = Date.now();
+    await provider.analyze({});
+    expect(Date.now() - started).toBeGreaterThanOrEqual(55);
+  });
+
+  it("does not add the default delay to a scripted response, which keeps its own", async () => {
+    const provider = new MockLlmProvider({ defaultDelayMs: 5_000 });
+    provider.scriptValidResponse();
+    const started = Date.now();
+    await provider.analyze({});
+    expect(Date.now() - started).toBeLessThan(1_000);
+  });
+
+  it("has no delay at all by default", async () => {
+    const started = Date.now();
+    await new MockLlmProvider().analyze({});
+    expect(Date.now() - started).toBeLessThan(50);
+  });
 });

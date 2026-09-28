@@ -1,0 +1,107 @@
+# BUILD-PLAN step 71: a LOCAL REHEARSAL of the deploy, not staging.
+#
+# What it has that the development docker-compose.yml does not: two API
+# instances of one image behind a real reverse proxy whose timeout is a
+# parameter, and each instance given the 90-second drain as its stop grace
+# period. That is the shape the three things step 71 must verify depend on
+# — the timeout chain (FR-3.7), a rolling restart that does not sever an
+# in-flight analysis (NFR-3.5), and a rollback to the previous image against
+# the current schema (SRS §5.5, §8).
+#
+# What it is NOT: the production manifest. It runs NODE_ENV=development and
+# the mock provider, because production mode refuses the only email
+# provider that exists (the sink) and refuses the mock, and a rehearsal may
+# not hold a real provider key (SRS §2.3; the owner's rule). The proxy is
+# nginx, not the hosting platform's. docs/deployment.md says which results
+# carry over to staging and which must be re-proven there.
+#
+# Driven by run.sh. Nothing here is published on a port the development
+# stack uses: Postgres on 127.0.0.1:55432 (for the host-side migration
+# step), the proxy on 127.0.0.1:58080, nothing else.
+
+name: clausecheck-rehearsal
+
+x-api: &api
+  image: clausecheck-server:${API_IMAGE_TAG:?set API_IMAGE_TAG}
+  environment:
+    NODE_ENV: development
+    PORT: "3000"
+    DATABASE_URL: postgresql://rehearsal:rehearsal@postgres:5432/rehearsal
+    REDIS_URL: redis://redis:6379
+    LLM_PROVIDER: mock
+    # Unknown to the previous image's config, which ignores it (config.js
+    # strips unknown variables), so the rollback step runs it unchanged.
+    MOCK_LLM_DELAY_MS: ${MOCK_LLM_DELAY_MS:-50000}
+    ANTHROPIC_API_KEY: rehearsal-placeholder-not-a-key
+    ANTHROPIC_MODEL: claude-sonnet-5
+    JWT_SECRET: rehearsal-only-jwt-secret-32-bytes-minimum-x
+    AUDIT_SALT: rehearsal-only-audit-salt-32-bytes-minimum-x
+    # The built client, served by run.sh's scenario 7 (vite preview).
+    FRONTEND_ORIGIN: http://127.0.0.1:4173
+    LLM_PRICE_INPUT_PER_MTOK: "3"
+    LLM_PRICE_OUTPUT_PER_MTOK: "15"
+    MONTHLY_SPEND_CEILING_USD: "100"
+    EMAIL_SINK_DIR: /tmp/mail-sink
+    # A backup directory that does not exist, so the current image's
+    # backup-verify job FAILS at boot, the way it will in any environment
+    # whose backups are not wired up yet. That failure is recorded as a
+    # JobRun row with lastSuccessAt NULL — a value the previous image's
+    # Prisma client was generated to believe impossible. The rollback step
+    # needs that row to exist. The previous image ignores the variable.
+    BACKUP_DIR: /tmp/no-backups-here
+    LOG_LEVEL: warn
+    # The smoke loop signs in every few seconds during the rolling restart;
+    # this is the synthetic-check bypass, as staging's own checker gets it.
+    SYNTHETIC_CHECK_TOKEN: rehearsal-only-synthetic-token-32-bytes-x
+    SYNTHETIC_CHECK_IPS: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+    SYNTHETIC_ACCOUNT_EMAIL: smoke@rehearsal.invalid
+  read_only: true
+  tmpfs:
+    - /tmp
+  # The platform setting this stands in for: how long the orchestrator waits
+  # after SIGTERM before SIGKILL. It must exceed the 90 s drain, or the drain
+  # is decoration. Many platforms default far lower.
+  stop_grace_period: 100s
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/ready >/dev/null || exit 1"]
+    interval: 2s
+    timeout: 3s
+    retries: 30
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_started
+
+services:
+  api1: *api
+  api2: *api
+
+  proxy:
+    image: nginx:1.28-alpine
+    environment:
+      PROXY_TIMEOUT_SECONDS: ${PROXY_TIMEOUT_SECONDS:-150}
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      - "127.0.0.1:58080:80"
+    depends_on:
+      - api1
+      - api2
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: rehearsal
+      POSTGRES_PASSWORD: rehearsal
+      POSTGRES_DB: rehearsal
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rehearsal -d rehearsal"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine

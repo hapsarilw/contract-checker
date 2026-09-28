@@ -36,7 +36,7 @@ fi
 # exactly. server/tests/unit/ciPipeline.test.js asserts this list matches
 # that file's actual job names, so this array and that workflow cannot
 # drift against each other without a test noticing — but this script and
-# that test are still two places naming the same twelve strings, and if
+# that test are still two places naming the same strings, and if
 # you add a job, update both.
 CHECKS=(
   server-quality
@@ -48,6 +48,7 @@ CHECKS=(
   dependency-scan
   image-scan
   secret-scan
+  deploy-rehearsal
   openapi-contract-test
   fixtures-verify
 )

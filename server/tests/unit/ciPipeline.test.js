@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,6 +68,7 @@ describe("every SRS §12.1 pull-request stage is a job, and all of them gate", (
     ["secret-scan", ["gitleaks"]],
     ["openapi-contract-test", ["tests/unit/openapi.test.js"]],
     ["fixtures-verify", ["npm run fixtures:verify"]],
+    ["deploy-rehearsal", ["ops/deploy/rehearsal/run.sh"]],
   ])("%s runs what its stage names", (name, expected) => {
     expect(jobs[name], `ci.yml has no job "${name}"`).toBeDefined();
     const commands = runs(jobs[name]).join("\n");
@@ -125,6 +127,12 @@ describe("every SRS §12.1 pull-request stage is a job, and all of them gate", (
       expect(reaches(name, name), `${name} is in a cycle`).toBe(false);
   });
 
+  it("deploy-rehearsal has the history it builds the previous image from", () => {
+    // git archive of the commit before the newest migration: a shallow
+    // clone has no such commit, and the rollback half would not run.
+    expect(jobs["deploy-rehearsal"].steps[0].with["fetch-depth"]).toBe(0);
+  });
+
   it("the genuine prerequisites are real edges", () => {
     // Not because order is sacred, but because these are the ones that
     // cannot be skipped: you cannot scan an image before building it, and
@@ -176,17 +184,141 @@ describe("no workflow but the benchmark holds a provider key (SRS §2.3)", () =>
     const text = JSON.stringify(parse(readFileSync(join(WORKFLOWS, file), "utf8")));
     expect(text).not.toMatch(/ANTHROPIC/i);
     // Any secret at all is a decision worth a look in a workflow that is
-    // meant to need none.
-    expect(text).not.toMatch(/secrets\.[A-Z_]+/);
+    // meant to need none. deploy.yml needs some, and has its own, stricter
+    // rules below.
+    if (file !== "deploy.yml") expect(text).not.toMatch(/secrets\.[A-Z_]+/);
   });
 
-  it.each(["ci.yml", "scan.yml"])(
+  it.each(["ci.yml", "scan.yml", "deploy.yml"])(
     "%s sets LLM_PROVIDER=mock at the workflow level",
     (file) => {
-      const workflow = file === "ci.yml" ? ci : scan;
+      const workflow = parse(readFileSync(join(WORKFLOWS, file), "utf8"));
       expect(workflow.env.LLM_PROVIDER).toBe("mock");
     },
   );
+});
+
+describe("deploy.yml: SRS §8's procedure, and its secrets kept apart (step 71)", () => {
+  const deployText = read(".github", "workflows", "deploy.yml");
+  const deploy = parse(deployText);
+  const jobs = deploy.jobs;
+  /** @param {any} job */
+  const commands = (job) => runs(job).join("\n");
+
+  // The only secrets deploy.yml may read. Each is ENVIRONMENT-scoped, so
+  // staging and production each have their own; none is a provider key,
+  // which lives in the hosting platform's secret store and nowhere else.
+  const ALLOWED_SECRETS = [
+    "DATABASE_URL",
+    "PLATFORM_TOKEN",
+    "SMOKE_ACCOUNT_PASSWORD",
+    "SYNTHETIC_CHECK_TOKEN",
+    "PROMETHEUS_TOKEN",
+  ];
+
+  it("reads no secret outside its allowed list", () => {
+    const used = new Set(
+      [...deployText.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1]),
+    );
+    expect([...used].filter((name) => !ALLOWED_SECRETS.includes(name))).toEqual([]);
+  });
+
+  it("every job that reads a secret declares an environment, so every secret is per-environment", () => {
+    for (const [name, job] of Object.entries(jobs)) {
+      if (/secrets\./.test(JSON.stringify(job))) {
+        expect(/** @type {any} */ (job).environment, name).toMatch(
+          /^(staging|production)$/,
+        );
+      }
+    }
+  });
+
+  it("deploys only after CI succeeded on a push to main", () => {
+    expect(deploy.on.workflow_run.workflows).toEqual(["CI"]);
+    expect(deploy.on.workflow_run.branches).toEqual(["main"]);
+    expect(jobs.image.if).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(jobs.image.if).toContain("github.event.workflow_run.event == 'push'");
+  });
+
+  it("builds the image once, tagged by commit, never :latest", () => {
+    expect(commands(jobs.image)).toContain("docker push");
+    expect(JSON.stringify(deploy)).not.toMatch(/:latest\b/);
+    const builds = Object.values(jobs).filter((job) =>
+      /docker build/.test(commands(job)),
+    );
+    expect(builds).toHaveLength(1);
+  });
+
+  it("runs migrations as a discrete step, before each environment's deploy", () => {
+    for (const env of ["staging", "production"]) {
+      expect(commands(jobs[`migrate-${env}`]), env).toContain(
+        "npx prisma migrate deploy",
+      );
+      expect(jobs[`deploy-${env}`].needs, env).toContain(`migrate-${env}`);
+      expect(commands(jobs[`deploy-${env}`]), env).not.toContain("migrate");
+    }
+  });
+
+  it("verifies staging, then waits for approval, before touching production", () => {
+    const verify = commands(jobs["verify-staging"]);
+    expect(verify).toContain("checks.mjs smoke");
+    expect(verify).toContain("checks.mjs long-analysis");
+    expect(verify).toContain("e2e/staging.spec.js");
+    expect(jobs["migrate-production"].needs).toContain("verify-staging");
+    // The first production job is the one the environment's required
+    // reviewer gates.
+    expect(jobs["migrate-production"].environment).toBe("production");
+  });
+
+  it("deploys the frontend after the API, in each environment", () => {
+    expect(jobs["frontend-staging"].needs).toContain("deploy-staging");
+    expect(jobs["frontend-production"].needs).toContain("deploy-production");
+  });
+
+  it("smokes production and then watches it for 15 minutes", () => {
+    expect(commands(jobs["deploy-production"])).toContain("checks.mjs smoke");
+    expect(commands(jobs["watch-production"])).toContain("checks.mjs watch");
+    const step = jobs["watch-production"].steps.find((/** @type {any} */ s) =>
+      /watch/.test(s.run ?? ""),
+    );
+    expect(step.env.WATCH_MINUTES).toBe("15");
+  });
+
+  it("rolls the API back by image, with NO migration step", () => {
+    const rollback = commands(jobs["rollback-api"]);
+    expect(rollback).toContain("deploy-api production");
+    expect(rollback).toContain("inputs.rollback_to");
+    expect(rollback).not.toMatch(/migrate/);
+    expect(rollback).toContain("checks.mjs smoke");
+    expect(jobs["rollback-api"].environment).toBe("production");
+  });
+
+  it("rolls the frontend back on its own, from that commit's client", () => {
+    const job = jobs["rollback-frontend"];
+    expect(job.steps[0].with.ref).toBe("${{ inputs.rollback_to }}");
+    expect(commands(job)).toContain("deploy-frontend production");
+    expect(commands(job)).not.toContain("deploy-api");
+  });
+
+  it("scripts/deploy/platform.sh fails loudly until a platform is chosen", () => {
+    // A deploy that "succeeds" without deploying anything is the worst
+    // failure this pipeline could have. DEPLOY_PLATFORM is unset here, as it
+    // is in every environment until the owner picks one.
+    const script = join(ROOT, "scripts", "deploy", "platform.sh");
+    const unchosen = spawnSync("bash", [script, "deploy-api", "staging", "img:sha"], {
+      encoding: "utf8",
+    });
+    expect(unchosen.status).toBe(1);
+    expect(unchosen.stderr).toContain("No hosting platform has been chosen");
+    const badEnv = spawnSync("bash", [script, "deploy-api", "prod", "img:sha"], {
+      encoding: "utf8",
+    });
+    expect(badEnv.status).toBe(2);
+  });
+
+  it("never cancels a deploy half-way", () => {
+    expect(deploy.concurrency).toEqual({ group: "deploy", "cancel-in-progress": false });
+  });
 });
 
 describe("the coverage gates carry SRS §10.5's numbers", () => {

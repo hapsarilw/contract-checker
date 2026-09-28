@@ -15,7 +15,11 @@ import logger from "../observability/logger.js";
  *
  * THREE THINGS KEEP THIS OUT OF PRODUCTION, not one:
  *   1. config.js refuses to boot in production when ALERT_DRILL_TOKEN is
- *      set at all.
+ *      set at all. "Production" is DEPLOY_ENV (step 71), not NODE_ENV:
+ *      staging runs in production mode too, and keyed on NODE_ENV this
+ *      layer made the drills impossible in staging, the one place they are
+ *      for. A production-mode process that does not declare
+ *      DEPLOY_ENV=staging is refused.
  *   2. app.js mounts this router only when the token is set, so in an
  *      ordinary deployment these paths do not exist and answer 404 like any
  *      other unknown path.

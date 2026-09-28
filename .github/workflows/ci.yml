@@ -5,7 +5,8 @@
 # dependency and image vulnerability scan → secret scan → OpenAPI contract
 # test → fixture-generation verification (§11.3).
 #
-# ELEVEN JOBS, NOT ONE LINEAR CHAIN. "Gating" is read as its plain meaning
+# TWELVE JOBS, NOT ONE LINEAR CHAIN (eleven from step 70, plus step 71's
+# deploy-rehearsal). "Gating" is read as its plain meaning
 # — every one of these must pass before a pull request can merge, enforced
 # by docs/branch-protection.md's required-status-checks list, which names
 # these jobs exactly. Genuine PREREQUISITES are real `needs:` edges (you
@@ -348,6 +349,50 @@ jobs:
           node-version-file: server/.nvmrc
       - name: The config still catches a planted key
         run: node server/scripts/verify-gitleaks-config.js
+
+  # ------------------------------------------------------------------ deploy
+  deploy-rehearsal:
+    name: deploy-rehearsal
+    needs: [server-quality, client-quality]
+    # BUILD-PLAN step 71: ops/deploy/rehearsal/run.sh, on every pull
+    # request. SRS §8 defines exactly one rollback mechanism — redeploy the
+    # previous image — and it only works while every migration is expand-
+    # only (§5.5). This is what keeps that true mechanically: it builds the
+    # code from JUST BEFORE the newest migration, runs it against the
+    # schema with that migration applied (and a row only the new code
+    # writes), and requires it to work. A pull request that adds a
+    # migration the previous code cannot survive fails here, before merge,
+    # rather than on the day someone needs to roll back.
+    #
+    # The same run also re-proves, against this commit's code, the timeout
+    # chain behind a real proxy (FR-3.7), a rolling restart that does not
+    # sever an in-flight analysis (NFR-3.5), and e2e/staging.spec.js against
+    # a real API. Mock provider throughout; no key.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The previous image is built from history (git archive).
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+      - name: Install server (frozen lockfile)
+        working-directory: server
+        run: npm ci
+      - name: Install client (frozen lockfile)
+        working-directory: client
+        run: npm ci
+      - name: Install Chromium
+        working-directory: client
+        run: npx playwright install --with-deps chromium
+      - name: Rehearse migrate, deploy, roll, roll back, roll forward
+        run: ops/deploy/rehearsal/run.sh
 
   # ---------------------------------------------------------------- contract
   openapi-contract-test:

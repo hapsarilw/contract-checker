@@ -65,7 +65,7 @@ export function translateProviderError(err) {
  * counts calls, and a retried analysis makes up to three of them.
  * Counting analyses would need three times the outage to trip.
  *
- * @param {Parameters<typeof createAnthropicProvider>[0] & { LLM_PROVIDER: "anthropic" | "mock" }} cfg
+ * @param {Parameters<typeof createAnthropicProvider>[0] & { LLM_PROVIDER: "anthropic" | "mock", MOCK_LLM_DELAY_MS?: number }} cfg
  * @param {Parameters<typeof createAnthropicProvider>[1] & {
  *   breaker?: {
  *     assertClosed: () => Promise<void>,
@@ -86,7 +86,7 @@ export function createLlmProvider(cfg, deps = {}) {
   } = deps;
   const backend =
     cfg.LLM_PROVIDER === "mock"
-      ? new MockLlmProvider()
+      ? new MockLlmProvider({ defaultDelayMs: cfg.MOCK_LLM_DELAY_MS ?? 0 })
       : createAnthropicProvider(cfg, backendDeps);
   return {
     backend,

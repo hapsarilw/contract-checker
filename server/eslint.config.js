@@ -112,6 +112,10 @@ export default [
       // ops.test.js above: a child needs an env, and config.js cannot
       // hand one over.
       "tests/integration/extractionWorker.test.js",
+      // Runs scripts/report-scan-failure.sh with a stand-in `gh` put first
+      // on PATH (step 71): the child's env is process.env plus that one
+      // change. Same exception as the two above.
+      "tests/unit/reportScanFailure.test.js",
       // Sets process.env.DATABASE_URL to the ephemeral container's
       // connection string BEFORE config.js is first imported by any
       // test — that's the whole mechanism, not a workaround for it.

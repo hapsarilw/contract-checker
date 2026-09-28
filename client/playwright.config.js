@@ -42,9 +42,14 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:5173",
-    reuseExistingServer: !process.env.CI,
-  },
+  // No local dev server when pointed at a deployed environment
+  // (e2e/staging.spec.js, step 71): starting one there would test the
+  // wrong build and hold a port for nothing.
+  webServer: process.env.PLAYWRIGHT_BASE_URL
+    ? undefined
+    : {
+        command: "npm run dev",
+        url: "http://localhost:5173",
+        reuseExistingServer: !process.env.CI,
+      },
 });

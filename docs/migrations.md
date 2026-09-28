@@ -25,6 +25,16 @@ The test: **the currently-deployed application version must keep running
 against the new schema, untouched.** If it wouldn't, this is not an expand
 migration and it cannot ship alone.
 
+**Making something LESS strict is an expand only if the old code tolerates
+the values it lets in.** `DROP NOT NULL` breaks nothing the old code writes,
+but the new code can now write a NULL that the old code's generated client
+was built to believe impossible, and a rollback puts the old code back in
+front of it. Check the old code's reads of that column, and don't assume.
+Step 71 measured this for `20260928040013_job_run_failure`: the image from
+before it read the NULL rows without error (docs/deployment.md, §6). The
+rehearsal that measured it, `ops/deploy/rehearsal/run.sh`, is how to check
+the next one: point `PREVIOUS_REF` at the commit before the migration.
+
 ### 2. Deploy tolerant code
 
 Code that writes and reads the new shape while still tolerating the old one —

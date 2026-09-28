@@ -23,8 +23,9 @@
 # reported as that, not lost in a long list.
 #
 # A failing run is the `dependency_critical_vuln` alert's source
-# (ops/alerts/ci-alerts.yml): digest, not page. Reading it is
-# docs/runbooks/dependency-critical-vuln.md.
+# (ops/alerts/ci-alerts.yml): digest, not page. It is delivered as one open
+# GitHub issue (the `report` job), plus GitHub's own failed-run email.
+# Reading it is docs/runbooks/dependency-critical-vuln.md.
 #
 # No provider key, here or anywhere in this file (SRS §2.3).
 
@@ -105,6 +106,30 @@ jobs:
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.74.0 image --severity CRITICAL --exit-code 1 clausecheck-server:weekly
+
+  # How a failure reaches the maintainer: scripts/report-scan-failure.sh
+  # (one open issue, commented on until closed). The secret scan is left out
+  # of `needs` ON PURPOSE — see that script's header for why a leaked
+  # credential must not be announced in a public issue.
+  report:
+    name: Report a failed scan
+    needs: [dependencies, image]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          scripts/report-scan-failure.sh
+          "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          "dependencies=${{ needs.dependencies.result }}"
+          "image=${{ needs.image.result }}"
 
   secrets:
     name: gitleaks (full history)
