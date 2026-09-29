@@ -13,7 +13,7 @@ import app from "../../src/app.js";
 import config from "../../src/config.js";
 import prisma from "../../src/lib/prisma.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
-import { extractInWorker } from "../../src/services/extractionWorker.js";
+import { extractInWorker, extractionSlots } from "../../src/services/extractionWorker.js";
 import {
   uploadsInFlight,
   resetUploadConcurrencyForTests,
@@ -305,3 +305,82 @@ async function runWorkerCapturingLogs(buffer, requestId) {
     await rm(documentPath, { force: true });
   }
 }
+
+describe("step 73: at most MAX_CONCURRENT_EXTRACTIONS workers at once", () => {
+  /**
+   * Runs `work` while polling the semaphore every millisecond, and returns
+   * the most workers ever running and the most ever waiting.
+   * @param {() => Promise<unknown>} work
+   */
+  async function watch(work) {
+    let maxRunning = 0;
+    let maxWaiting = 0;
+    let maxWorkers = 0;
+    const timer = setInterval(() => {
+      const { running, waiting } = extractionSlots();
+      maxRunning = Math.max(maxRunning, running);
+      maxWaiting = Math.max(maxWaiting, waiting);
+      maxWorkers = Math.max(maxWorkers, activeWorkers());
+    }, 1);
+    try {
+      await work();
+    } finally {
+      clearInterval(timer);
+    }
+    return { maxRunning, maxWaiting, maxWorkers };
+  }
+
+  it("queues extractions past the limit and runs every one of them", async () => {
+    const pdf = await wordyPdf();
+    const max = config.MAX_CONCURRENT_EXTRACTIONS;
+    /** @type {PromiseSettledResult<string>[]} */
+    let results = [];
+    const seen = await watch(async () => {
+      results = await Promise.allSettled(
+        Array.from({ length: max + 4 }, () => extractInWorker(pdf, "UPLOAD_PDF")),
+      );
+    });
+    expect(results.every((r) => r.status === "fulfilled")).toBe(true);
+    expect(seen.maxRunning).toBe(max);
+    expect(seen.maxWorkers).toBeLessThanOrEqual(max);
+    expect(seen.maxWaiting).toBeGreaterThan(0);
+    // Slots come back on the worker's exit, which follows its answer.
+    await expect.poll(() => extractionSlots().running, { timeout: 5_000 }).toBe(0);
+    expect(extractionSlots().waiting).toBe(0);
+  }, 60_000);
+
+  it("holds the slot until the worker has EXITED, not merely answered", async () => {
+    // The answer arrives first and the exit a turn of the event loop later:
+    // a slot freed on the answer would let the next worker start while this
+    // one still holds its memory.
+    const pdf = await wordyPdf();
+    await extractInWorker(pdf, "UPLOAD_PDF");
+    expect(extractionSlots().running).toBe(1);
+    await expect.poll(() => extractionSlots().running, { timeout: 5_000 }).toBe(0);
+  });
+
+  it("gives the slot back when the worker times out", async () => {
+    const pdf = await wordyPdf();
+    await expect(
+      extractInWorker(pdf, "UPLOAD_PDF", { timeoutMs: 1 }),
+    ).rejects.toMatchObject({
+      code: "MALFORMED_DOCUMENT",
+    });
+    await expect.poll(() => extractionSlots().running, { timeout: 5_000 }).toBe(0);
+  });
+
+  it("a worker that runs out of heap is a 422, never the instance, and gives its slot back", async () => {
+    // 8 MB is far below what a parse needs, so the worker dies of
+    // ERR_WORKER_OUT_OF_MEMORY. (Degenerate limits, 1 MB or negative, are
+    // not this case: V8 aborts the whole PROCESS starting such a worker,
+    // measured while writing this. The production limits are constants in
+    // extractionWorker.js, not configuration, so that cannot be reached.)
+    const pdf = await wordyPdf();
+    await expect(
+      extractInWorker(pdf, "UPLOAD_PDF", {
+        resourceLimits: { maxOldGenerationSizeMb: 8 },
+      }),
+    ).rejects.toMatchObject({ code: "MALFORMED_DOCUMENT" });
+    await expect.poll(() => extractionSlots().running, { timeout: 5_000 }).toBe(0);
+  });
+});

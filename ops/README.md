@@ -87,3 +87,19 @@ The first needs Docker (promtool comes from the Prometheus image); the second ru
 **Quota.** The round trip never analyses, so it consumes no analysis quota by construction. A test checks that the counters stay at zero after a round trip. There's nothing to exclude.
 
 **A consequence to decide on.** Every successful login writes a `LOGIN_SUCCEEDED` audit row, and audit rows are kept for 13 months (§5.6). Two regions checking once a minute add about 2,900 rows a day, roughly 1.1 million over the retention window, all for the monitoring account. That's harmless to correctness, but it's volume. The options are to accept it, or to exempt the synthetic account from success auditing, which leaves a hole in the audit trail for one account. This is left as it is until the owner decides.
+
+## Load, soak and end-to-end (step 73)
+
+`ops/load/load.mjs` runs SRS §10.6's TR-21 (20 analyses in flight for 10 minutes), TR-22 (a 2-hour soak) and TR-23 (50 simultaneous 5 MB uploads). `ops/load/run-local.sh` runs all three, plus TR-24 (`client/e2e/journey.spec.js`), against the local rehearsal stack. Results, dated, with configuration, and what they do and do not prove: [docs/load-test-results.md](../docs/load-test-results.md).
+
+**Accounts.** A run needs many accounts, because NFR-2.6 allows 10 analyses per user per hour and those limits stay on during a load test. `npm run ops -- load-accounts --run R --count N --out FILE` creates them, together with sessions minted with the environment's own `JWT_SECRET`, so the secret never leaves the environment. `npm run ops -- load-cleanup --run R` removes them and everything they made. Both commands are refused when `DEPLOY_ENV=production`.
+
+**Against staging** (on demand, never on every pull request), three things differ from the local run:
+
+- **Per-address limits.** NFR-2.6 allows 100 requests per 15 minutes per address. The rehearsal's nginx lets each account present its own address (`X-Load-Client-IP`); a platform proxy honours no such header. From staging, run the generator from several machines, or accept the limiter's 429s as part of the result. Do not turn the limits off: they are part of what is under test.
+- **Sampling.** The Docker sampler reads each container directly, and staging has no Docker to ask. Use the metrics backend instead:
+  - `max by (instance) (process_resident_memory_bytes) / max by (instance) (memory_limit_bytes)` must stay ≤ 0.8;
+  - `max(db_pool_waiting)` must stay 0;
+  - `sum(db_pool_in_use)` is for context;
+  - Postgres's own connection count comes from the provider's dashboard.
+- **Swap.** Check that the platform gives the service no swap. If it does, "did not OOM" proves nothing (docs/load-test-results.md explains how this was found).

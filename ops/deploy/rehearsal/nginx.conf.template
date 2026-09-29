@@ -7,6 +7,21 @@
 # keep sending to the old one.
 resolver 127.0.0.11 valid=2s ipv6=off;
 
+# LOAD RUNS ONLY (ops/load). A load generator is one machine, but the users
+# it stands in for are not: 20 people analysing at once come from 20
+# addresses, and NFR-2.6's per-address limits (100 requests / 15 min) would
+# refuse a single-address load run within seconds, measuring the harness
+# instead of the system. So a request carrying X-Load-Client-IP is
+# forwarded as coming from that address, and the limits stay on, keyed on
+# addresses the way real traffic would key them. Every other request is
+# forwarded exactly as before. A real platform proxy honours no such
+# header, which is why docs/load-test-results.md says what running this in
+# staging needs instead.
+map $http_x_load_client_ip $forwarded_for {
+    ""      $proxy_add_x_forwarded_for;
+    default $http_x_load_client_ip;
+}
+
 upstream api {
     zone api 64k;
     server api1:3000 resolve;
@@ -22,7 +37,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_connect_timeout 5s;
         proxy_send_timeout ${PROXY_TIMEOUT_SECONDS}s;

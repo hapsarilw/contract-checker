@@ -1,4 +1,5 @@
 import { Worker } from "node:worker_threads";
+import config from "../config.js";
 import { AppError } from "../lib/AppError.js";
 import { getRequestId } from "../middleware/requestId.js";
 import logger from "../observability/logger.js";
@@ -26,38 +27,112 @@ import logger from "../observability/logger.js";
 /** FR-2.11's bound. */
 export const EXTRACTION_TIMEOUT_MS = 10_000;
 
+/**
+ * Each worker's own V8 heap ceiling. A document that needs more is
+ * pathological whatever it claims to be, and the worker dying with
+ * ERR_WORKER_OUT_OF_MEMORY lands in the "error" handler below as 422
+ * MALFORMED_DOCUMENT; without a ceiling it could grow until the kernel
+ * killed the whole instance, and every request on it. Sized from step 73's
+ * measurements with room above them: the corpus and the 5 MB flood PDF
+ * parse well inside it. It bounds the JS heap only; the file's own bytes
+ * (ArrayBuffers) sit outside it, and are bounded by the 5 MB upload limit.
+ */
+export const WORKER_RESOURCE_LIMITS = Object.freeze({
+  maxOldGenerationSizeMb: 128,
+  maxYoungGenerationSizeMb: 32,
+});
+
+/*
+ * THE EXTRACTION SEMAPHORE (step 73). At most MAX_CONCURRENT_EXTRACTIONS
+ * workers alive at once in this process; the rest wait their turn. A slot
+ * is released when the worker has TERMINATED, not when its answer arrives:
+ * the memory a worker holds is only given back when it is gone, and
+ * counting it free any earlier would let the next one start on top of it.
+ * The queue cannot grow without bound: FR-2.12 already caps uploads in
+ * flight per instance (MAX_CONCURRENT_UPLOADS), and only uploads get here.
+ */
+let running = 0;
+/** @type {(() => void)[]} */
+const waiting = [];
+
+/** @returns {Promise<void>} */
+function acquireSlot() {
+  if (running < config.MAX_CONCURRENT_EXTRACTIONS) {
+    running += 1;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => waiting.push(resolve));
+}
+
+function releaseSlot() {
+  const next = waiting.shift();
+  // Handed straight to the next waiter, so the count never dips and lets a
+  // newcomer jump the queue.
+  if (next) next();
+  else running -= 1;
+}
+
+/** For tests and diagnostics: how many workers are alive, how many wait. */
+export function extractionSlots() {
+  return { running, waiting: waiting.length, max: config.MAX_CONCURRENT_EXTRACTIONS };
+}
+
 const WORKER_URL = new URL("../workers/extract.worker.js", import.meta.url);
 
 /**
  * @param {Buffer} buffer
  * @param {"UPLOAD_PDF" | "UPLOAD_DOCX"} sourceType
- * @param {{ timeoutMs?: number }} [options]
+ * @param {{ timeoutMs?: number, resourceLimits?: import("node:worker_threads").ResourceLimits }} [options]
  * @returns {Promise<string>}
  */
-export function extractInWorker(
+export async function extractInWorker(
   buffer,
   sourceType,
-  { timeoutMs = EXTRACTION_TIMEOUT_MS } = {},
+  { timeoutMs = EXTRACTION_TIMEOUT_MS, resourceLimits = WORKER_RESOURCE_LIMITS } = {},
 ) {
   const requestId = getRequestId();
+  // Waiting for a slot is not extraction time: FR-2.11's ten seconds start
+  // when this document's worker does.
+  await acquireSlot();
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    releaseSlot();
+  };
 
   return new Promise((resolve, reject) => {
-    const worker = new Worker(WORKER_URL, {
-      // The buffer is COPIED rather than transferred. Transferring would
-      // detach it from the parent, and the parent still needs it: the
-      // route reports the uploaded byte size, and an intake failure must
-      // not leave a caller holding a zero-length buffer.
-      workerData: { buffer, sourceType, requestId },
-      // A worker INHERITS the parent's execArgv by default, and a flag
-      // that is legal for the parent can be illegal for a worker loading
-      // a file — `--input-type=module` is one, and it fails the worker
-      // before it runs a line, which would surface as every upload
-      // returning MALFORMED_DOCUMENT for a reason nothing in this file
-      // mentions. Observed directly while writing the test for this step.
-      // This worker needs no flags of its own: process.env is inherited
-      // regardless, which is what config.js actually reads.
-      execArgv: [],
-    });
+    /** @type {Worker} */
+    let worker;
+    try {
+      worker = new Worker(WORKER_URL, {
+        // The buffer is COPIED rather than transferred. Transferring would
+        // detach it from the parent, and the parent still needs it: the
+        // route reports the uploaded byte size, and an intake failure must
+        // not leave a caller holding a zero-length buffer.
+        workerData: { buffer, sourceType, requestId },
+        // A worker INHERITS the parent's execArgv by default, and a flag
+        // that is legal for the parent can be illegal for a worker loading
+        // a file — `--input-type=module` is one, and it fails the worker
+        // before it runs a line, which would surface as every upload
+        // returning MALFORMED_DOCUMENT for a reason nothing in this file
+        // mentions. Observed directly while writing the test for this step.
+        // This worker needs no flags of its own: process.env is inherited
+        // regardless, which is what config.js actually reads.
+        execArgv: [],
+        resourceLimits,
+      });
+    } catch (err) {
+      // No worker, so no "exit" to give the slot back: give it back here, or
+      // it is lost for the life of the process.
+      release();
+      logger.error({ err }, "extraction worker could not be started");
+      reject(new AppError("MALFORMED_DOCUMENT"));
+      return;
+    }
+    // The slot comes back when the worker is gone, on every path: an
+    // answer, an error, a timeout (terminate() below), or an exit.
+    worker.once("exit", release);
 
     let settled = false;
     /** @param {() => void} finish */

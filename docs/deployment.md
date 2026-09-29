@@ -75,6 +75,7 @@ Per environment, **environment-scoped, never repository-wide**, so that staging'
 | secret | `SYNTHETIC_CHECK_TOKEN` | optional; only useful from an allowlisted address |
 | secret | `PROMETHEUS_TOKEN` | optional |
 | variable | `DEPLOY_PLATFORM`, `API_URL`, `FRONTEND_URL`, `SMOKE_ACCOUNT_EMAIL`, `PROMETHEUS_URL` | |
+| variable | `E2E_MAILBOX` | where TR-24 reads the verification email (step 73); see §9 |
 
 **The provider key is not in this list, on purpose.** `ANTHROPIC_API_KEY` lives in the hosting platform's secret store, per environment, and nowhere in GitHub. `server/tests/unit/ciPipeline.test.js` fails if `deploy.yml` reads any secret outside the list above, or reads one from a job without an `environment:`.
 
@@ -168,7 +169,9 @@ Each of these blocks staging, and so blocks this step's "done when":
 1. **The hosting platform for the API**, which must run a Docker image, at least 2 instances, a stop grace period over 90 s, and a proxy idle timeout over 120 s (SRS §8 names Render or Railway). Then implement its case in `scripts/deploy/platform.sh`.
 2. **The static host for the frontend** (Vercel or Netlify, SRS §8), and its case in `platform.sh`.
 3. **Managed Postgres (with PITR) and managed Redis.**
-4. **A transactional email provider and a verified sending domain.** Until one exists, **no production-mode process can boot at all**, staging included: `config.js` refuses the sink in production mode, correctly (BUILD-PLAN step 51's note: "Step 71 is where this bites").
+4. **A transactional email provider and a verified sending domain**, and with it, **how a test reads staging's email**. TR-24 (`e2e/journey.spec.js`, step 73) verifies the account through the real verification email. The local rehearsal reads the mail sink. Staging cannot, because production mode refuses the sink, so the provider's test inbox (or a dedicated staging inbox) becomes a second `E2E_MAILBOX` kind in that spec. Until then TR-24 fails in `verify-staging`, deliberately.
+
+   Until an email provider exists, **no production-mode process can boot at all**, staging included: `config.js` refuses the sink in production mode, correctly (BUILD-PLAN step 51's note: "Step 71 is where this bites").
 5. **Domains and TLS** for the API and the frontend of each environment.
 6. **Staging's own provider key** with its own spend ceiling, created in the Anthropic console and put **only** in the platform's staging secret store.
 7. **The GitHub environments, secrets and variables** in §2, plus the benchmark's two (step 72): `benchmark`, restricted to `main` by a deployment branch rule, and `benchmark-pr`, with a required reviewer. Each holds `ANTHROPIC_BENCHMARK_KEY`, a key of the benchmark's own with its own spend limit in the Anthropic console, never the development, staging or production key.

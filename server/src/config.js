@@ -138,6 +138,11 @@ const envSchema = z
     // (below), and the mock is refused in production-mode processes, so
     // this can never slow a real user's analysis.
     MOCK_LLM_DELAY_MS: z.coerce.number().int().nonnegative().optional(),
+    // Step 73: what an unscripted mock analysis finds. "none" (the default)
+    // is the empty report; "quote-document" quotes the document's own
+    // sentences, so a rehearsal's report has findings that really pass
+    // verification. Mock only, like the delay.
+    MOCK_LLM_FINDINGS: z.enum(["none", "quote-document"]).optional(),
     LLM_TIMEOUT_MS: positiveInt(60_000),
     LLM_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
     // Required since step 46. FR-5.3's estimate is computed from these, so
@@ -153,6 +158,14 @@ const envSchema = z
     MONTHLY_ANALYSIS_QUOTA: positiveInt(50),
     HOURLY_ANALYSIS_LIMIT: positiveInt(10),
     MAX_CONCURRENT_UPLOADS: positiveInt(10),
+    // Step 73: how many uploads are PARSED at once per instance, which is
+    // not how many are accepted at once. Each extraction is a worker thread
+    // with its own V8 heap and a copy of the file, measured at 35 to 50 MB
+    // each for a 5 MB PDF on top of the buffer SRS §6.1 counted; ten at once
+    // killed a 512 MB instance with no swap (docs/load-test-results.md).
+    // Uploads past this wait for a slot; an extraction takes well under a
+    // second, so ten queued finish in a few.
+    MAX_CONCURRENT_EXTRACTIONS: positiveInt(2),
     MAX_DOCUMENT_WORDS: positiveInt(4000),
     MIN_DOCUMENT_WORDS: positiveInt(200),
     MAX_PDF_PAGES: positiveInt(100),
@@ -352,6 +365,14 @@ const envSchema = z
         message:
           'must not be "mock" in production mode (staging or production): it serves a canned ' +
           "analysis that no model wrote, as if it were real (SRS §2.3)",
+      });
+    }
+    if (env.MOCK_LLM_FINDINGS !== undefined && env.LLM_PROVIDER !== "mock") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["MOCK_LLM_FINDINGS"],
+        message:
+          "only applies to LLM_PROVIDER=mock; it would do nothing here, which is a misconfiguration",
       });
     }
     if (env.MOCK_LLM_DELAY_MS !== undefined && env.LLM_PROVIDER !== "mock") {

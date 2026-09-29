@@ -318,6 +318,30 @@ describe("config.js — observability (step 67)", () => {
     expect(namedIssues(result.stderr)).toContain("MOCK_LLM_DELAY_MS");
   });
 
+  it("parses at most two uploads at once per instance by default (step 73's TR-23)", () => {
+    // Ten at once killed a 512 MB instance with no swap; two kept the
+    // cgroup peak near 55%. Changing this default means re-running TR-23
+    // (ops/load/run-local.sh tr23), not just this test.
+    const config = JSON.parse(runConfig({}).stdout);
+    expect(config.MAX_CONCURRENT_EXTRACTIONS).toBe(2);
+    expect(config.MAX_CONCURRENT_UPLOADS).toBe(10);
+  });
+
+  it("accepts MOCK_LLM_FINDINGS with the mock provider only", () => {
+    expect(
+      runConfig({ LLM_PROVIDER: "mock", MOCK_LLM_FINDINGS: "quote-document" }).status,
+    ).toBe(0);
+    const result = runConfig({
+      LLM_PROVIDER: "anthropic",
+      MOCK_LLM_FINDINGS: "quote-document",
+    });
+    expect(result.status).not.toBe(0);
+    expect(namedIssues(result.stderr)).toContain("MOCK_LLM_FINDINGS");
+    expect(
+      runConfig({ LLM_PROVIDER: "mock", MOCK_LLM_FINDINGS: "everything" }).status,
+    ).not.toBe(0);
+  });
+
   it("accepts the alert-drill token outside production", () => {
     expect(runConfig({ ALERT_DRILL_TOKEN: "d".repeat(32) }).status).toBe(0);
   });

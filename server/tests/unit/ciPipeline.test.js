@@ -264,6 +264,8 @@ describe("deploy.yml: SRS §8's procedure, and its secrets kept apart (step 71)"
     expect(verify).toContain("checks.mjs smoke");
     expect(verify).toContain("checks.mjs long-analysis");
     expect(verify).toContain("e2e/staging.spec.js");
+    // TR-24 on every staging deploy (SRS §10.7).
+    expect(verify).toContain("e2e/journey.spec.js");
     expect(jobs["migrate-production"].needs).toContain("verify-staging");
     // The first production job is the one the environment's required
     // reviewer gates.

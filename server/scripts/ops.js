@@ -11,6 +11,8 @@
 //   export         --email E --reference R --out FILE
 //   erase          --email E --reference R --confirm E
 //   restore-deletions --since ISO --old-database-url-file FILE
+//   load-accounts  --run R --count N --out FILE    (never in production)
+//   load-cleanup   --run R                         (never in production)
 //
 // Exits 0 on success, 1 when the action was refused (bad flags, no such
 // account), 2 on anything unexpected. Prints what it did, never a
@@ -31,6 +33,7 @@ import {
   spendByAccount,
   suspendAccount,
 } from "../src/services/operator.js";
+import { createLoadAccounts, deleteLoadAccounts } from "../src/services/loadAccounts.js";
 
 const USAGE = `usage: npm run ops -- <command> [flags]
 
@@ -41,6 +44,9 @@ const USAGE = `usage: npm run ops -- <command> [flags]
   erase            --email E --reference R --confirm E
   restore-deletions --since ISO --old-database-url-file FILE
                                         after a restore: accounts deleted since the backup that came back
+  load-accounts    --run R --count N --out FILE
+                                        step 73: N synthetic accounts and their session cookies, for a load run
+  load-cleanup     --run R              removes a load run's accounts and everything they made
 
 --reference is the ticket, thread or incident the action is for. It goes into the audit trail.`;
 
@@ -70,6 +76,8 @@ export async function run(argv, { out = (line) => console.log(line) } = {}) {
       limit: { type: "string" },
       since: { type: "string" },
       "old-database-url-file": { type: "string" },
+      run: { type: "string" },
+      count: { type: "string" },
     },
     strict: true,
   });
@@ -164,6 +172,31 @@ export async function run(argv, { out = (line) => console.log(line) } = {}) {
           "Erase each with: npm run ops -- erase --email <address> --reference <incident> --confirm <address>",
         );
       }
+      return 0;
+    }
+    case "load-accounts": {
+      const file = need("out");
+      const result = await createLoadAccounts({
+        run: need("run"),
+        count: Number(need("count")),
+      });
+      // 0600: the file is a set of working sessions, for synthetic accounts
+      // but sessions all the same.
+      await writeFile(file, JSON.stringify(result, null, 2), {
+        encoding: "utf8",
+        mode: 0o600,
+      });
+      out(
+        `created ${result.accounts.length} load account(s) for run ${result.run}; sessions written to ${file} (mode 600). ` +
+          `Remove them afterwards: npm run ops -- load-cleanup --run ${result.run}`,
+      );
+      return 0;
+    }
+    case "load-cleanup": {
+      const result = await deleteLoadAccounts({ run: need("run") });
+      out(
+        `removed ${result.removed} load account(s) for run ${values.run}, with everything they made`,
+      );
       return 0;
     }
     default:

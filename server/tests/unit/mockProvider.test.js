@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { MockLlmProvider } from "../../src/services/llm/mockProvider.js";
+import { normalizeForMatch, verifyFindings } from "../../src/services/verify.js";
 import {
   APIUserAbortError,
   RateLimitError,
@@ -185,5 +186,48 @@ describe("MockLlmProvider — delayed responses", () => {
     const started = Date.now();
     await new MockLlmProvider().analyze({});
     expect(Date.now() - started).toBeLessThan(50);
+  });
+});
+
+describe("MockLlmProvider — quote-document findings (MOCK_LLM_FINDINGS, step 73)", () => {
+  const DOC = [
+    "SERVICES AGREEMENT",
+    "The Contractor shall deliver the first draft within ten (10) business days of the kickoff meeting.",
+    "Short line.",
+    "Client shall pay each invoice within thirty (30) days of receipt; late amounts accrue interest at one percent per month.",
+    "Either party may end this Agreement on fourteen (14) days written notice to the other party.",
+    "A fourth sentence that is long enough to be quoted but should not be, because three is the most.",
+  ].join("\n\n");
+
+  it("quotes up to three whole sentences of the document, verbatim, and they survive verification", async () => {
+    const provider = new MockLlmProvider({ defaultFindings: "quote-document" });
+    const { rawText } = await provider.analyze({ documentText: DOC });
+    const { findings } = JSON.parse(rawText);
+    expect(findings).toHaveLength(3);
+    expect(findings.map((f) => f.severity)).toEqual(["high", "medium", "low"]);
+    for (const f of findings) expect(DOC).toContain(f.clause_excerpt);
+    const { verified, discardedCount } = verifyFindings(findings, normalizeForMatch(DOC));
+    expect(discardedCount).toBe(0);
+    expect(verified).toHaveLength(3);
+  });
+
+  it("is deterministic for the same document", async () => {
+    const provider = new MockLlmProvider({ defaultFindings: "quote-document" });
+    const a = (await provider.analyze({ documentText: DOC })).rawText;
+    const b = (await provider.analyze({ documentText: DOC })).rawText;
+    expect(a).toBe(b);
+  });
+
+  it("finds nothing by default, as every existing test expects", async () => {
+    const { rawText } = await new MockLlmProvider().analyze({ documentText: DOC });
+    expect(JSON.parse(rawText).findings).toEqual([]);
+  });
+
+  it("leaves a scripted response alone", async () => {
+    const provider = new MockLlmProvider({ defaultFindings: "quote-document" });
+    provider.scriptValidResponse({ findings: [] });
+    expect(
+      JSON.parse((await provider.analyze({ documentText: DOC })).rawText).findings,
+    ).toEqual([]);
   });
 });

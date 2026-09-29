@@ -27,11 +27,19 @@ x-api: &api
     NODE_ENV: development
     PORT: "3000"
     DATABASE_URL: postgresql://rehearsal:rehearsal@postgres:5432/rehearsal
+    # SRS §6.1's capacity model, stated rather than defaulted: two instances
+    # x 10 connections, well under Postgres's 100, and the load runs
+    # (ops/load) watch db_pool_in_use and db_pool_waiting against it.
+    DATABASE_POOL_SIZE: "10"
     REDIS_URL: redis://redis:6379
     LLM_PROVIDER: mock
     # Unknown to the previous image's config, which ignores it (config.js
     # strips unknown variables), so the rollback step runs it unchanged.
     MOCK_LLM_DELAY_MS: ${MOCK_LLM_DELAY_MS:-50000}
+    # "quote-document" for the load runs and TR-24, so reports have real,
+    # verifiable findings on them (step 73). Also unknown to the previous
+    # image, which ignores it.
+    MOCK_LLM_FINDINGS: ${MOCK_LLM_FINDINGS:-none}
     ANTHROPIC_API_KEY: rehearsal-placeholder-not-a-key
     ANTHROPIC_MODEL: claude-sonnet-5
     JWT_SECRET: rehearsal-only-jwt-secret-32-bytes-minimum-x
@@ -41,7 +49,9 @@ x-api: &api
     LLM_PRICE_INPUT_PER_MTOK: "3"
     LLM_PRICE_OUTPUT_PER_MTOK: "15"
     MONTHLY_SPEND_CEILING_USD: "100"
-    EMAIL_SINK_DIR: /tmp/mail-sink
+    # Bind-mounted from the host (below) so e2e/journey.spec.js (TR-24) can
+    # read the verification email the way account-live.spec.js does.
+    EMAIL_SINK_DIR: /mail-sink
     # A backup directory that does not exist, so the current image's
     # backup-verify job FAILS at boot, the way it will in any environment
     # whose backups are not wired up yet. That failure is recorded as a
@@ -55,9 +65,28 @@ x-api: &api
     SYNTHETIC_CHECK_TOKEN: rehearsal-only-synthetic-token-32-bytes-x
     SYNTHETIC_CHECK_IPS: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     SYNTHETIC_ACCOUNT_EMAIL: smoke@rehearsal.invalid
+    # /metrics on, as in production, so the load runs can read each
+    # instance's RSS and database pool; and the limit memory_high divides by,
+    # matching mem_limit below.
+    METRICS_TOKEN: rehearsal-only-metrics-token-32-bytes-min-x
+    MEMORY_LIMIT_BYTES: "536870912"
   read_only: true
   tmpfs:
     - /tmp
+  volumes:
+    - ${MAIL_SINK_HOST_DIR:-./.mail-sink}:/mail-sink
+  # SRS §6.1: "two instances at 512 MB each". NFR-1.3's "no instance above
+  # 80% of its memory limit" needs a limit to be 80% of, and the container
+  # is killed, not slowed, if it goes past it, which is what TR-23 checks
+  # does not happen.
+  mem_limit: 512m
+  # And NO SWAP: memswap_limit equal to mem_limit. Docker's default gives a
+  # container as much swap again as its memory limit, and container
+  # platforms do not; with it, a process that needs 780 MB under a 512 MB
+  # limit is swapped instead of killed, and "did not OOM" proves nothing.
+  # Step 73's first upload-flood run passed exactly that way (cgroup
+  # memory.swap.peak 272 MB); see docs/load-test-results.md.
+  memswap_limit: 512m
   # The platform setting this stands in for: how long the orchestrator waits
   # after SIGTERM before SIGKILL. It must exceed the 90 s drain, or the drain
   # is decoration. Many platforms default far lower.

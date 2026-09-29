@@ -40,6 +40,11 @@ export SYNTHETIC_CHECK_TOKEN="rehearsal-only-synthetic-token-32-bytes-x"
 PG_URL="postgresql://rehearsal:rehearsal@127.0.0.1:55432/rehearsal"
 CHECKS="ops/deploy/checks.mjs"
 WORK="$(mktemp -d)"
+# The mail sink, bind-mounted into both instances. Created here, writable by
+# the containers' uid: left to Docker, a missing bind source is created
+# root-owned on Linux and every email write fails.
+mkdir -p "$WORK/mail-sink" && chmod 777 "$WORK/mail-sink"
+export MAIL_SINK_HOST_DIR="$WORK/mail-sink"
 
 # The previous release: by default the commit just before the newest
 # migration landed, i.e. code that has never seen the current schema. That

@@ -225,6 +225,19 @@ jobs:
           E2E_ACCOUNT_EMAIL: ${{ vars.SMOKE_ACCOUNT_EMAIL }}
           E2E_ACCOUNT_PASSWORD: ${{ secrets.SMOKE_ACCOUNT_PASSWORD }}
         run: npx playwright test e2e/staging.spec.js
+      # TR-24 (step 73): register, verify from the real email, upload,
+      # report, copy, delete, delete the account, with axe on all seven
+      # screens. It reads the verification email through E2E_MAILBOX, and
+      # staging has no mailbox a test can read until the email provider is
+      # chosen (production mode refuses the sink). Unset, the spec FAILS,
+      # on purpose: skipping would call email untested and working.
+      - name: TR-24, the whole journey, against staging
+        working-directory: client
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ vars.FRONTEND_URL }}
+          E2E_JOURNEY: "1"
+          E2E_MAILBOX: ${{ vars.E2E_MAILBOX }}
+        run: npx playwright test e2e/journey.spec.js
 
   migrate-production:
     name: migrate-production

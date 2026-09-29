@@ -27,15 +27,48 @@ import { APIError, APIUserAbortError } from "@anthropic-ai/sdk";
 export class MockLlmProvider {
   #queue = [];
   #defaultDelayMs;
+  #defaultFindings;
   calls = [];
 
   /**
-   * @param {{ defaultDelayMs?: number }} [options] `defaultDelayMs` delays
-   *   every UNSCRIPTED analysis (config's MOCK_LLM_DELAY_MS, step 71's
-   *   timeout-chain rehearsal). A scripted response keeps its own delay.
+   * @param {{ defaultDelayMs?: number, defaultFindings?: "none" | "quote-document" }} [options]
+   *   Both shape only UNSCRIPTED analyses; a scripted response is exactly
+   *   what its test queued.
+   *   - `defaultDelayMs` (config's MOCK_LLM_DELAY_MS, step 71): holds the
+   *     answer back, for the timeout chain and the load runs.
+   *   - `defaultFindings` (MOCK_LLM_FINDINGS, step 73): "none" is the empty
+   *     report every test has relied on; "quote-document" answers with
+   *     findings that quote the document's own sentences, so a report from
+   *     the mock has something on it that passes §5.3's verification for
+   *     real (TR-24's "copy a suggested change" needs a finding to copy).
    */
-  constructor({ defaultDelayMs = 0 } = {}) {
+  constructor({ defaultDelayMs = 0, defaultFindings = "none" } = {}) {
     this.#defaultDelayMs = defaultDelayMs;
+    this.#defaultFindings = defaultFindings;
+  }
+
+  /**
+   * Up to three findings, each quoting one whole sentence of the document
+   * verbatim: sentences of 60 to 300 characters, taken in order, so the
+   * same document always gets the same findings. Severities high, medium,
+   * low, so the derived risk is HIGH whenever there are three.
+   *
+   * @param {string} documentText
+   */
+  static quoteDocument(documentText) {
+    const sentences = documentText
+      .split(/(?<=[.;])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 60 && s.length <= 300 && !s.includes("\n"));
+    const severities = /** @type {const} */ (["high", "medium", "low"]);
+    return sentences.slice(0, 3).map((sentence, i) => ({
+      category: "other",
+      severity: severities[i],
+      clause_excerpt: sentence,
+      explanation:
+        "A mock finding: this quotes the document so the report has something real to show.",
+      suggested_change: `Ask to discuss this clause before signing (mock suggestion ${i + 1}).`,
+    }));
   }
 
   /** The body scriptValidResponse() serializes, factored out so the no-script default (below) can build the same shape without queueing-then-recursing into analyze(). */
@@ -196,7 +229,13 @@ export class MockLlmProvider {
     const text =
       script?.kind === "text"
         ? script.text
-        : JSON.stringify(MockLlmProvider.#validResponseBody());
+        : JSON.stringify(
+            MockLlmProvider.#validResponseBody(
+              this.#defaultFindings === "quote-document"
+                ? { findings: MockLlmProvider.quoteDocument(documentText ?? "") }
+                : {},
+            ),
+          );
 
     return {
       rawText: text,
