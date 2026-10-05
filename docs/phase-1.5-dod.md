@@ -8,7 +8,13 @@ BUILD-PLAN step 75, the Phase 1.5 gate. PRD §9 lists seven items and PRD §15 t
 |---|---|---|---|
 | 1 | An external tester recovers a forgotten password and deletes their account unaided; verified afterwards, in the tables, that no rows remain | **Not done.** It needs an external tester on a deployed environment. The direct check is built and tested, and building it found a defect, now fixed | §1 |
 | 2 | A restore from backup into a scratch database succeeds, its elapsed time recorded against the RTO | **Met locally: 18.6 s against the 4-hour RTO**, 695 MB, 2026-10-05. The managed provider's own restore is owed to staging | §2 |
-| 3 | A simulated provider outage (529 for five minutes) gives a stated degraded-mode error, no data loss, nothing stuck PENDING, and ONE alert | **Met locally, on busy traffic, after fixes.** As first configured it paged twice. After the fixes, every gate passed: **one page**, the provider's, 3.3 minutes in; 129 of 129 failed analyses got the stated 503; no data lost; nothing stuck; recovery in 10 s (2026-10-05). The quiet-traffic run, where the breaker never trips, is owed. Staging is owed | §3 |
+| 3 | A simulated provider outage (529 for five minutes) gives a stated degraded-mode error, no data loss, nothing stuck PENDING, and ONE alert | **Met locally, after fixes.** As first configured it paged twice.
+
+After the fixes, busy traffic passed every gate: **one page**, the provider's, 3.3 minutes in; 129 of 129 failed analyses got the stated 503; no data lost; nothing stuck; recovery in 10 s.
+
+Quiet traffic, with the breaker never tripping, also gave **one page**, 5.0 minutes in. One gate failed there on the drill's own reader, which hit the per-address rate limit before the outage began. The reader is fixed, and that re-run is owed.
+
+Staging is owed too (2026-10-05) | §3 |
 | 4 | A load test at the target concurrency holds p95 within the SLO without exhausting memory | **Met locally: p95 25.1 s against 45 s at 20 in flight; worst instance 35.2% of 512 MB**, 2026-09-29. Staging is owed, on the real provider | §4 |
 | 5 | Every Appendix C alert has fired, deliberately, **in staging**, and reached its destination | **Not done.** All nineteen fired locally into a real Alertmanager on 2026-09-28. Not in staging (there is none), and not to a real pager (none is chosen). Step 75 also found that drill's "one incident, one notification" result was wrong | §5 |
 | 6 | Privacy policy, terms and subprocessor list live and linked from the footer and the upload screen | **Not done.** Built and linked, but not live (nothing is deployed), and still drafts that say so, with placeholders only the owner and counsel can fill | §6 |
@@ -180,13 +186,22 @@ Every one was killed by the test written for it. Nine in all here, and five more
 
 **Quiet traffic** (an analysis a minute, which never trips the breaker):
 
-**Owed.** The run was started at 13:31 UTC. The machine was on battery at 12%, so its result is added here only if it completes; otherwise it is the next drill to run, on mains power.
+**2026-10-05, outage 13:38:15 to 13:43:15 UTC: one alert, and ten of eleven gates passed.** The eleventh failed on the drill's own traffic, not on the product. The run lasted 17.8 minutes, and no loop paused for more than 30 s.
 
-Expected, and not yet measured:
+| Gate | Result |
+|---|---|
+| **ONE alert** | **one group, one page**: `analysis_failure_rate` (provider, on the pager) **5.0 minutes** in, and its resolution 10.0 minutes in. No `api_5xx_rate`. The breaker never tripped: 15 provider calls (5 analyses, 3 attempts each) is under its 20-call minimum, so there was no `circuit_open` and `llm_circuit_state` stayed 0 |
+| The stated degraded-mode error | 5 of 5 failed analyses: 503 `LLM_UNAVAILABLE`, `Retry-After: 60`, the document-is-saved message |
+| Nothing else failed | 17 analyses, no 500, no dropped connection |
+| Data, uploads, stuck analyses | digest identical before and after; 5 of 5 outage uploads kept and re-analysed; 0 `PENDING`, 0 reaped |
+| Recovery | 31 s after the provider recovered |
+| **Reads unaffected: FAIL** | **43 of 1,021 reads answered 429**, all of them report reads for the same owner, every 14 s, **starting 1.2 minutes before the outage began**. NFR-2.6's general limit is 100 requests per 15 minutes per address. With only seven reports finished in a quiet baseline, the drill's reader spent one owner's whole allowance on its own. That is the limiter working, against the drill. |
 
-- the breaker never trips, since five analyses make 15 calls against a minimum of 20;
-- `analysis_failure_rate` pages once, three or so failures in;
-- `api_5xx_rate` stays quiet, as the promtool case above pins.
+**What the failure is, and what was done about it.** The 429s started before the outage, so the outage did not cause them. But a gate failed, and it is not overruled here.
+
+The reader now keeps every address it uses within 90 requests in any 15 minutes (`AddressBudget`, unit-tested, and mutation-tested by letting the budget never run out). A re-run of the quiet drill is owed. It was not done on 2026-10-05 because the battery was at 8%.
+
+**What the quiet run adds to the busy one.** The single page holds when the breaker never trips, so it does not depend on `circuit_open`. On a quiet day the page comes later: 5.0 minutes, against 3.3 on a busy one. The ratio needs enough failures inside its 15-minute window to pass 25%, and a quiet day supplies them slowly. A shorter outage on a quiet day may not page at all. That is Appendix C's ratio as written, and what the owner's minimum-volume question below is about.
 
 ## 4. Load at the target concurrency
 
@@ -286,6 +301,7 @@ Two corrections were made on the way:
 
 **Engineering:**
 
-1. **TR-22's soak, re-run on mains power** (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`).
-2. **The provider-outage drill and the restore drill, repeated in staging.**
-3. **A database outage, which has not been drilled.** `readiness_failing` inhibits its symptoms with the same timing limit `circuit_open` had: it waits two minutes, while `api_5xx_rate` fires in one. They are in the same group, so it would be one page, but in-flight analyses failing could also page `analysis_failure_rate` separately.
+1. **The quiet provider-outage drill, re-run with the fixed reader, on mains power** (`DRILL_THINK_MS=60000 ops/drills/provider-outage/run.sh`).
+2. **TR-22's soak, re-run on mains power** (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`).
+3. **The provider-outage drill and the restore drill, repeated in staging.**
+4. **A database outage, which has not been drilled.** `readiness_failing` inhibits its symptoms with the same timing limit `circuit_open` had: it waits two minutes, while `api_5xx_rate` fires in one. They are in the same group, so it would be one page, but in-flight analyses failing could also page `analysis_failure_rate` separately.

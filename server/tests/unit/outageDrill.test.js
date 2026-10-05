@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  AddressBudget,
   DRILL,
   drillContract,
   gatesOutage,
@@ -374,6 +375,22 @@ describe("gatesOutage", () => {
       }));
     expect(gate(gatesOutage(platform), "ONE alert").pass).toBe(true);
     expect(gate(gatesOutage(platform), "points at the cause").pass).toBe(false);
+  });
+});
+
+describe("AddressBudget: the drill's own traffic stays inside NFR-2.6's 100 per 15 minutes", () => {
+  it("counts each address's requests over the last 15 minutes, and forgets older ones", () => {
+    const budget = new AddressBudget({ limit: 90, windowMs: 15 * MIN });
+    for (let k = 0; k < 90; k += 1) budget.use("10.77.0.1", k * 1_000);
+    expect(budget.left("10.77.0.1", 90_000)).toBe(0);
+    expect(budget.left("10.77.0.2", 90_000)).toBe(90);
+    // Fifteen minutes after the first use, it no longer counts.
+    expect(budget.left("10.77.0.1", 15 * MIN)).toBe(1);
+    expect(budget.left("10.77.0.1", 16 * MIN + 30_000)).toBe(90);
+  });
+
+  it("keeps any 15-minute window under the limiter's 100, with room for the analysing user", () => {
+    expect(new AddressBudget().limit).toBeLessThan(100);
   });
 });
 

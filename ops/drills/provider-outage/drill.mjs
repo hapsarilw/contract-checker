@@ -158,6 +158,40 @@ export function transitions(points) {
 const minutes = (ms) => `${(ms / 60_000).toFixed(1)} min`;
 
 /**
+ * NFR-2.6's general limit is 100 requests per 15 minutes per address, and
+ * the drill's traffic must stay inside it, or the limiter's 429 becomes a
+ * read "affected" by the outage that the outage never touched. The quiet
+ * run found it: with seven reports finished in the baseline, the reader
+ * spent one owner's whole allowance before the outage began and was
+ * refused every 14 s from then on. Counted over any 15 minutes, so a fixed
+ * window, which is what the limiter uses, can never see more.
+ */
+export class AddressBudget {
+  /** @type {Map<string, number[]>} */
+  #uses = new Map();
+
+  /** @param {{ limit?: number, windowMs?: number }} [options] */
+  constructor({ limit = 90, windowMs = 15 * 60_000 } = {}) {
+    this.limit = limit;
+    this.windowMs = windowMs;
+  }
+
+  /** @param {string} address @param {number} now */
+  left(address, now) {
+    const recent = (this.#uses.get(address) ?? []).filter((t) => now - t < this.windowMs);
+    this.#uses.set(address, recent);
+    return this.limit - recent.length;
+  }
+
+  /** @param {string} address @param {number} now */
+  use(address, now) {
+    const uses = this.#uses.get(address) ?? [];
+    uses.push(now);
+    this.#uses.set(address, uses);
+  }
+}
+
+/**
  * Every pause longer than `limitMs` between consecutive ticks of a loop that
  * should tick steadily: the reader (every second) and the alert poller
  * (every 10 s). Both pausing together means the HOST stopped, not the API:
@@ -370,12 +404,16 @@ async function getJson(url) {
   return res.json();
 }
 
+/** Every request the drill makes, per address (see AddressBudget). */
+const budget = new AddressBudget();
+
 /**
  * @param {{ baseUrl: string, cookie: string, address: string }} who
  * @param {string} path
  * @param {RequestInit} [init]
  */
 function call(who, path, init = {}) {
+  budget.use(who.address, Date.now());
   const headers = new Headers(init.headers);
   headers.set("Cookie", who.cookie);
   headers.set("X-Load-Client-IP", who.address);
@@ -518,7 +556,16 @@ async function main() {
     while (!stopping) {
       const t0 = Date.now();
       i += 1;
-      const doc = completedBefore.length ? completedBefore[i % completedBefore.length] : null;
+      // The next pre-outage report whose owner's address has allowance
+      // left, and the next account that has, for the list.
+      const doc =
+        Array.from({ length: completedBefore.length }, (_, k) => completedBefore[(i + k) % completedBefore.length]).find(
+          (d) => budget.left(clientAddressFor(d.owner), t0) > 0,
+        ) ?? null;
+      const lister =
+        Array.from({ length: accounts.length }, (_, k) => (i + k) % accounts.length).find(
+          (index) => budget.left(clientAddressFor(index), t0) > 0,
+        ) ?? i % accounts.length;
       /** @type {Read} */
       const read = { at: t0, kind: doc && i % 2 === 0 ? "report" : "list", status: null, ok: false };
       try {
@@ -529,7 +576,7 @@ async function main() {
           read.ok = res.status === 200 && body?.analysis?.id === doc.analysisId && body?.analysis?.status === "COMPLETED";
           if (!read.ok && res.status === 200) read.why = `latest analysis ${body?.analysis?.id} ${body?.analysis?.status}`;
         } else {
-          const res = await call(who(i % accounts.length), "/api/v1/documents?limit=10");
+          const res = await call(who(lister), "/api/v1/documents?limit=10");
           read.status = res.status;
           await res.arrayBuffer();
           read.ok = res.status === 200;
