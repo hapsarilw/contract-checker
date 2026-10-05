@@ -225,6 +225,60 @@ describe("TR-17 — the circuit breaker (FR-3.12)", () => {
     await expect(assertCircuitClosed()).resolves.toBeUndefined();
   });
 
+  it("stays tripped in REAL time past the open period, so there is a half-open state to trial in (step 75)", async () => {
+    // The two tests above move the clock forward while the key is still
+    // there. In real time the key used to expire at the very instant the
+    // open period ended, so the trial never happened and every request in
+    // the gap reached the provider: step 75's drill saw four openings in
+    // five minutes and not one trial. The key has to outlive the period.
+    for (let i = 0; i < MIN_CALLS; i++) await recordProviderCall("failure");
+    const ttl = await getRedis().pttl("llm:cb:open_until");
+    expect(ttl).toBeGreaterThan(OPEN_MS + 60_000);
+    // ...but not forever: with no traffic at all, it lapses.
+    expect(ttl).toBeLessThanOrEqual(OPEN_MS + 5 * 60_000);
+  });
+
+  it("a failed trial opens it again for a full period, with a trial slot of its own", async () => {
+    for (let i = 0; i < MIN_CALLS; i++) await recordProviderCall("failure");
+    const halfOpen = new Date(Date.now() + OPEN_MS + 1_000);
+    await expect(assertCircuitClosed(halfOpen)).resolves.toBeUndefined(); // the trial
+
+    await recordProviderCall("failure", halfOpen);
+
+    // Open again: refused, trial or not, until another OPEN_MS has passed.
+    await expect(assertCircuitClosed(halfOpen)).rejects.toMatchObject({
+      code: "LLM_UNAVAILABLE",
+    });
+    await expect(
+      assertCircuitClosed(new Date(halfOpen.getTime() + OPEN_MS - 1_000)),
+    ).rejects.toMatchObject({ code: "LLM_UNAVAILABLE" });
+    // Then exactly one new trial.
+    const next = new Date(halfOpen.getTime() + OPEN_MS + 1_000);
+    await expect(assertCircuitClosed(next)).resolves.toBeUndefined();
+    await expect(assertCircuitClosed(next)).rejects.toMatchObject({
+      code: "LLM_UNAVAILABLE",
+    });
+  });
+
+  it("half-open reads as tripped, so llm_circuit_state does not drop to 0 between open periods", async () => {
+    for (let i = 0; i < MIN_CALLS; i++) await recordProviderCall("failure");
+    const halfOpen = new Date(Date.now() + OPEN_MS + 1_000);
+    await expect(getCircuitState(halfOpen)).resolves.toMatchObject({
+      open: true,
+      halfOpen: true,
+    });
+    await expect(getCircuitState()).resolves.toMatchObject({
+      open: true,
+      halfOpen: false,
+    });
+
+    await recordProviderCall("success", halfOpen);
+    await expect(getCircuitState(halfOpen)).resolves.toMatchObject({
+      open: false,
+      halfOpen: false,
+    });
+  });
+
   it("fails OPEN when Redis is unreachable, rather than becoming a second outage", async () => {
     // The breaker protects the app from the provider. An unavailable
     // breaker must not itself stop analyses — FR-5.6 already fails the

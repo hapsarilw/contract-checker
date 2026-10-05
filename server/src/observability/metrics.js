@@ -204,7 +204,7 @@ export const llmCircuitState = once(
   () =>
     new Gauge({
       name: "llm_circuit_state",
-      help: "The provider circuit breaker (FR-3.12), read from Redis at scrape time: 1 open, 0 closed.",
+      help: "The provider circuit breaker (FR-3.12), read from Redis at scrape time: 1 tripped (open, or half-open waiting for a successful trial), 0 closed.",
       async collect() {
         const state = await getCircuitState();
         this.set(state.open ? 1 : 0);

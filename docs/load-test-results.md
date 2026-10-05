@@ -4,10 +4,12 @@ BUILD-PLAN step 73 (OPS-10): SRS §10.6's TR-21 to TR-23, §10.7's TR-24, NFR-1.
 
 **Status, 2026-09-29: all four pass on the local rehearsal stack, and none has run in staging, because there is no staging** ([deployment.md](deployment.md)). One real defect was found and fixed on the way: the upload flood killed both instances. Everything below says where it ran. "Local" never means "staging".
 
+**Corrected 2026-10-05 (step 75): TR-22's result does not mean what this file said.** The mock provider retained the full text of every document it was asked about, so the soak measured the API plus a leak of its own test double. TR-21, TR-23 and TR-24 are unaffected (details under TR-22).
+
 | Done when (BUILD-PLAN step 73) | Local rehearsal, 2026-09-29 | Staging |
 |---|---|---|
 | TR-21 holds p95 under 45 s with no instance over 80% memory | **Pass**: p95 25.1 s, worst instance 35.2% | not run |
-| TR-22 shows flat memory over 2 hours | **Pass, narrowly**: api1's RSS trend is 12.71 MB/h against 12.8 allowed, and falling to 2.2 MB/h in the last 30 minutes (see TR-22) | not run |
+| TR-22 shows flat memory over 2 hours | **Not established; re-run owed.** The 2026-09-29 run passed by 0.7% (12.71 MB/h against 12.8), but on 2026-10-05 its memory trend turned out to include a leak in the test harness itself: the mock provider kept every document it was sent (see TR-22, "Correction"). Fixed; the soak has not been re-run. | not run |
 | TR-23 returns 503 rather than OOM-ing | **Pass, after a fix**: see "The upload flood" | not run |
 | TR-24 completes the full journey with axe assertions on every screen | **Pass**: 7 screens, 30.0 s | not run: needs a readable staging inbox ([deployment.md](deployment.md) §9) |
 | Results committed with dates and configuration | this file | |
@@ -28,7 +30,7 @@ BUILD-PLAN step 73 (OPS-10): SRS §10.6's TR-21 to TR-23, §10.7's TR-24, NFR-1.
 | Rate limits | **on**, at production values. Load accounts are made with `npm run ops -- load-accounts`, enough that none reaches 10 analyses an hour, and each account is one user at one address (the rehearsal's nginx honours `X-Load-Client-IP`). |
 | Sampling | every 10 s (every 1 s for TR-23), from each instance directly: RSS, memory limit, `db_pool_in_use` and `db_pool_waiting` from its own `/metrics`; Postgres's connection count; and, for TR-23, each container's cgroup (`memory.peak`, `memory.swap.max`, `memory.events`) |
 
-**Why 25 s of mock latency.** It is an assumption, stated as one. The real benchmark (step 72) measured 2.5 to 16 s for documents of about 900 words, and nothing has measured a 4,000-word document on the real model yet. With a fixed provider latency, what TR-21 measures is everything else: the system's own overhead on top of the provider, and whether memory, the pool and the process hold at 20 in flight. The p95 of 25.1 s against 25.0 s of provider time is that overhead, about 0.1 s. What it cannot tell you is the real model's p95 at 4,000 words. That is the staging run's job, on the real key.
+**Why 25 s of mock latency.** It is an assumption, stated as one. The real benchmark (step 72) measured 2.5 to 16 s for documents of about 900 words. *(Corrected 2026-10-05: this said nothing had measured a 4,000-word document on the real model. The development database holds one, found while reading it for step 75's README numbers: 3,886 words on `claude-sonnet-5` with `analyze-v6`, **25.8 s**, on 2026-09-24. One sample is not a p95, but it puts the assumed 25 s where it should be.)* With a fixed provider latency, what TR-21 measures is everything else: the system's own overhead on top of the provider, and whether memory, the pool and the process hold at 20 in flight. The p95 of 25.1 s against 25.0 s of provider time is that overhead, about 0.1 s. What it cannot tell you is the real model's p95 at 4,000 words. That is the staging run's job, on the real key.
 
 ## TR-21: 20 analyses in flight, 10 minutes
 
@@ -70,6 +72,20 @@ Averaged over 15-minute windows, api1 went 172.8, 182.6, 183.6, 188.3, 191.8, 19
 - Appendix C's `memory_high` alert (RSS > 80% of the limit) is the production backstop for the case where this reading is wrong.
 
 The threshold was set before the run and has not been changed after seeing the result.
+
+### Correction, 2026-10-05: the reading above was wrong
+
+**The growth was not only warm-up. Part of it was a leak, in the mock provider rather than the API.** `MockLlmProvider` kept a `calls` array, for tests to inspect, with the full text of every document it was sent, and nothing ever emptied it in a long-running process. Measured directly in step 75: **17.3 MB over 720 calls of this soak's document**, which is one instance's share of the two hours. The run's growth was about 27 MB on api1 and 14.5 MB on api2. The leak is a large share of what this section explained as V8 settling.
+
+Also wrong was taking the slowing trend as evidence of a plateau. A leak into a heap V8 has already grown need not show in RSS at the same rate, so RSS slowing down does not show that the heap had stopped growing.
+
+What stands and what does not:
+
+- **TR-22's verdict is withdrawn, not reversed.** The run cannot say whether the API leaks, in either direction: its test double was leaking under it.
+- **TR-21 is unaffected.** Its 10 minutes held at most about 6 MB of retained documents per instance, and its worst instance was at 35.2% of the limit, against 80%.
+- **TR-23 and TR-24 are unaffected.** Neither runs long enough for it to matter.
+- **Fixed:** the mock keeps only its last 50 calls (`MAX_RECORDED_CALLS`; 1.3 MB after the same 720 calls), with a test.
+- **Owed:** the soak, re-run with the fix (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`). It was not re-run on 2026-10-05 because the machine was on battery at 18%. A laptop that sleeps during a soak stops its clocks, which the step-75 drill showed the same day. `run-local.sh` now holds the machine awake (`caffeinate`) for the length of a run, but it cannot do that for two hours on a battery that has one.
 
 ## TR-23: 50 simultaneous 5 MB uploads, and the defect it found
 
@@ -129,3 +145,4 @@ In staging, see [ops/README.md](../ops/README.md), "Load, soak and end-to-end". 
 | 2026-09-29 | local | TR-23 run 3 (no swap) | **fail: both instances killed**, 17 × 502 |
 | 2026-09-29 | local | TR-23 run 4 (no swap, extraction semaphore) | pass: 297 MB peak, never at the limit |
 | 2026-09-29 | local | the final run: TR-23, TR-24, TR-21, TR-22 | **all four pass**: TR-23 297/276 MB peak and never at the limit; TR-24 7 screens clean, 30.0 s; TR-21 p95 25.1 s and 480/480; TR-22 1,440/1,440, memory trend 12.71 MB/h against 12.8 allowed and falling (05:59 to 08:10 UTC) |
+| 2026-10-05 | analysis, not a run | TR-22's memory trend re-read | **TR-22 withdrawn**: the mock provider retained every document (17.3 MB per 720 calls). Fixed (`MAX_RECORDED_CALLS`); the soak is owed again |

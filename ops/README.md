@@ -57,7 +57,11 @@ alerting:
 
 **Two destinations, and they must stay distinct.** `route: page` wakes someone; `route: digest` does not. Appendix C decides which is which, and a test asserts that every Sev-1 and Sev-2 pages and every Sev-3 digests, so a rule cannot be promoted by editing a dashboard. The receiver URLs in the committed file are placeholders: no paging provider has been chosen.
 
-**Grouping and inhibition are what make an incident one notification.** A provider outage fires four rules at once; the inhibitions in `alertmanager.yml` suppress the three symptoms so the breaker is the only thing that pages. `docs/alert-drills.md` records that drill and the rest.
+**What makes an incident one page, as measured rather than as designed.** Three mechanisms, and the end-to-end drill below showed which ones carry the weight:
+
+- **Ownership.** Each failure is counted by one paging alert: `api_5xx_rate` subtracts failed analyses, which `analysis_failure_rate` owns.
+- **Grouping.** Alerts with the same route and domain arrive as one notification, so `circuit_open`, five minutes into a provider outage, is an update to the page that `analysis_failure_rate` already sent.
+- **Inhibition.** It works only once its source is firing, so it cannot stop an outage's first page. Step 68's drill (`docs/alert-drills.md`) posted the alerts all at once and concluded the breaker would be the only page. End to end, the committed rules paged twice.
 
 Testing:
 
@@ -103,6 +107,59 @@ The first needs Docker (promtool comes from the Prometheus image); the second ru
   - `sum(db_pool_in_use)` is for context;
   - Postgres's own connection count comes from the provider's dashboard.
 - **Swap.** Check that the platform gives the service no swap. If it does, "did not OOM" proves nothing (docs/load-test-results.md explains how this was found).
+
+## The provider-outage drill (step 75)
+
+PRD §9's Phase 1.5 DoD item 3, end to end: `ops/drills/provider-outage/run.sh`.
+
+**The stack.** It is the deploy rehearsal's (`ops/deploy/rehearsal`), with three additions:
+
+- **Prometheus**, running the committed `alerts/alerts.yml`;
+- **Alertmanager**, running the committed `alerts/alertmanager.yml` with only the two receiver URLs changed (`run.sh` refuses to start if anything else differs);
+- **a recorder**, which writes down every webhook.
+
+**The outage.** The mock provider answers 529 to every call while a file exists in both API containers (`MOCK_LLM_OUTAGE_FILE`, which `config.js` refuses with any provider but the mock).
+
+**The run** (`drill.mjs`): a 7-minute baseline, the 5-minute outage, then watching until every alert has resolved. Traffic runs throughout. The gates it prints and writes to `result.json`:
+
+- a valid run (the host never stalled);
+- a clean baseline;
+- the stated degraded-mode error;
+- nothing else failing;
+- reads unaffected;
+- no data loss (a digest of every pre-outage row);
+- outage uploads kept and analysable afterwards;
+- nothing stuck `PENDING`;
+- recovery within 150 s;
+- exactly one alert group notified, and it is the provider's, on the pager.
+
+```bash
+ops/drills/provider-outage/run.sh                          # a busy day: the breaker trips
+DRILL_THINK_MS=60000 ops/drills/provider-outage/run.sh     # a quiet one: it never does
+```
+
+About half an hour each, on mains power. The machine has to stay awake; `run.sh` uses `caffeinate` where it exists. It shares ports with the rehearsal and the load runs, so only one runs at a time. Results: [docs/phase-1.5-dod.md](../docs/phase-1.5-dod.md) §3.
+
+**In staging** the outage cannot be a file in a container. It should be a provider key pointed at an endpoint that answers 529, behind a switch only staging has. That is owed with staging.
+
+## The erasure check (step 75)
+
+PRD §9's Phase 1.5 DoD item 1 asks for a deletion verified in the tables, not through the API:
+
+```bash
+npm run ops -- erasure-record --email E --out erasure.json   # before: ids and hashes, mode 600
+npm run ops -- erasure-verify --in erasure.json --email E    # after: Postgres and Redis, directly
+```
+
+It looks for three kinds of survivor:
+
+- the recorded rows, by id;
+- any text column of any table holding the user id or the address, with the list taken from the catalogue so a new table is covered;
+- any Redis key naming either.
+
+The address is matched as a whole address (`server/src/lib/wholeAddress.js`), so another account's `joann@x.co` is never reported as `ann@x.co`'s residue, and never deleted with it.
+
+Audit events are reported as retained by design. Backups and subprocessors' copies are reported as not checked. Exit 0 only when nothing is left.
 
 ## Error tracking (step 74)
 

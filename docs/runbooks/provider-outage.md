@@ -1,6 +1,6 @@
 # provider-outage
 
-**Severity 2, page.** Reached from `circuit_open` (the breaker has been open five minutes) or `llm_config_error` (the provider rejected a call with a non-retryable 4xx).
+**Severity 2, page.** Reached from `circuit_open` (the breaker has been tripped five minutes) or `llm_config_error` (the provider rejected a call with a non-retryable 4xx), and from [analysis-failure-rate-high](analysis-failure-rate-high.md) when `LLM_UNAVAILABLE` is the failing code, which is how a provider outage usually arrives first.
 
 ## What you are seeing
 
@@ -13,7 +13,7 @@ Two alerts lead here, and they mean different things:
 | `circuit_open` | The provider is failing — 20+ calls in the window, half or more failing — so the breaker stopped calling it for 60 s at a time (FR-3.12). | Usually the provider. You confirm, communicate and wait. |
 | `llm_config_error` | The provider refused us with a 400, 401, 403 or 404 (FR-3.11): a revoked or wrong API key, or a model identifier that no longer exists. Not retried, because retrying cannot help. | **You.** Nothing will recover on its own. |
 
-While `circuit_open` fires, Alertmanager suppresses `analysis_failure_rate`, `api_5xx_rate` and `analysis_latency_p95`, so this is the only page you get for the outage.
+**How a provider outage pages**, as measured by the step-75 drill ([phase-1.5-dod.md](../phase-1.5-dod.md), item 3), not as designed on paper: `analysis_failure_rate` pages first, about two minutes in, with `LLM_UNAVAILABLE` as the error code. That is the one page. If the breaker stays tripped for five minutes, `circuit_open` arrives in the **same** notification as an update (same route and domain, so the same group, the same incident at the paging provider), and from then on it suppresses `analysis_failure_rate`. `api_5xx_rate` does not count failed analyses, so the platform alert stays quiet. The earlier claim here, that `circuit_open` would suppress the others and be the only page, was wrong: inhibition starts only once its source fires, and `circuit_open` waits five minutes. The drill paged twice before the rules were changed.
 
 ## First five minutes
 
@@ -21,7 +21,7 @@ While `circuit_open` fires, Alertmanager suppresses `analysis_failure_rate`, `ap
 2. **Confirm with the provider.** Check the provider's status page. If it shows an incident, you have your cause.
 3. **Verify the breaker is open, and until when.** On the dashboard: the "Circuit breaker" panel. From a shell with Redis access:
    ```bash
-   redis-cli GET llm:cb:open_until          # epoch ms; empty = not open
+   redis-cli GET llm:cb:open_until          # epoch ms; empty = closed; in the past = half-open, one trial pending
    redis-cli LRANGE llm:cb:window 0 19       # "<epoch ms>:ok" / "<epoch ms>:fail", newest first
    ```
 4. **Confirm degraded mode is what users see.** Upload screen in a normal browser: submit once, see the error card, go back — the banner must be there and the button disabled. Then check that a saved report still opens.

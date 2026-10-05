@@ -327,6 +327,18 @@ describe("config.js — observability (step 67)", () => {
     expect(config.MAX_CONCURRENT_UPLOADS).toBe(10);
   });
 
+  it("accepts MOCK_LLM_OUTAGE_FILE with the mock provider only", () => {
+    expect(
+      runConfig({ LLM_PROVIDER: "mock", MOCK_LLM_OUTAGE_FILE: "/tmp/outage" }).status,
+    ).toBe(0);
+    const result = runConfig({
+      LLM_PROVIDER: "anthropic",
+      MOCK_LLM_OUTAGE_FILE: "/tmp/outage",
+    });
+    expect(result.status).not.toBe(0);
+    expect(namedIssues(result.stderr)).toContain("MOCK_LLM_OUTAGE_FILE");
+  });
+
   it("accepts MOCK_LLM_FINDINGS with the mock provider only", () => {
     expect(
       runConfig({ LLM_PROVIDER: "mock", MOCK_LLM_FINDINGS: "quote-document" }).status,

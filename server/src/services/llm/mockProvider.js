@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { APIError, APIUserAbortError } from "@anthropic-ai/sdk";
 
 /**
@@ -24,14 +25,26 @@ import { APIError, APIUserAbortError } from "@anthropic-ai/sdk";
  * "schema-invalid output" have to live: as different STRINGS, not as
  * different code paths in here.
  */
+/**
+ * How many calls `calls` remembers. Tests inspect at most a few; a long-
+ * running process on the mock (a load run, a soak) makes thousands, and
+ * each entry holds the whole document. Unbounded, this array was a memory
+ * leak of about 25 KB per analysis: measured at 17.3 MB over 720 calls,
+ * which is one instance's share of step 73's two-hour soak, and the bulk of
+ * the growth that soak recorded (docs/load-test-results.md, corrected in
+ * step 75).
+ */
+export const MAX_RECORDED_CALLS = 50;
+
 export class MockLlmProvider {
   #queue = [];
   #defaultDelayMs;
   #defaultFindings;
+  #outageFile;
   calls = [];
 
   /**
-   * @param {{ defaultDelayMs?: number, defaultFindings?: "none" | "quote-document" }} [options]
+   * @param {{ defaultDelayMs?: number, defaultFindings?: "none" | "quote-document", outageFile?: string }} [options]
    *   Both shape only UNSCRIPTED analyses; a scripted response is exactly
    *   what its test queued.
    *   - `defaultDelayMs` (config's MOCK_LLM_DELAY_MS, step 71): holds the
@@ -41,10 +54,28 @@ export class MockLlmProvider {
    *     findings that quote the document's own sentences, so a report from
    *     the mock has something on it that passes §5.3's verification for
    *     real (TR-24's "copy a suggested change" needs a finding to copy).
+   *   - `outageFile` (MOCK_LLM_OUTAGE_FILE, step 75): see #outageStatus().
    */
-  constructor({ defaultDelayMs = 0, defaultFindings = "none" } = {}) {
+  constructor({ defaultDelayMs = 0, defaultFindings = "none", outageFile } = {}) {
     this.#defaultDelayMs = defaultDelayMs;
     this.#defaultFindings = defaultFindings;
+    this.#outageFile = outageFile;
+  }
+
+  /**
+   * Step 75's provider-outage drill (PRD §9, Phase 1.5 DoD item 3): while
+   * the file named by MOCK_LLM_OUTAGE_FILE exists, every UNSCRIPTED call
+   * fails the way the real provider does when it is down, with the HTTP
+   * status the file contains (default 529, "overloaded"). The drill starts
+   * and ends an outage with `touch` and `rm`, so the process, and the
+   * metrics counters Prometheus is watching, live straight through it.
+   *
+   * @returns {number | null} the status to fail with, or null for no outage
+   */
+  #outageStatus() {
+    if (!this.#outageFile || !existsSync(this.#outageFile)) return null;
+    const status = Number(readFileSync(this.#outageFile, "utf8").trim() || 529);
+    return Number.isInteger(status) && status >= 400 && status <= 599 ? status : 529;
   }
 
   /**
@@ -69,6 +100,26 @@ export class MockLlmProvider {
         "A mock finding: this quotes the document so the report has something real to show.",
       suggested_change: `Ask to discuss this clause before signing (mock suggestion ${i + 1}).`,
     }));
+  }
+
+  /**
+   * The quote-document report: the findings, and an overall risk that
+   * AGREES with them, as a model's claim normally does. Claiming "medium"
+   * over a high-severity finding made every analysis a risk drift
+   * (analysis_risk_drift_total), so risk_drift_high fired in any run long
+   * enough for its rule to be evaluated: found by step 75's outage drill,
+   * where it was an alert the outage had not caused.
+   *
+   * @param {string} documentText
+   */
+  static #quotedReport(documentText) {
+    const findings = MockLlmProvider.quoteDocument(documentText);
+    const overall_risk = findings.some((f) => f.severity === "high")
+      ? "high"
+      : findings.some((f) => f.severity === "medium")
+        ? "medium"
+        : "low";
+    return { findings, overall_risk };
   }
 
   /** The body scriptValidResponse() serializes, factored out so the no-script default (below) can build the same shape without queueing-then-recursing into analyze(). */
@@ -217,8 +268,18 @@ export class MockLlmProvider {
   async analyze({ documentText, requestId, correction } = {}) {
     const startedAt = Date.now();
     this.calls.push({ documentText, requestId, correction, at: startedAt });
+    if (this.calls.length > MAX_RECORDED_CALLS)
+      this.calls.splice(0, this.calls.length - MAX_RECORDED_CALLS);
 
     const script = this.#queue.shift();
+    const outage = script ? null : this.#outageStatus();
+    if (outage !== null) {
+      const body = {
+        type: "error",
+        error: { type: "overloaded_error", message: `mock outage ${outage}` },
+      };
+      throw APIError.generate(outage, body, `mock outage ${outage}`, new Headers());
+    }
     const delayMs = script ? script.delayMs : this.#defaultDelayMs;
     if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
 
@@ -232,7 +293,7 @@ export class MockLlmProvider {
         : JSON.stringify(
             MockLlmProvider.#validResponseBody(
               this.#defaultFindings === "quote-document"
-                ? { findings: MockLlmProvider.quoteDocument(documentText ?? "") }
+                ? MockLlmProvider.#quotedReport(documentText ?? "")
                 : {},
             ),
           );

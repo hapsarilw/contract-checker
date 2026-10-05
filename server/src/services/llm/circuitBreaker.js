@@ -52,6 +52,29 @@ const WINDOW_SIZE = 100;
 const WINDOW_MS = 5 * 60_000;
 
 /**
+ * How long a tripped breaker's state outlives the moment it opened.
+ *
+ * It must be LONGER than OPEN_MS, and that is the whole of the half-open
+ * state. The key was first written with a lifetime of exactly OPEN_MS, so
+ * it vanished at the instant the open period ended: there was never a
+ * moment when the key existed and the period was over, the trial branch
+ * in assertCircuitClosed could not run, and every request that arrived
+ * before the next failure re-opened the breaker went straight to the
+ * provider, each with its full retry budget. The integration test passed
+ * all along, because it moved the clock forward instead of letting the key
+ * expire. Step 75's outage drill found it: four openings in five minutes,
+ * no trial, two or three analyses (three calls each) through after every
+ * expiry, and a gauge that read closed in each gap.
+ *
+ * The trial is what normally ends the tripped state: one call once the
+ * open period is over, closing the breaker on success and opening it
+ * again on failure. This lifetime is only the safety net for no call
+ * coming at all — nobody analysing — after which there is nothing to
+ * protect and the breaker closes without one.
+ */
+const TRIPPED_TTL_MS = OPEN_MS + WINDOW_MS;
+
+/**
  * Records the outcome of one provider CALL — an attempt, not an analysis.
  * FR-3.12 counts calls, and a retried analysis makes up to three of them;
  * counting analyses instead would need three times the outage to trip.
@@ -86,6 +109,8 @@ export async function recordProviderCall(outcome, now = new Date()) {
       return;
     }
 
+    if (outcome === "failure" && (await reopenAfterFailedTrial(ms))) return;
+
     // Evaluated after EVERY call, not only after failures. FR-3.12's
     // condition is about the window, not about the last outcome, and a
     // success can be the call that makes the window large enough to
@@ -102,6 +127,34 @@ export async function recordProviderCall(outcome, now = new Date()) {
   }
 }
 
+/**
+ * A call that fails while the breaker is HALF-OPEN (tripped, open period
+ * over) is the trial failing, or a straggler from before the breaker
+ * opened failing just as plainly: either way the provider is still down.
+ * FR-3.12 says what a successful trial does and not what a failed one
+ * does; the reading that keeps the breaker's purpose is to open again for
+ * the same period, and to clear the trial slot so the next period gets
+ * one trial of its own.
+ *
+ * @param {number} ms
+ * @returns {Promise<boolean>} whether it re-opened
+ */
+async function reopenAfterFailedTrial(ms) {
+  const redis = getRedis();
+  const openUntil = await redis.get(OPEN_KEY);
+  if (!openUntil || ms < Number(openUntil)) return false;
+  await redis
+    .multi()
+    .set(OPEN_KEY, String(ms + OPEN_MS), "PX", TRIPPED_TTL_MS)
+    .del(TRIAL_KEY)
+    .exec();
+  logger.warn(
+    { alert: "circuit_reopened", openMs: OPEN_MS },
+    "FR-3.12: the trial failed, so the provider circuit is open again",
+  );
+  return true;
+}
+
 /** @param {number} ms */
 async function maybeOpen(ms) {
   const redis = getRedis();
@@ -115,7 +168,13 @@ async function maybeOpen(ms) {
 
   // SET NX: the instance that wins logs the alert, so a fleet noticing the
   // same outage raises one page rather than one per instance.
-  const opened = await redis.set(OPEN_KEY, String(ms + OPEN_MS), "PX", OPEN_MS, "NX");
+  const opened = await redis.set(
+    OPEN_KEY,
+    String(ms + OPEN_MS),
+    "PX",
+    TRIPPED_TTL_MS,
+    "NX",
+  );
   if (opened === "OK") {
     logger.error(
       {
@@ -182,7 +241,16 @@ export async function assertCircuitClosed(now = new Date()) {
   throw new AppError("LLM_UNAVAILABLE");
 }
 
-/** Operator and test visibility: the breaker's state without a database query. */
+/**
+ * Operator and test visibility: the breaker's state without a database query.
+ *
+ * `open` is true while the breaker is TRIPPED: open, or half-open waiting
+ * for a trial to succeed. Half-open is not closed — every request but the
+ * one trial is still refused — and reading it as closed made
+ * llm_circuit_state drop to 0 between open periods, which reset
+ * circuit_open's five minutes through any sustained outage. `halfOpen`
+ * says which of the two it is.
+ */
 export async function getCircuitState(now = new Date()) {
   try {
     const redis = getRedis();
@@ -195,14 +263,22 @@ export async function getCircuitState(now = new Date()) {
     );
     const failures = recent.filter((entry) => entry.endsWith(":fail")).length;
     return {
-      open: Boolean(openUntil) && now.getTime() < Number(openUntil),
+      open: Boolean(openUntil),
+      halfOpen: Boolean(openUntil) && now.getTime() >= Number(openUntil),
       openUntil: openUntil ? new Date(Number(openUntil)) : null,
       calls: recent.length,
       failures,
       ratio: recent.length === 0 ? null : failures / recent.length,
     };
   } catch {
-    return { open: false, openUntil: null, calls: null, failures: null, ratio: null };
+    return {
+      open: false,
+      halfOpen: false,
+      openUntil: null,
+      calls: null,
+      failures: null,
+      ratio: null,
+    };
   }
 }
 

@@ -3,22 +3,30 @@
 #
 # PRD §9's Phase 1.5 DoD item 3 sets the bar this file has to clear: a
 # simulated five-minute provider outage must produce ONE alert, not a pager
-# storm. That outage fires four rules at once — circuit_open (the cause),
-# analysis_failure_rate (analyses are failing), api_5xx_rate (analyze answers
-# 503, which is a server error) and in time analysis_latency_p95. Without the
-# inhibitions below, degraded mode working perfectly still pages four times,
-# and the operator learns to skim.
+# storm. Step 75's drill (ops/drills/provider-outage) measures it end to end,
+# through this file with only the receiver URLs swapped.
 #
-# TWO MECHANISMS, doing different jobs:
+# THREE MECHANISMS, doing different jobs, and the drill showed which one
+# carries the weight:
 #
+#   ownership    each failure counted by one paging alert only. A failed
+#                analysis is analysis_failure_rate's; api_5xx_rate subtracts
+#                them (alerts.yml). This is what keeps a provider outage off
+#                the platform pager, and it is the mechanism that actually
+#                worked: as first written, the drill paged twice, provider
+#                and platform, 25 seconds apart, two minutes in.
 #   grouping     collapses alerts that share a destination and a domain into
 #                one notification, and keeps collapsing later ones into the
-#                same one. This is what makes two provider alerts arrive as
-#                one message.
+#                same one. This is what makes circuit_open, arriving five
+#                minutes into an outage, an update to the page that
+#                analysis_failure_rate already sent rather than a new one.
 #   inhibition   suppresses an alert entirely while a more specific one is
-#                firing. This is what handles alerts in DIFFERENT domains
-#                that share one cause: api_5xx_rate is a platform alert, and
-#                during a provider outage it is not news.
+#                FIRING, and only then: an alert that fires first has paged
+#                before its inhibitor exists. circuit_open has `for: 5m`, so
+#                inhibition by it cannot prevent the first page of an outage;
+#                it only quiets the symptoms once the cause is established.
+#                The original design leaned on it for exactly what it cannot
+#                do, and was right only on paper.
 #
 # The receiver URLs are placeholders. No paging provider has been chosen yet
 # (ops/README.md); the shape is what is being fixed here, not the vendor.
@@ -83,7 +91,10 @@ receivers:
 
 inhibit_rules:
   # A provider outage is one incident. The breaker being open is the precise
-  # statement of it; the rest are its symptoms.
+  # statement of it; the rest are its symptoms. Effective from the moment
+  # circuit_open FIRES, five minutes in, and not before (see the header):
+  # the outage's first page is analysis_failure_rate's, and this rule is what
+  # stops that one repeating alongside the cause once the cause is known.
   #
   # No `equal:` on purpose. `equal` requires the named labels to match
   # between source and target, and these alerts have no label in common that

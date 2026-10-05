@@ -1,0 +1,62 @@
+# BUILD-PLAN step 75 / PRD §9, Phase 1.5 DoD item 3: the provider-outage
+# drill. An OVERLAY on the deploy rehearsal stack
+# (ops/deploy/rehearsal/compose.yml: two API instances behind nginx,
+# Postgres, Redis), adding the alerting path end to end:
+#
+#   api1, api2 --/metrics--> Prometheus (the COMMITTED ops/alerts/alerts.yml)
+#                              --> Alertmanager (the COMMITTED alertmanager.yml,
+#                                  receiver URLs pointed at the recorder and
+#                                  nothing else changed: the real timings)
+#                                    --> recorder (writes down every webhook)
+#
+# The outage itself is the mock provider's outage file: while it exists in
+# an API container, every provider call fails with 529, as the real
+# provider does when it is overloaded. drill.mjs writes and removes it.
+#
+# Paths come from run.sh as absolute paths: with several -f files, Compose
+# resolves relative paths against the FIRST file's directory, which is the
+# rehearsal's, not this one.
+
+services:
+  api1: &drill-api
+    environment:
+      MOCK_LLM_OUTAGE_FILE: /tmp/clausecheck-outage
+      # The rehearsal points this at a directory that does not exist, on
+      # purpose (its rollback step needs the failure row). Here it would page
+      # backup_verify_failed on its own, before any outage, and the drill
+      # needs a quiet baseline. Blank is unset (config.js), and unset in
+      # development means the job is not scheduled.
+      BACKUP_DIR: ""
+  api2: *drill-api
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ${DRILL_DIR:?set by run.sh}/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ${ALERTS_DIR:?set by run.sh}/alerts.yml:/etc/prometheus/rules/alerts.yml:ro
+    ports:
+      - "127.0.0.1:59090:9090"
+    depends_on: [api1, api2, alertmanager]
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      # Written by run.sh from the committed file; run.sh checks that only
+      # the two receiver URLs differ.
+      - ${DRILL_ALERTMANAGER_CONFIG:?set by run.sh}:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:59093:9093"
+    depends_on: [recorder]
+
+  recorder:
+    image: node:24-alpine
+    command: ["node", "/drill/recorder.mjs"]
+    volumes:
+      - ${DRILL_DIR:?set by run.sh}/recorder.mjs:/drill/recorder.mjs:ro
+      - ${DRILL_OUT:?set by run.sh}:/out

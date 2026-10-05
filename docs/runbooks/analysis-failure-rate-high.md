@@ -1,12 +1,12 @@
 # analysis-failure-rate-high
 
-**Severity 2, page.** Reached from `analysis_failure_rate` (more than 25% of analyses failing over 15 minutes) or `api_5xx_rate` (more than 2% of requests answered 5xx over 10 minutes).
+**Severity 2, page.** Reached from `analysis_failure_rate` (more than 25% of analyses failing over 15 minutes) or `api_5xx_rate` (more than 2% of requests answered 5xx over 10 minutes, failed analyses aside).
 
 ## What you are seeing
 
-Users are getting error cards instead of reports. Some checks still complete; a quarter or more do not. Or, for `api_5xx_rate`, the server is answering a noticeable share of *all* requests with a server error — which may or may not be the analyze path.
+Users are getting error cards instead of reports. Some checks still complete; a quarter or more do not. Or, for `api_5xx_rate`, the server is answering a noticeable share of requests with a server error that is **not** a failed analysis: reads, sign-in, uploads, or the analyze route failing before an analysis was created. Failed analyses are subtracted from that alert because this one already pages on them, with the error code (step 75: counting them in both paged twice for one provider outage).
 
-If the provider were simply down you would be on [provider-outage](provider-outage.md): `circuit_open` suppresses both of these alerts. So something is failing that the breaker has **not** attributed to the provider.
+A provider outage usually arrives **here first**: `analysis_failure_rate` fires about two minutes in, and `circuit_open` needs five. If `LLM_UNAVAILABLE` is the dominant code below, go to [provider-outage](provider-outage.md). Once `circuit_open` fires, it suppresses this alert.
 
 ## First five minutes
 
@@ -54,7 +54,7 @@ One user retrying one strange document can dominate a low-traffic hour — the r
 ```promql
 sum by (route, status) (rate(http_request_duration_seconds_count{status=~"5.."}[10m]))
 ```
-If it is the analyze route, use the tree above. If it is anything else, it is branch 3, or the database: check `/api/ready` and [db-pool-saturated](db-pool-saturated.md).
+The alert has already subtracted failed analyses, so an analyze-route 5xx here failed **before** an analysis existed: `503 SERVER_BUSY` is the analysis limiter failing closed, which means Redis; a `500` is the database or branch 3. Anything else is branch 3, or the database: check `/api/ready` and [db-pool-saturated](db-pool-saturated.md).
 
 ## Act
 

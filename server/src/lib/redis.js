@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import config from "../config.js";
 import logger from "../observability/logger.js";
+import { wholeAddressPattern } from "./wholeAddress.js";
 
 /**
  * The Redis client (SRS §2's second critical constraint, §3.5, FR-5.6).
@@ -117,6 +118,61 @@ export async function closeRedis() {
     client.disconnect();
   }
   client = undefined;
+}
+
+/**
+ * A value as a literal inside a SCAN pattern: Redis's pattern characters
+ * escaped, because an address may contain one.
+ * @param {string} value
+ */
+export const literalPattern = (value) => value.replace(/[*?[\]\\]/g, "\\$&");
+
+/**
+ * Every key matching `pattern`, found with SCAN (never KEYS, which holds
+ * the server for the whole keyspace).
+ *
+ * For erasure: an account's id and address are in the names of its quota
+ * counters (quota:hour:<id>, quota:month:<id>:<period>, kept 62 days) and
+ * rate-limit counters (rl:analyze:user:<id>, rl:forgot-email:email:<address>
+ * and others), which outlive the row unless removed with it
+ * (services/account.js), and which the erasure check looks for
+ * (services/erasureCheck.js).
+ *
+ * @param {string} pattern
+ * @returns {Promise<string[]>}
+ */
+export async function scanKeys(pattern) {
+  const redis = getRedis();
+  /** @type {string[]} */
+  const found = [];
+  let cursor = "0";
+  do {
+    const [next, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 1000);
+    cursor = next;
+    found.push(...keys);
+  } while (cursor !== "0");
+  return found;
+}
+
+/**
+ * Every key naming an account: containing its id (a cuid, which no other
+ * key can contain by accident), or containing its address as a WHOLE
+ * address (lib/wholeAddress.js), never merely as a substring of someone
+ * else's. Erasure deletes these (services/account.js) and the erasure check
+ * looks for any left (services/erasureCheck.js). It is one definition, and
+ * the broadest correct one: a list of key formats is what goes stale when
+ * a new counter is added.
+ *
+ * @param {{ id: string, email: string }} account
+ * @returns {Promise<string[]>}
+ */
+export async function keysNamingAccount({ id, email }) {
+  const address = email.trim().toLowerCase();
+  const whole = new RegExp(wholeAddressPattern(address));
+  const byAddress = (await scanKeys(`*${literalPattern(address)}*`)).filter((key) =>
+    whole.test(key.toLowerCase()),
+  );
+  return [...new Set([...(await scanKeys(`*${literalPattern(id)}*`)), ...byAddress])];
 }
 
 /** Test-only: drops the memoised client so a test can build a fresh one. */

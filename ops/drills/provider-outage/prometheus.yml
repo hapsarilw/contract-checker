@@ -1,0 +1,24 @@
+# The drill's Prometheus: the two API instances, scraped directly (never
+# through the balancer, which would sample one at random), and the
+# committed rules, evaluated at their committed intervals.
+global:
+  scrape_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: clausecheck-api
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      # The rehearsal's own token (ops/deploy/rehearsal/compose.yml), not a
+      # secret of any real environment.
+      credentials: rehearsal-only-metrics-token-32-bytes-min-x
+    static_configs:
+      - targets: ["api1:3000", "api2:3000"]

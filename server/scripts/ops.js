@@ -11,6 +11,8 @@
 //   export         --email E --reference R --out FILE
 //   erase          --email E --reference R --confirm E
 //   restore-deletions --since ISO --old-database-url-file FILE
+//   erasure-record --email E --out FILE            before a deletion that is to be verified
+//   erasure-verify --in FILE --email E              after it: Postgres and Redis, directly
 //   load-accounts  --run R --count N --out FILE    (never in production)
 //   load-cleanup   --run R                         (never in production)
 //
@@ -34,6 +36,7 @@ import {
   suspendAccount,
 } from "../src/services/operator.js";
 import { createLoadAccounts, deleteLoadAccounts } from "../src/services/loadAccounts.js";
+import { recordErasureSubject, verifyErasure } from "../src/services/erasureCheck.js";
 
 const USAGE = `usage: npm run ops -- <command> [flags]
 
@@ -44,6 +47,8 @@ const USAGE = `usage: npm run ops -- <command> [flags]
   erase            --email E --reference R --confirm E
   restore-deletions --since ISO --old-database-url-file FILE
                                         after a restore: accounts deleted since the backup that came back
+  erasure-record   --email E --out FILE  step 75: BEFORE a deletion is verified, record the account's ids
+  erasure-verify   --in FILE --email E   AFTER it: is anything left, asked of Postgres and Redis directly
   load-accounts    --run R --count N --out FILE
                                         step 73: N synthetic accounts and their session cookies, for a load run
   load-cleanup     --run R              removes a load run's accounts and everything they made
@@ -73,6 +78,7 @@ export async function run(argv, { out = (line) => console.log(line) } = {}) {
       reference: { type: "string" },
       confirm: { type: "string" },
       out: { type: "string" },
+      in: { type: "string" },
       limit: { type: "string" },
       since: { type: "string" },
       "old-database-url-file": { type: "string" },
@@ -173,6 +179,48 @@ export async function run(argv, { out = (line) => console.log(line) } = {}) {
         );
       }
       return 0;
+    }
+    case "erasure-record": {
+      const file = need("out");
+      const record = await recordErasureSubject(need("email"));
+      // Ids and hashes only, but ids of a real person's rows: 0600.
+      await writeFile(file, JSON.stringify(record, null, 2), {
+        encoding: "utf8",
+        mode: 0o600,
+      });
+      const n = record.ids;
+      out(
+        `recorded ${record.userId}: ${n.documents.length} document(s), ${n.analyses.length} analysis(es), ` +
+          `${n.findings.length} finding(s), ${n.authTokens.length} token(s), to ${file} (mode 600). ` +
+          `After the deletion: npm run ops -- erasure-verify --in ${file} --email <address>`,
+      );
+      return 0;
+    }
+    case "erasure-verify": {
+      const record = JSON.parse(await readFile(need("in"), "utf8"));
+      const result = await verifyErasure(record, { email: need("email") });
+      for (const [table, n] of Object.entries(result.tables))
+        out(`  ${n === 0 ? "ok  " : "LEFT"} ${table.padEnd(10)} ${n} row(s)`);
+      out(
+        `  ${Object.keys(result.sweep).length === 0 ? "ok  " : "LEFT"} sweep      ${result.columnsSwept} text column(s) searched for the id and the address` +
+          (Object.keys(result.sweep).length ? `: ${JSON.stringify(result.sweep)}` : ""),
+      );
+      out(
+        `  ${result.redisKeys.length === 0 ? "ok  " : "LEFT"} redis      ${result.redisKeys.length} key(s) naming the account` +
+          result.redisKeys
+            .map((k) => `\n         ${k.key} (expires in ${k.ttlSeconds} s)`)
+            .join(""),
+      );
+      out(
+        `  kept       ${result.auditEventsRetained} audit event(s) under the HMAC subject, by design`,
+      );
+      for (const item of result.notChecked) out(`  not checked: ${item}`);
+      out(
+        result.clean
+          ? "CLEAN: nothing of the account is left."
+          : "NOT CLEAN: see LEFT above.",
+      );
+      return result.clean ? 0 : 1;
     }
     case "load-accounts": {
       const file = need("out");

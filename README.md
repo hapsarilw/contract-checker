@@ -108,13 +108,21 @@ cd client && npm run e2e # Playwright + axe; starts its own dev server if one is
      run against the real provider and there are logged rows to read it
      from. -->
 
-**USD 0.0175 per analysis** on `claude-sonnet-5` with prompt `analyze-v6`, at list pricing of USD 2.00 / Mtok input and USD 10.00 / Mtok output.
+**USD 0.0192 per analysis**, measured over 32 analyses on the shipping configuration (`claude-sonnet-5`, prompt `analyze-v6`) at list pricing of USD 2.00 / Mtok input and USD 10.00 / Mtok output: 160,430 input and 29,349 output tokens, USD 0.6144 in all. Read from the provider's own token counts as the instrumentation recorded them (PRD §11.4), not estimated:
 
-Read from four real `Analysis` rows, not estimated: fixtures 01–04 (contracts of 849–980 words, against the 4,000-word cap), 19,093 input and 3,165 output tokens, no retries, nothing discarded, slowest analysis 16.2s. Measured 2026-09-21 through the real `POST /documents` + `/analyze` path.
+| Source | Analyses | Input / output tokens | USD | Per analysis |
+|---|---|---|---|---|
+| The real `POST /documents` + `/analyze` path: `Analysis` rows, 2026-09-21 to 24 | 5 | 31,772 / 5,426 | 0.1178 | 0.0236 |
+| `scripts/benchmark.js`, fixtures 01–04 × 3, 2026-09-21 (`scripts/benchmark-history.jsonl`) | 12 | 57,279 / 9,261 | 0.2072 | 0.0173 |
+| `scripts/benchmark.js`, fixtures 01–04 and 09 × 3, 2026-09-28 | 15 | 71,379 / 14,662 | 0.2894 | 0.0193 |
+
+**Budget by length, not by the mean.** The cheapest was the clean contract (fixture 03, no findings): USD 0.0107. The dearest was a 3,886-word document near the 4,000-word cap: USD 0.0480, on **12,679 input tokens, almost twice the 6,600 that SRS §5.4 estimated** for a document at the cap. Plan on about five cents for a full-length contract. This is the gap PRD §10.1's rule exists for.
+
+All of it is synthetic contracts during development. There has been no real usage yet; the closed beta (PRD §15) is the first real sample, and this section is to be re-measured from it.
 
 **Why this model.** The project started on `claude-haiku-4-5` (USD 0.0111 per analysis) because BUILD-PLAN D-F says to begin at the cheapest candidate and let the benchmark promote upward. The benchmark then did exactly that. Measured over three repeats of all four fixtures per condition, Haiku derived the wrong `overallRisk` on 3.33 of 4 documents with one document flapping between runs, while Sonnet 5 scored 4 of 4 with no variation — a fault two prompt revisions had failed to fix. Sonnet is also *faster* here (10.1s mean against 13.0s), because Haiku's noisier finding lists cost more output tokens than Sonnet's reasoning costs. Raising `output_config.effort` to `high` was tested and rejected: it bought precision but broke the "fixture 03 returns exactly zero findings" gate in one run of three, made risk correctness worse, and took 40.5s on a short contract against a 60s timeout. Full numbers in `docs/phase-1-dod.md` §8.
 
-Every PRD §11.1 accuracy gate passes at this configuration — recall 100%, precision 100%, the clean-contract fixture clean on both halves across 12 runs, per-document risk correct on all four. Two caveats. The sample is four synthetic fixtures. And roughly 1 analysis in 12 still needs the FR-3.2 retry because the model omits the `summary` field; it is retried once and has always succeeded, but the durable fix is to constrain the response with `output_config.format` rather than to ask for it in prose. See `docs/phase-1-dod.md` §8.
+**The accuracy gates are not all passing.** On 2026-09-21 every PRD §11.1 gate passed at this configuration: recall 100%, precision 100%, the clean-contract fixture clean on both halves, per-document risk correct on all four. On 2026-09-28, with the prompt, the model and fixtures 01–04 byte-identical, **precision was 66.7% in the worst of three repeats** (the model flagged fixture 04's fair 50%-deposit clause once), under the 85% that blocks a release. It was not re-run until it passed; `docs/phase-1-dod.md` §8 records the run and the two ways forward, which are the owner's call. Separately, 2 of 24 analyses in §8's v6 measurement needed the FR-3.2 retry because the model omitted the `summary` field; it was retried once and succeeded, and the durable fix is to constrain the response with `output_config.format` rather than to ask for it in prose.
 
 ## What I learned
 
@@ -125,7 +133,13 @@ Every PRD §11.1 accuracy gate passes at this configuration — recall 100%, pre
      analysis, real failure rate, real hallucination-catch rate (how
      often the verifier actually discards something). -->
 
-Not yet — there's no real usage to learn from. This section gets filled in once real traffic (or at least a real run of the fixture corpus against the real provider) gives the instrumentation something to report.
+From the instrumentation, on every analysis that has reached the real provider so far: 29 through the API path (`Analysis` rows; 16 on `claude-haiku-4-5` while the model was being chosen, 13 on `claude-sonnet-5`, 5 of them on the shipping prompt) and 27 through the benchmark. **No real user has run one yet**, so these are development numbers on synthetic contracts, with their sample sizes; the closed beta replaces them.
+
+- **Cost:** USD 0.0192 per analysis on the shipping configuration, from USD 0.0107 for a short clean contract to USD 0.0480 near the length cap (above). Measured input tokens at the cap ran to nearly twice the specification's estimate.
+- **Failure rate:** **0 of 29** analyses through the API path failed. Zero in 29 is consistent with a true rate as high as about 10% (the rule of three), so it shows the pipeline works, not that it meets PRD §11.2's "< 2% end in a user-visible error". The benchmark cannot add to it: it stops at the first failure and writes no history row, so its 27 completed analyses are survivors by construction.
+- **Hallucination-catch rate:** the verifier discarded **1 of 137** findings the model reported (0.7%), in 1 of 29 analyses: the long document near the cap, where 1 of its 4 quotes was not in the contract. On the shipping configuration that is 1 of 19 through the API path, and 0 in the benchmark's 27 analyses. No discarded finding was ever shown to anyone. Whether that one quote was a paraphrase of a real clause or an invention is not recorded: only the count is, because the discarded text could be document content.
+
+One thing these numbers needed that the instrumentation did not give them: **the `Analysis` rows' status had been overwritten.** All 29 read `FAILED / STALE_ANALYSIS`, with tokens, durations and findings intact. A mutation test of the stale-analysis reaper on 2026-09-24 (its `status: "PENDING"` condition removed, to prove a test would catch it) was picked up by a development server watching the same files, which then reaped every analysis in the development database. Each row's original outcome was recovered from what only a completed analysis has (`summary` and `overallRisk` set): all 29 had completed. The lesson is about the method, not the reaper: mutation tests now run in an isolated copy of the tree, never where a watching process can load them.
 
 ## Specifications
 

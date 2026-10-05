@@ -143,6 +143,10 @@ const envSchema = z
     // sentences, so a rehearsal's report has findings that really pass
     // verification. Mock only, like the delay.
     MOCK_LLM_FINDINGS: z.enum(["none", "quote-document"]).optional(),
+    // Step 75: the provider-outage drill. While this file exists, every
+    // unscripted mock call fails with the HTTP status it contains (default
+    // 529). Mock only, like the two above.
+    MOCK_LLM_OUTAGE_FILE: z.string().min(1).optional(),
     LLM_TIMEOUT_MS: positiveInt(60_000),
     LLM_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
     // Required since step 46. FR-5.3's estimate is computed from these, so
@@ -365,6 +369,14 @@ const envSchema = z
         message:
           'must not be "mock" in production mode (staging or production): it serves a canned ' +
           "analysis that no model wrote, as if it were real (SRS §2.3)",
+      });
+    }
+    if (env.MOCK_LLM_OUTAGE_FILE !== undefined && env.LLM_PROVIDER !== "mock") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["MOCK_LLM_OUTAGE_FILE"],
+        message:
+          "only applies to LLM_PROVIDER=mock; it would do nothing here, which is a misconfiguration",
       });
     }
     if (env.MOCK_LLM_FINDINGS !== undefined && env.LLM_PROVIDER !== "mock") {

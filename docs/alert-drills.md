@@ -9,7 +9,7 @@ The record PRD §9's Phase 1.5 definition of done asks for: every alert in SRS A
 | Every alert defined as code, with severity, destination, owner and runbook | **Done** |
 | Every alert's rule tested — fires when it should, and does not when it shouldn't | **Done**: 18 rules, 49 promtool cases, 58 assertions |
 | Every alert observed arriving at its destination | **Done**, against a real Alertmanager on this machine |
-| One incident produces one notification, not a storm | **Done** |
+| One incident produces one notification, not a storm | **Was wrong; corrected in step 75.** Drilled here by posting the alerts all at once, which is not how an outage delivers them. End to end, a five-minute provider outage paged twice. Fixed and drilled again end to end: [phase-1.5-dod.md](phase-1.5-dod.md) §3 |
 | The two structurally-impossible alerts forced and observed | **Done**, end to end through real HTTP requests |
 | Any of the above repeated **in staging** | **Not done**: there is no staging |
 | A real pager waking a real person | **Not done**: no paging provider chosen |
@@ -60,6 +60,14 @@ Every threshold is pinned from **both** sides: a case just over the line that fi
 PRD §9's DoD item 3: a simulated five-minute provider outage must produce **one** alert, not a pager storm. Such an outage sets off four rules at once — the breaker opens, analyses start failing, the 5xx rate climbs because analyze answers 503, and latency follows.
 
 Drilled: all four fired together, and **one** notification was delivered, naming `circuit_open` and nothing else. The other three were suppressed entirely, so there was no second page and nothing to read past in the morning either.
+
+**Correction, 2026-10-05 (step 75): this proved the configuration, not the outage.** Posting all four at once skipped the one thing an outage controls, which is when each alert starts firing. In a real outage they do not start together:
+
+- `analysis_failure_rate` and `api_5xx_rate` fire within two minutes;
+- `circuit_open` waits five, by Appendix C's own condition;
+- Alertmanager inhibits only while the source is firing, so the two symptoms had paged long before their inhibitor existed.
+
+The end-to-end drill (`ops/drills/provider-outage`) measured it on the committed configuration: **two pages, 25 seconds apart**, and `circuit_open` never fired in a five-minute outage. The fix is not a timing tweak. It is a change of ownership: `api_5xx_rate` no longer counts failed analyses, which `analysis_failure_rate` already pages on. What was measured after the fix is in [phase-1.5-dod.md](phase-1.5-dod.md) §3. The same caution applies to the three suppressions below, which are drilled by posting their alerts together too.
 
 Three other suppressions are drilled the same way:
 

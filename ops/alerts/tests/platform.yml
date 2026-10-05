@@ -33,6 +33,58 @@ tests:
           - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
 
   - interval: 1m
+    name: failed analyses are analysis_failure_rate's, so a provider outage does not page the platform
+    # Step 75's drill: every analyze 503 LLM_UNAVAILABLE is also a failed
+    # analysis, which analysis_failure_rate pages on. Counted here as well,
+    # the outage paged twice. 2 in 22 requests is 9%, far over 2%, and all of
+    # it is failed analyses.
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents/:id/analyze",method="POST",status="503"}'
+        values: "0+2x30"
+      - series: 'analysis_total{outcome="failed",error_code="LLM_UNAVAILABLE"}'
+        values: "0+2x30"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="200"}'
+        values: "0+20x30"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: api_5xx_rate
+        exp_alerts: []
+
+  - interval: 1m
+    name: a platform failure beside a provider outage still pages
+    # The subtraction removes the failed analyses and nothing else: reads
+    # failing at 3 in 100 alongside them is the platform's own problem.
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents/:id/analyze",method="POST",status="503"}'
+        values: "0+2x30"
+      - series: 'analysis_total{outcome="failed",error_code="LLM_UNAVAILABLE"}'
+        values: "0+2x30"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="500"}'
+        values: "0+3x30"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="200"}'
+        values: "0+95x30"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: api_5xx_rate
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
+
+  - interval: 1m
+    name: the analyze route failing before an analysis exists still pages
+    # 503 SERVER_BUSY is the analysis limiter failing closed, which means
+    # Redis is down. No analysis was created, so nothing is subtracted.
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents/:id/analyze",method="POST",status="503"}'
+        values: "0+2x30"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="200"}'
+        values: "0+20x30"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: api_5xx_rate
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
+
+  - interval: 1m
     name: a 4xx rate is not a 5xx rate, however high
     # Deliberate refusals — a wrong password, an over-quota analyze, a file
     # that is not a PDF — are the system working. Paging on them would page

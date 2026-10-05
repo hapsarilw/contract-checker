@@ -83,6 +83,10 @@ groups:
     interval: 1m
     rules:
       - alert: circuit_open
+        # llm_circuit_state is 1 while the breaker is TRIPPED, half-open
+        # included (circuitBreaker.js). Read as closed between open periods,
+        # it dropped to 0 once a minute through a sustained outage, which
+        # restarted this `for:` every time (step 75).
         expr: max(llm_circuit_state) == 1
         for: 5m
         labels:
@@ -138,8 +142,31 @@ groups:
     interval: 1m
     rules:
       - alert: api_5xx_rate
+        # ONE FAILURE, ONE OWNER. A failed analysis is answered 5xx (503
+        # LLM_UNAVAILABLE, 504 LLM_TIMEOUT, 502 LLM_INVALID_OUTPUT and
+        # ALL_FINDINGS_DISCARDED, 500 INTERNAL: every code services/analysis.js
+        # can end one with) AND counted in analysis_total{outcome="failed"},
+        # which analysis_failure_rate pages on. Counting it here as well paged
+        # twice for one incident. Step 75's outage drill measured it: with the
+        # rule as first written, a provider outage paged analysis_failure_rate
+        # (provider) two minutes in and this one (platform) 25 seconds later.
+        # The inhibition by circuit_open that was meant to prevent that cannot:
+        # inhibition applies only once its source is FIRING, and circuit_open
+        # waits five minutes by Appendix C's own condition; in a five-minute
+        # outage it never fired at all.
+        #
+        # So the failed analyses are subtracted, and this alert is about what
+        # no other alert owns: reads, sign-in, uploads, and the analyze route
+        # failing BEFORE an analysis exists (the limiter failing closed, the
+        # database). That is a reading of Appendix C's "> 2% of requests", not
+        # a change to its threshold or window. `or vector(0)` because an
+        # instance that has never failed an analysis has no such series, and
+        # a subtraction against nothing is nothing.
         expr: >-
-          sum(rate(http_request_duration_seconds_count{status=~"5.."}[10m]))
+          (
+            sum(rate(http_request_duration_seconds_count{status=~"5.."}[10m]))
+            - (sum(rate(analysis_total{outcome="failed"}[10m])) or vector(0))
+          )
           / sum(rate(http_request_duration_seconds_count[10m])) > 0.02
         for: 0s
         labels:
@@ -148,11 +175,12 @@ groups:
           owner: maintainer
           domain: platform
         annotations:
-          summary: More than 2% of requests are answered 5xx
+          summary: More than 2% of requests are answered 5xx, failed analyses aside
           description: >-
-            Over the last 10 minutes more than 2% of requests failed with a server error. A
-            provider outage raises this too, because analyze answers 503 — Alertmanager
-            suppresses this one while circuit_open is firing, so a provider outage pages once.
+            Over the last 10 minutes more than 2% of requests failed with a server error that
+            is not a failed analysis (analysis_failure_rate pages on those, with the error
+            code). So this is the platform: reads, sign-in, uploads, or the analyze route
+            failing before an analysis was created.
           runbook: analysis-failure-rate-high
           runbook_url: docs/runbooks/analysis-failure-rate-high.md
       - alert: readiness_failing

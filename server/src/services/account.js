@@ -1,4 +1,6 @@
 import prisma from "../lib/prisma.js";
+import { getRedis, keysNamingAccount } from "../lib/redis.js";
+import logger from "../observability/logger.js";
 import { sendEmail } from "../lib/email.js";
 import { subjectHash } from "../lib/audit.js";
 import { assertCurrentPassword } from "./accountChanges.js";
@@ -122,7 +124,36 @@ export async function eraseAccount(user) {
     await tx.user.delete({ where: { id: userId } });
   });
 
+  await forgetAccountKeys(user);
   return { email: user.email };
+}
+
+/**
+ * The account's counters in Redis, removed with it. They are named by the
+ * user id or the address (quota:month:<id>:<period> is kept 62 days, past
+ * the 30 days the privacy policy gives backups; rl:forgot-email:email:<address>
+ * holds the address itself), so "deleted" would otherwise leave a trail
+ * keyed to the person. Found by step 75's erasure check, which looks.
+ *
+ * After the transaction and never part of it: Redis cannot roll back with
+ * Postgres, and the deletion that matters has committed. Best effort and
+ * logged, because a Redis outage must not turn a completed deletion into a
+ * 500; every one of these keys expires on its own.
+ *
+ * @param {{ id: string, email: string }} user
+ */
+async function forgetAccountKeys(user) {
+  try {
+    // By id, and by the address as a whole address: "ann@x.co" must not
+    // reset "joann@x.co"'s counter (lib/wholeAddress.js).
+    const keys = await keysNamingAccount(user);
+    if (keys.length > 0) await getRedis().del(...keys);
+  } catch (err) {
+    logger.warn(
+      { err: { message: err instanceof Error ? err.message : String(err) } },
+      "erasure: the account's Redis counters could not be removed; they expire on their own",
+    );
+  }
 }
 
 /**

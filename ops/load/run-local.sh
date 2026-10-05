@@ -74,6 +74,12 @@ docker build -q --build-arg GIT_SHA="$(git rev-parse --short HEAD)" -t "clausech
 "${COMPOSE[@]}" up -d proxy >/dev/null 2>&1
 for _ in $(seq 1 30); do curl -fs "$BASE/api/ready" >/dev/null && break; sleep 1; done
 
+# A laptop that sleeps mid-run stops every clock the run reads (step 75's
+# drill: idle sleep 2.4 minutes into a 5-minute outage). caffeinate holds
+# the machine awake while a scenario runs, where there is one (macOS). It
+# cannot keep a battery from running out.
+awake() { if command -v caffeinate >/dev/null; then caffeinate -i "$@"; else "$@"; fi; }
+
 # Plain arrays: macOS ships bash 3.2, which has no associative ones.
 SUMMARY=()
 FAILED=0
@@ -85,7 +91,7 @@ load() { # load <scenario> <accounts> [extra flags...]
   local run="$scenario-$STAMP"
   ops load-accounts --run "$run" --count "$count" --out "$RESULTS/$run.sessions.json" >/dev/null
   set +e
-  node ops/load/load.mjs "$scenario" --base-url "$BASE" --sessions "$RESULTS/$run.sessions.json" \
+  awake node ops/load/load.mjs "$scenario" --base-url "$BASE" --sessions "$RESULTS/$run.sessions.json" \
     --compose "$COMPOSE_FILE" --metrics-token "$METRICS_TOKEN" --per-account-address \
     --out "$RESULTS/$scenario.json" "$@" 2>&1 | tee "$RESULTS/$scenario.log"
   local code=${PIPESTATUS[0]}

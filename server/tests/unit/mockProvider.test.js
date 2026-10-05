@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { MockLlmProvider } from "../../src/services/llm/mockProvider.js";
+import { APIError } from "@anthropic-ai/sdk";
+import {
+  MAX_RECORDED_CALLS,
+  MockLlmProvider,
+} from "../../src/services/llm/mockProvider.js";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { normalizeForMatch, verifyFindings } from "../../src/services/verify.js";
+import { deriveOverallRisk } from "../../src/services/risk.js";
 import {
   APIUserAbortError,
   RateLimitError,
@@ -211,6 +219,18 @@ describe("MockLlmProvider — quote-document findings (MOCK_LLM_FINDINGS, step 7
     expect(verified).toHaveLength(3);
   });
 
+  it("claims the overall risk its own findings derive to, so no analysis is a risk drift (step 75)", async () => {
+    const provider = new MockLlmProvider({ defaultFindings: "quote-document" });
+    for (const text of [DOC, "Short line.\n\nAnother short one."]) {
+      const { overall_risk, findings } = JSON.parse(
+        (await provider.analyze({ documentText: text })).rawText,
+      );
+      expect(overall_risk.toUpperCase(), text.slice(0, 20)).toBe(
+        deriveOverallRisk(findings),
+      );
+    }
+  });
+
   it("is deterministic for the same document", async () => {
     const provider = new MockLlmProvider({ defaultFindings: "quote-document" });
     const a = (await provider.analyze({ documentText: DOC })).rawText;
@@ -229,5 +249,71 @@ describe("MockLlmProvider — quote-document findings (MOCK_LLM_FINDINGS, step 7
     expect(
       JSON.parse((await provider.analyze({ documentText: DOC })).rawText).findings,
     ).toEqual([]);
+  });
+});
+
+describe("MockLlmProvider — bounded call log (step 75)", () => {
+  it("remembers only the last MAX_RECORDED_CALLS calls, so a long run cannot leak documents", async () => {
+    const provider = new MockLlmProvider();
+    for (let i = 0; i < MAX_RECORDED_CALLS + 25; i += 1) {
+      await provider.analyze({ documentText: `document ${i}`, requestId: String(i) });
+    }
+    expect(provider.calls).toHaveLength(MAX_RECORDED_CALLS);
+    expect(provider.calls.at(-1)?.requestId).toBe(String(MAX_RECORDED_CALLS + 24));
+    expect(provider.calls[0].requestId).toBe("25");
+  });
+});
+
+describe("MockLlmProvider — the outage file (MOCK_LLM_OUTAGE_FILE, step 75)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "mock-outage-"));
+  const file = join(dir, "outage");
+
+  it("fails every unscripted call with 529 while the file exists, and recovers when it is gone", async () => {
+    const provider = new MockLlmProvider({ outageFile: file });
+    await expect(provider.analyze({})).resolves.toMatchObject({
+      rawText: expect.any(String),
+    });
+    writeFileSync(file, "");
+    await expect(provider.analyze({})).rejects.toMatchObject({ status: 529 });
+    rmSync(file);
+    await expect(provider.analyze({})).resolves.toMatchObject({
+      rawText: expect.any(String),
+    });
+  });
+
+  it("fails with the status the file names", async () => {
+    writeFileSync(file, "503\n");
+    try {
+      await expect(
+        new MockLlmProvider({ outageFile: file }).analyze({}),
+      ).rejects.toMatchObject({ status: 503 });
+    } finally {
+      rmSync(file);
+    }
+  });
+
+  it("is an SDK APIError, so the retry layer and the breaker treat it as the real thing", async () => {
+    writeFileSync(file, "");
+    try {
+      const err = await new MockLlmProvider({ outageFile: file })
+        .analyze({})
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(APIError);
+    } finally {
+      rmSync(file);
+    }
+  });
+
+  it("leaves a scripted response alone: tests decide their own outcomes", async () => {
+    writeFileSync(file, "");
+    try {
+      const provider = new MockLlmProvider({ outageFile: file });
+      provider.scriptValidResponse();
+      await expect(provider.analyze({})).resolves.toMatchObject({
+        rawText: expect.any(String),
+      });
+    } finally {
+      rmSync(file);
+    }
   });
 });
