@@ -42,11 +42,20 @@ import {
   stopBackupVerifyJob,
 } from "./jobs/backupVerify.js";
 import { startTracing } from "./observability/tracing.js";
+import { startErrorTracking, stopErrorTracking } from "./observability/errorTracker.js";
 
 // §6.6's traces. A no-op without OTEL_EXPORTER_OTLP_ENDPOINT.
 const stopTracing = startTracing({
   endpoint: config.OTEL_EXPORTER_OTLP_ENDPOINT,
   version: config.GIT_SHA,
+});
+
+// Step 74: error tracking, off without SENTRY_DSN. Scrubbed at source and
+// again on the way out; see observability/errorTracker.js.
+startErrorTracking({
+  dsn: config.SENTRY_DSN,
+  environment: config.DEPLOY_ENV ?? config.NODE_ENV,
+  release: config.GIT_SHA,
 });
 
 const server = app.listen(config.PORT, () => {
@@ -120,7 +129,13 @@ attachGracefulShutdown({
     await flushEmails();
     // Spans still buffered in the batch processor, including the ones for
     // the requests the drain just let finish.
-    await Promise.allSettled([prisma.$disconnect(), closeRedis(), stopTracing()]);
+    await Promise.allSettled([
+      prisma.$disconnect(),
+      closeRedis(),
+      stopTracing(),
+      // Error reports still queued, including any from the drained requests.
+      stopErrorTracking(),
+    ]);
   },
 });
 

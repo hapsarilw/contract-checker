@@ -324,11 +324,34 @@ function logScrapeFailure(metric, err) {
  * A request that never reached a route (a 404, or one refused by the CSRF
  * guard or a limiter before routing) is "unmatched".
  *
+ * AFTER A ROUTER HAS BEEN LEFT, Express has reset req.baseUrl to "", while
+ * req.route still holds the matched route. That is the state the app-level
+ * error handler sees, and the state "finish" sees for any request that
+ * failed through it: until step 74 every such request was labelled "/" (a
+ * 500 on POST /api/v1/documents counted as POST /), found by the error
+ * tracker's test. So when baseUrl is empty, the mount point is recovered
+ * from the request's own path, minus as many trailing segments as the
+ * route pattern has. Every route here is a plain pattern (no wildcards or
+ * optional segments), for which that is exact.
+ *
  * @param {import("express").Request} req
  */
 export function routeLabel(req) {
   if (!req.route) return "unmatched";
-  const path = `${req.baseUrl}${req.route.path === "/" ? "" : req.route.path}`;
+  const routePath = req.route.path === "/" ? "" : req.route.path;
+  let base = req.baseUrl;
+  if (!base && typeof req.route.path === "string") {
+    const segments = String(req.originalUrl ?? req.url ?? "")
+      .split("?")[0]
+      .split("/")
+      .filter(Boolean);
+    const routeSegments = routePath.split("/").filter(Boolean).length;
+    base =
+      segments.length > routeSegments
+        ? `/${segments.slice(0, segments.length - routeSegments).join("/")}`
+        : "";
+  }
+  const path = `${base}${routePath}`;
   return path === "" ? "/" : path;
 }
 

@@ -40,3 +40,24 @@ One file per incident an operator may have to handle (SRS §12.3). Each opens wi
 - analyze attempts refused by an open circuit breaker still consume the user's monthly quota — **not changed: a product decision**, recorded in [provider-outage](provider-outage.md).
 
 The staging walkthrough is still owed for all sixteen.
+
+## If personal data was exposed: the 72-hour clocks
+
+This applies to every runbook here, not to one of them. If an incident means personal data may have reached someone it should not have, two legal clocks start **when you find out**, whatever the technical cause:
+
+- someone else's document was served to another account ([fabricated-excerpt-reported](fabricated-excerpt-reported.md), Part B: `cross_user_access`);
+- a secret that guards data leaked ([secret-rotation](secret-rotation.md));
+- a backup or an export went where it should not.
+
+| Law | Who must be told | By when |
+|---|---|---|
+| UU PDP, Art. 46(1) | **the people affected, and the authority** (the "lembaga"), in writing | **3 × 24 hours** |
+| GDPR / UK GDPR, Art. 33 | the supervisory authority (the ICO, for the UK) | 72 hours |
+| GDPR / UK GDPR, Art. 34 | the people affected, where the risk to them is high | without undue delay |
+
+The privacy policy promises the strictest version: **affected users and the authority, in writing, within 72 hours**.
+- Write down when you found out; that is when the clock started.
+- Contain the incident first: rotate, suspend, take the route down.
+- Then notify, even if the investigation is not finished. A notification can be followed by a fuller one.
+
+The sources are in [docs/legal/verification.md](../legal/verification.md). **Who exactly the authority is and how to reach it is still for counsel to confirm before launch**, for each of the three laws.

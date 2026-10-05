@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { apiFetch, ApiError } from "../api/client.js";
 import { checkFileBeforeUpload, resolveServerUploadError } from "./uploadErrors.js";
 import AnalyzingPanel from "./AnalyzingPanel.jsx";
@@ -352,8 +352,12 @@ export default function UploadPage() {
             <div className="cc-upload-card__fact">
               <dt className="cc-upload-card__fact-term">What happens to your file</dt>
               <dd className="cc-upload-card__fact-body">
-                It is read once to produce the report, then kept for up to 90 days so you
-                can open it again. Delete it any time and it is gone for good.
+                Its text goes to our AI provider to produce the report. The provider may
+                not train on it and deletes it within 30 days. We keep it for up to 90
+                days so you can open the report again. Delete it any time: it is gone from
+                ClauseCheck at once, and from our backups within 30 days. Details in the{" "}
+                <Link to="/privacy">privacy policy</Link> and the{" "}
+                <Link to="/terms">terms of service</Link>.
               </dd>
             </div>
             <div className="cc-upload-card__fact">

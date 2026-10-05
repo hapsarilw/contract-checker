@@ -107,6 +107,26 @@ const SCREENS = [
       ).toBeVisible();
     },
   },
+  // Step 74: the legal surface, public and held to the same audit. Long
+  // text and wide tables are exactly where 320 px reflow breaks.
+  ...[
+    ["privacy", "Privacy policy"],
+    ["terms", "Terms of service"],
+    ["subprocessors", "Subprocessors"],
+  ].map(
+    ([slug, title]) =>
+      /** @type {Screen} */ ({
+        name: slug,
+        signedIn: false,
+        appChrome: false,
+        open: async (page) => {
+          await page.goto(`/${slug}`);
+          await expect(
+            page.getByRole("heading", { level: 1, name: title }),
+          ).toBeVisible();
+        },
+      }),
+  ),
 ];
 
 /** @param {import("@playwright/test").Page} page */

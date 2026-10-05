@@ -1,6 +1,8 @@
 import { AppError } from "../lib/AppError.js";
 import { ERROR_CODES, DEFAULT_RETRY_AFTER_SECONDS } from "../lib/errorCodes.js";
 import logger from "../observability/logger.js";
+import { reportError } from "../observability/errorTracker.js";
+import { routeLabel } from "../observability/metrics.js";
 import { getRequestId } from "./requestId.js";
 
 /**
@@ -24,6 +26,14 @@ export function errorHandler(err, req, res, next) {
   const logPayload = { err, code, status, requestId };
   if (status >= 500) {
     logger.error(logPayload, "request failed");
+    // Step 74: to the error tracker, with the route PATTERN and nothing else
+    // about the request (observability/errorTracker.js says why).
+    reportError(err, {
+      method: req.method,
+      route: routeLabel(req),
+      path: (req.originalUrl ?? req.url ?? "").split("?")[0],
+      requestId,
+    });
   } else {
     // Expected failures (validation, auth, quota, ...) are noise at error
     // level — SRS §6.5 reserves `error` for failures needing a human.

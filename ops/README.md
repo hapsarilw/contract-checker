@@ -103,3 +103,20 @@ The first needs Docker (promtool comes from the Prometheus image); the second ru
   - `sum(db_pool_in_use)` is for context;
   - Postgres's own connection count comes from the provider's dashboard.
 - **Swap.** Check that the platform gives the service no swap. If it does, "did not OOM" proves nothing (docs/load-test-results.md explains how this was found).
+
+## Error tracking (step 74)
+
+Sentry, through `server/src/observability/errorTracker.js`, and off unless `SENTRY_DSN` is set. **It is built so that a document's text cannot reach it**, because PRD §14.3 treats that as a Severity 1. There are four layers, and any one of them would be enough on its own:
+
+1. **No automatic collection.** Sentry's default integrations are off, including the HTTP and AI instrumentations that record bodies and prompts. So is its own OpenTelemetry setup and its load-time patching of modules.
+2. **`dataCollection` collects nothing**, set field by field: bodies, headers, cookies, query strings, user info, database query data, AI inputs and outputs, and the values of local variables in stack frames.
+3. **`beforeSend` cleans every event again**: request data, extra data, user data, frame variables and breadcrumb contents are removed.
+4. **On `/api/v1/documents*` and `/api/v1/account*`, the exception message is withheld too.** A Prisma validation error, for one, prints the data it rejected, and a Document's data is its text. The type and the stack trace are kept.
+
+Only 5xx errors are reported; a 4xx is the client's business. Each report carries the method, the route pattern and the request id, nothing else about the request.
+
+**For the owner: SRS §6.5 is out of date.** It specifies `sendDefaultPii: false`. Sentry 11 removed that option. Its replacement, `dataCollection`, **collects everything by default**, including HTTP bodies in both directions and the values of local variables. Someone following the SRS literally on the current SDK would remove the option to make the type check pass, and in doing so turn on all of that collection. The SRS should say "collect nothing" in the current SDK's terms.
+
+**The proof** is `server/tests/integration/errorTracking.test.js`. It runs the real SDK, initialised the way the server does, against a recording transport, and fails an upload with a 500 whose message quotes the document. It then requires that the document's text, the query string and the session cookie appear **nowhere** in what would have been sent.
+
+**Before pointing it at production**, choose the Sentry data region (US or EU) and add it to the subprocessor list (`client/src/legal/content.js`). Set the DSN in each environment's secret store; the rotation schedule is in [docs/runbooks/secret-rotation.md](../docs/runbooks/secret-rotation.md).

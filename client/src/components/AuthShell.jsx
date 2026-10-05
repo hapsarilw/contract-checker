@@ -1,5 +1,6 @@
 import Card from "./Card.jsx";
 import SkipLink from "./SkipLink.jsx";
+import SiteFooter from "./SiteFooter.jsx";
 import "./AuthShell.css";
 
 /**
@@ -49,6 +50,7 @@ export default function AuthShell({ children }) {
           </Card>
         </main>
       </div>
+      <SiteFooter />
     </div>
   );
 }

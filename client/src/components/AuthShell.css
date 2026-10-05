@@ -13,6 +13,8 @@
 .cc-auth-page {
   min-height: 100dvh;
   display: flex;
+  /* A column since step 74: the frame, then the legal footer under it. */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: var(--cc-space-7) var(--cc-space-5);

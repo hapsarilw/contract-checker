@@ -90,11 +90,42 @@ Record: the time you arrived, the time you decided to restore, the backup used a
 
 ---
 
+## The timed drill (`scripts/restore-drill.sh`)
+
+The rehearsal NFR-3.6 asks for every 6 months, as one command. It takes a synthetic database at a production-like volume, backs it up with `pg_dump -Fc`, and then runs the RTO clock:
+1. provision a new Postgres;
+2. `pg_restore`;
+3. verify every table's row count, plus a checksum of every document's text and every finding's excerpt against the original, plus Prisma's migration status;
+4. start the API on the restored database and wait for `/api/ready` 200.
+
+It prints each step's time. Removing a single row after the restore makes it fail (verified).
+
+**The volume, and why.** The default is a pessimistic projection of year one:
+- **5,000 accounts**;
+- **20,000 documents** in the 90-day window (four per account), each **24 KB**, which is about the 4,000-word cap and so the worst case rather than the average;
+- one analysis and **six findings** per document;
+- **250,000 audit events** (13 months' retention).
+
+The text is random hex, so Postgres cannot compress it the way it would compress a repeated phrase. Smaller runs: `DRILL_DOCS=2000 scripts/restore-drill.sh`.
+
+**What the clock covers, and what it does not.** NFR-3.6's 4 hours run from the decision to restore to the service being back:
+
+| Part of the RTO | Measured where | Time |
+|---|---|---|
+| Notice, and decide to restore | not measurable in a drill: the alert (`backup_verify_failed`, `api_5xx_rate`) plus a person | owed to the real incident |
+| The provider's own restore or PITR into a new instance | **not measured: no provider chosen** | owed to staging |
+| Provision, restore, verify, API up | **2026-10-05, locally: 18.6 s at 695 MB** | below |
+| Point production at the new database and roll the instances | step 71's rolling restart: about 45 s for two instances | measured |
+
+Even if the managed provider's restore takes a hundred times longer than a local `pg_restore`, the budget holds. The part to measure for real is the provider's, and only staging can measure it.
+
 ## Walkthrough log
 
 | Date | Where | What was exercised | Result |
 |---|---|---|---|
 | 2026-09-28 | isolated local rehearsal stack (not staging) | Step 8: a backup taken, then an account deleted through self-serve deletion, then the backup restored into a new database — the account was back. `restore-deletions` against it. | **Found:** there was no way to do step 8 at all — "re-run the deletions" named events that are not in the restore and hold only hashes — so `restore-deletions` was written. **Its first run reported "0 deleted" and was wrong:** it passed a local-time instant to a zoneless UTC column, which on a UTC+8 machine moved "since" eight hours ahead; a UTC server would never have shown it. Fixed, and the server's tests now run in a non-UTC zone so it cannot come back unseen. Second run: exactly the deleted account listed, the account that never left not listed; `erase` removed it. |
 | 2026-09-28 | isolated local rehearsal stack (not staging) | Steps 3 to 6 against a real Postgres: `pg_dump -Fc` of the rehearsal database, a new Postgres, `pg_restore --no-owner --exit-on-error`, row counts on both sides, `prisma migrate status`, the app restarted against the restored database, a sign-in, history and a report read from it. | Restore exit 0; row counts identical on all five tables checked; "Database schema is up to date!"; `/api/ready` 200; the existing user signed in and read a completed report. **Elapsed 5 seconds — which says nothing about the 4-hour RTO:** the database was 21 KB. What this proves is the procedure, not the time. |
+
+| 2026-10-05 | isolated local containers (not staging, not a managed provider) | `scripts/restore-drill.sh` at the projected year-one volume (above): 5,000 accounts, 20,000 documents, 120,000 findings, 250,000 audit events; synthetic database **695 MB**, dump **300 MB** (backup 16.6 s). | **RTO clock 18.6 s against 4 h**: provision 1.7 s, `pg_restore` 12.9 s, verify 2.4 s (every count and both checksums identical; "Database schema is up to date!"), API ready 1.4 s. The drill's own check was proven able to fail: one finding deleted after the restore, and it stopped with exit 1, the count 1200 → 1199 and the checksum changed. One defect in the drill found and fixed before this run: `UNION ALL` gives no order guarantee, so the two sides are now sorted before comparing. |
 
 **Staging walkthrough: not yet done**, and this is the one that matters most. PRD §9's Phase 1.5 DoD item 2 requires a restore **from the managed provider's backup**, at a production-like size, **timed against the RTO**. That needs the hosting decision (none made) and staging (BUILD-PLAN step 71).

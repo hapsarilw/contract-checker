@@ -9,6 +9,10 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
+import LegalPage from "./pages/LegalPage.jsx";
+import SiteFooter from "./components/SiteFooter.jsx";
+import FocusOnNavigate from "./components/FocusOnNavigate.jsx";
+import { LEGAL_DOCUMENTS } from "./legal/content.js";
 import { RequireAuth } from "./auth/RequireAuth.jsx";
 import AppHeader from "./components/AppHeader.jsx";
 import SkipLink from "./components/SkipLink.jsx";
@@ -49,101 +53,118 @@ function Protected({ children }) {
       <SkipLink />
       <AppHeader />
       {children}
+      <SiteFooter />
     </RequireAuth>
   );
 }
 
 export default function App() {
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          <ErrorBoundary>
-            <LoginPage />
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <ErrorBoundary>
-            <RegisterPage />
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="/verify-email"
-        element={
-          <ErrorBoundary>
-            <VerifyEmailPage />
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="/forgot-password"
-        element={
-          <ErrorBoundary>
-            <ForgotPasswordPage />
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="/reset-password"
-        element={
-          <ErrorBoundary>
-            <ResetPasswordPage />
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="/"
-        element={
-          <ErrorBoundary>
-            <Protected>
-              <UploadPage />
-            </Protected>
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="/documents"
-        element={
-          <ErrorBoundary>
-            <Protected>
-              <HistoryPage />
-            </Protected>
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="/documents/:id"
-        element={
-          <ErrorBoundary>
-            <Protected>
-              <ReportPage />
-            </Protected>
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ErrorBoundary>
-            <Protected>
-              <SettingsPage />
-            </Protected>
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        path="*"
-        element={
-          <ErrorBoundary>
-            <NotFoundPage />
-          </ErrorBoundary>
-        }
-      />
-    </Routes>
+    <>
+      <FocusOnNavigate />
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <ErrorBoundary>
+              <LoginPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <ErrorBoundary>
+              <RegisterPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/verify-email"
+          element={
+            <ErrorBoundary>
+              <VerifyEmailPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <ErrorBoundary>
+              <ForgotPasswordPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <ErrorBoundary>
+              <ResetPasswordPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <ErrorBoundary>
+              <Protected>
+                <UploadPage />
+              </Protected>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/documents"
+          element={
+            <ErrorBoundary>
+              <Protected>
+                <HistoryPage />
+              </Protected>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/documents/:id"
+          element={
+            <ErrorBoundary>
+              <Protected>
+                <ReportPage />
+              </Protected>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ErrorBoundary>
+              <Protected>
+                <SettingsPage />
+              </Protected>
+            </ErrorBoundary>
+          }
+        />
+        {/* Step 74: the legal surface. Public, so a visitor can read it
+          before signing up; no RequireAuth, no app chrome. */}
+        {Object.values(LEGAL_DOCUMENTS).map((doc) => (
+          <Route
+            key={doc.slug}
+            path={`/${doc.slug}`}
+            element={
+              <ErrorBoundary>
+                <LegalPage doc={doc} />
+              </ErrorBoundary>
+            }
+          />
+        ))}
+        <Route
+          path="*"
+          element={
+            <ErrorBoundary>
+              <NotFoundPage />
+            </ErrorBoundary>
+          }
+        />
+      </Routes>
+    </>
   );
 }

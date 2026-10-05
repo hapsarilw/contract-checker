@@ -96,6 +96,28 @@ describe("routeLabel: the route PATTERN, never the raw path (cardinality)", () =
     expect(routeLabel(req(baseUrl, path))).toBe(expected);
   });
 
+  // Step 74: what the app-level error handler sees. Express has reset
+  // baseUrl on the way out of the router; the route is still there.
+  const leftRouter = (originalUrl, path) =>
+    /** @type {import("express").Request} */ (
+      /** @type {unknown} */ ({ baseUrl: "", originalUrl, route: { path } })
+    );
+
+  it.each([
+    ["/api/v1/documents", "/", "/api/v1/documents"],
+    ["/api/v1/documents?cursor=abc", "/", "/api/v1/documents"],
+    [
+      "/api/v1/documents/ckabc123/analyze",
+      "/:id/analyze",
+      "/api/v1/documents/:id/analyze",
+    ],
+    ["/api/v1/documents/ckabc123", "/:id", "/api/v1/documents/:id"],
+    ["/api/health", "/api/health", "/api/health"],
+    ["/metrics", "/metrics", "/metrics"],
+  ])("after leaving its router: %s (route %s) -> %s", (url, path, expected) => {
+    expect(routeLabel(leftRouter(url, path))).toBe(expected);
+  });
+
   it("a request that never reached a route is 'unmatched', whatever its URL", () => {
     expect(routeLabel(req("", undefined))).toBe("unmatched");
   });

@@ -1,0 +1,36 @@
+.cc-site-footer {
+  width: 100%;
+  max-width: var(--cc-container);
+  margin: 0 auto;
+  padding: var(--cc-space-6) var(--cc-space-5) var(--cc-space-7);
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+  color: var(--cc-ink-secondary);
+  font-size: var(--cc-text-sm);
+}
+
+.cc-site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cc-space-2) var(--cc-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 2.5.8: a target at least 24 px tall, measured by the a11y suite. */
+.cc-site-footer__links a {
+  display: inline-block;
+  min-height: 24px;
+  padding-block: var(--cc-space-1);
+  color: var(--cc-ink-secondary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.cc-site-footer__links a:hover {
+  color: var(--cc-ink);
+}
+
+.cc-site-footer__note {
+  margin: var(--cc-space-3) 0 0;
+}

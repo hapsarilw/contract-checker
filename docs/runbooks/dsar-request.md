@@ -6,7 +6,13 @@
 
 An email, a support message, or a letter, saying something like "send me all the data you hold on me", "delete my account and everything in it", or "I can't log in to delete my account". It may cite a law (GDPR Articles 15, 17 or 20; CCPA). It may come from the person, or from someone claiming to act for them.
 
-**The clock starts when it arrives.** Write down the received date now. The statutory window depends on the jurisdiction PRD §12.1 declares (one month under GDPR, extendable once; 45 days under CCPA).
+**The clock starts when it arrives, and it is 72 hours.** Write down the received date **and time** now. The owner declared Indonesia's UU PDP, the GDPR and the UK GDPR on 2026-10-05 (BUILD-PLAN D-F), and the strictest of the three governs:
+
+- **UU PDP sets 3 × 24 hours** for access (Art. 32), correction (Art. 30), stopping processing after consent is withdrawn (Art. 40), and restricting it (Art. 41).
+- The GDPR's month is far longer, so 72 hours satisfies both.
+- Erasure has no clock in UU PDP itself, but the privacy policy promises 72 hours by email too. The person must be told it was done (Art. 45).
+
+Wording and sources: `docs/legal/verification.md`. **72 hours is short for one person: answer the same day you see it.** If identity cannot be confirmed in time, record why; the clock is still running.
 
 ## Step 1: verify identity — never skip this
 
@@ -62,4 +68,4 @@ Record the received date, the verification, the action, the completion date, and
 |---|---|---|---|
 | 2026-09-28 | isolated local rehearsal stack (not staging) | A signed-up, verified account with a checked document; `ops -- export` to a file; `ops -- erase` with a mistyped `--confirm`, then the correct one; the database, the audit trail and the mail sink afterwards. | The export file was mode 600 and carried the account, the document and its security events; nothing of the document reached the terminal. The mistyped confirmation exited 1 and deleted nothing. The erasure left no user row; the audit trail held `OPERATOR_EXPORTED` and `ACCOUNT_DELETED`, both with `dsar:<reference>`; the "Your ClauseCheck account has been deleted" email went to the address and mentioned the 30-day backup window. **Found before the walkthrough:** there was no operator path for erasure at all — account deletion required the user's password — so §12.4's "use the same code path" could not be followed. The erasure was extracted into one function both paths now share. |
 
-**Staging walkthrough: not yet done** — there is no staging environment (BUILD-PLAN step 71). Steps 1 and 4 need a real mailbox and a jurisdiction (PRD §12.1, an owner decision still open).
+**Staging walkthrough: not yet done** — there is no staging environment (BUILD-PLAN step 71). Steps 1 and 4 need a real mailbox. The jurisdiction is decided (2026-10-05: UU PDP, GDPR, UK GDPR; 72 hours).

@@ -111,10 +111,16 @@ test.describe("upload screen (/, BUILD-PLAN step 33)", () => {
     page,
   }) => {
     await page.goto("/");
-    await expect(page.getByText(/kept for up to 90 days/)).toBeVisible();
+    await expect(page.getByText(/We keep it for up to 90\s+days/)).toBeVisible();
+    // Step 74: permanent in the product at once, and from backups within 30
+    // days. "Gone for good" was the "deleted immediately everywhere" claim
+    // PRD §12.4 forbids, because backups make it false.
     await expect(
-      page.getByText(/Delete it any time and it is gone for good/),
+      page.getByText(
+        /gone from\s+ClauseCheck at once, and from our backups within 30 days/,
+      ),
     ).toBeVisible();
+    await expect(page.getByText(/gone for good/)).toHaveCount(0);
   });
 
   test("the dropzone is fully keyboard-operable: Tab reaches it, Enter opens the file picker, a chosen file moves to the selected state", async ({

@@ -1,0 +1,7 @@
+# ClauseCheck security contact (RFC 9116). NFR-2.13 / PRD §12.7.
+# We acknowledge every report within 72 hours. The policy, including our
+# commitment not to pursue good-faith research, is at the Policy link.
+Contact: https://github.com/hapsarilw/contract-checker/security/advisories/new
+Expires: 2027-10-05T00:00:00.000Z
+Policy: https://github.com/hapsarilw/contract-checker/blob/main/SECURITY.md
+Preferred-Languages: en, id

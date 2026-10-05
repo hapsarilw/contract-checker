@@ -1,0 +1,111 @@
+.cc-legal-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--cc-surface-page);
+}
+
+.cc-legal-page__header {
+  width: 100%;
+  max-width: var(--cc-container);
+  margin: 0 auto;
+  padding: var(--cc-space-5);
+}
+
+.cc-legal-page__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cc-space-2);
+  min-height: 24px;
+  color: var(--cc-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cc-legal-page__brand-mark {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--cc-radius-sm);
+  background: var(--cc-brand);
+}
+
+.cc-legal-page__main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--cc-measure);
+  margin: 0 auto;
+  padding: var(--cc-space-5) var(--cc-space-5) var(--cc-space-9);
+  color: var(--cc-ink);
+  line-height: var(--cc-leading-relaxed);
+}
+
+.cc-legal-page__title {
+  margin: 0;
+  font-family: var(--cc-font-serif);
+  font-size: var(--cc-text-3xl);
+  line-height: var(--cc-leading-tight);
+}
+
+.cc-legal-page__meta {
+  margin: var(--cc-space-2) 0 var(--cc-space-5);
+  color: var(--cc-ink-secondary);
+  font-size: var(--cc-text-sm);
+}
+
+.cc-legal-page__draft {
+  margin-bottom: var(--cc-space-6);
+}
+
+.cc-legal-page__summary {
+  font-size: var(--cc-text-lg);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-legal-page__section {
+  margin-top: var(--cc-space-7);
+}
+
+.cc-legal-page__heading {
+  margin: 0 0 var(--cc-space-3);
+  font-size: var(--cc-text-xl);
+  line-height: var(--cc-leading-snug);
+}
+
+.cc-legal-page__list {
+  padding-left: var(--cc-space-5);
+}
+
+.cc-legal-page__list li + li {
+  margin-top: var(--cc-space-2);
+}
+
+/* Tables scroll inside themselves at 320 px rather than making the page
+   scroll sideways (1.4.10, which the a11y suite measures). */
+.cc-legal-page__table-wrap {
+  overflow-x: auto;
+  margin: var(--cc-space-4) 0;
+}
+
+.cc-legal-page__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cc-text-sm);
+}
+
+.cc-legal-page__table th,
+.cc-legal-page__table td {
+  padding: var(--cc-space-2) var(--cc-space-3);
+  border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cc-legal-page__table thead th {
+  border-bottom-color: var(--cc-rule-strong);
+  color: var(--cc-ink-secondary);
+  font-weight: 600;
+}
+
+.cc-legal-page__table tbody th {
+  font-weight: 600;
+}
