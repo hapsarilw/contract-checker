@@ -101,6 +101,31 @@ tests:
           - exp_labels: { severity: "2", route: page, owner: maintainer, domain: provider }
 
   - interval: 1m
+    name: two failures of two analyses do not page, whatever the ratio (the floor, step 75)
+    # 100% failing, but only two failures in the window: at beta traffic that
+    # is one person's bad luck, not an incident. The floor is three.
+    input_series:
+      - series: 'analysis_total{outcome="failed",error_code="LLM_UNAVAILABLE"}'
+        values: "0 0 0 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2 2 2"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: analysis_failure_rate
+        exp_alerts: []
+
+  - interval: 1m
+    name: three failures pass the floor and page when the ratio does
+    input_series:
+      - series: 'analysis_total{outcome="failed",error_code="LLM_UNAVAILABLE"}'
+        values: "0 0 0 1 1 1 2 2 2 3 3 3 3 3 3 3 3 3 3 3"
+      - series: 'analysis_total{outcome="completed",error_code="none"}'
+        values: "0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: analysis_failure_rate
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: provider }
+
+  - interval: 1m
     name: no analyses at all is not a failure rate
     # The denominator is absent, so the expression yields nothing. An idle
     # service must not look like a broken one.

@@ -556,6 +556,7 @@ components:
                 - LLM_UNAVAILABLE
                 - SPEND_LIMIT_REACHED
                 - SERVER_BUSY
+                - DATABASE_UNAVAILABLE
                 - LLM_TIMEOUT
             message:
               type: string

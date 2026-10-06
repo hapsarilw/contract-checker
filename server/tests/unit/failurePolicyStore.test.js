@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { RedisStore } from "rate-limit-redis";
 import { FailurePolicyStore } from "../../src/lib/failurePolicyStore.js";
 import { AppError } from "../../src/lib/AppError.js";
 import { reconnectDelayMs } from "../../src/lib/redis.js";
@@ -166,6 +167,146 @@ describe("FailurePolicyStore — the bookkeeping methods", () => {
     const minimal = { increment: vi.fn(), decrement: vi.fn(), resetKey: vi.fn() };
     const store = new FailurePolicyStore({ store: minimal, policy: "open" });
     await expect(store.resetAll()).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * A Redis for the REAL rate-limit-redis store: unreachable until up(), as
+ * at a boot during a Key Value restart. The refusal is the message ioredis
+ * gives with maxRetriesPerRequest 1 (lib/redis.js), measured at a real boot
+ * on 2026-10-06.
+ */
+function redisDownAtBoot() {
+  let reachable = false;
+  /** @type {Map<string, number>} */
+  const hits = new Map();
+  const sendCommand = vi.fn(async (/** @type {string[]} */ ...args) => {
+    if (!reachable) {
+      throw new Error("Reached the max retries per request limit (which is 1).");
+    }
+    if (args[0] === "SCRIPT")
+      return args[2].includes("INCR") ? "sha-increment" : "sha-get";
+    if (args[0] === "EVALSHA") {
+      const n = (hits.get(args[3]) ?? 0) + 1;
+      hits.set(args[3], n);
+      return [n, Number(args[4])];
+    }
+    throw new Error(`unexpected command ${args[0]}`);
+  });
+  return {
+    sendCommand: /** @type {(...args: string[]) => Promise<any>} */ (sendCommand),
+    up: () => {
+      reachable = true;
+    },
+  };
+}
+
+describe("FailurePolicyStore — Redis unreachable when the process starts (step 75)", () => {
+  it("leaves no rejection unhandled: before step 75 the process exited at boot", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const inner = {
+        ...brokenStore(),
+        init: vi.fn().mockRejectedValue(new Error("down")),
+      };
+      new FailurePolicyStore({ store: inner, policy: "closed" }).init({
+        windowMs: 1_000,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
+  it("is needed: the real store alone stays failed after Redis comes back", async () => {
+    // rate-limit-redis keeps the rejected script promises and awaits them
+    // on every increment; only a NOSCRIPT reply makes it load them again.
+    // If a later version recovers by itself, this fails, and the retry in
+    // FailurePolicyStore can go.
+    const redis = redisDownAtBoot();
+    const inner = new RedisStore({ sendCommand: redis.sendCommand });
+    await inner.init(/** @type {any} */ ({ windowMs: 60_000 })).catch(() => {});
+    redis.up();
+    await expect(inner.increment("user:a")).rejects.toThrow(/max retries/);
+  });
+
+  it("recovers once Redis is back: the analyze path is not refused until a restart", async () => {
+    const redis = redisDownAtBoot();
+    const store = new FailurePolicyStore({
+      store: new RedisStore({ sendCommand: redis.sendCommand }),
+      policy: "closed",
+    });
+    store.init({ windowMs: 60_000 });
+
+    await expect(store.increment("user:a")).rejects.toMatchObject({
+      code: "SERVER_BUSY",
+    });
+    redis.up();
+    await expect(store.increment("user:a")).resolves.toMatchObject({ totalHits: 1 });
+    await expect(store.increment("user:a")).resolves.toMatchObject({ totalHits: 2 });
+  });
+
+  it.each(/** @type {const} */ (["closed", "open"]))(
+    "applies the %s policy while the store cannot initialise",
+    async (policy) => {
+      const onFailure = vi.fn();
+      const cause = new Error("down");
+      const inner = { ...workingStore(), init: vi.fn().mockRejectedValue(cause) };
+      const store = new FailurePolicyStore({ store: inner, policy, onFailure });
+      store.init({ windowMs: 1_000 });
+
+      const outcome = await store.increment("k").catch((e) => e);
+      if (policy === "closed") expect(outcome).toMatchObject({ code: "SERVER_BUSY" });
+      else expect(outcome).toMatchObject({ totalHits: 1 });
+      expect(onFailure).toHaveBeenCalledWith(cause, policy);
+      expect(inner.increment).not.toHaveBeenCalled();
+    },
+  );
+
+  it("shares one retry among the requests that arrive while it runs", async () => {
+    const init = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("down"))
+      .mockResolvedValue(undefined);
+    const store = new FailurePolicyStore({
+      store: { ...workingStore(), init },
+      policy: "closed",
+    });
+    store.init({ windowMs: 1_000 });
+
+    await Promise.all([store.increment("a"), store.increment("b"), store.increment("c")]);
+    expect(init).toHaveBeenCalledTimes(2);
+  });
+
+  it("tries again after a retry fails, and reports each failed request once", async () => {
+    const onFailure = vi.fn();
+    const init = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("down at boot"))
+      .mockRejectedValueOnce(new Error("still down"))
+      .mockResolvedValue(undefined);
+    const inner = { ...workingStore(), init };
+    const store = new FailurePolicyStore({ store: inner, policy: "closed", onFailure });
+    store.init({ windowMs: 1_000 });
+
+    await expect(store.increment("k")).rejects.toMatchObject({ code: "SERVER_BUSY" });
+    await expect(store.increment("k")).resolves.toMatchObject({ totalHits: 3 });
+    expect(init).toHaveBeenCalledTimes(3);
+    expect(onFailure).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats an init that throws synchronously the same way", async () => {
+    const init = vi.fn(() => {
+      throw new Error("bad options");
+    });
+    const store = new FailurePolicyStore({
+      store: { ...workingStore(), init },
+      policy: "open",
+    });
+    expect(() => store.init({ windowMs: 1_000 })).not.toThrow();
+    await expect(store.increment("k")).resolves.toMatchObject({ totalHits: 1 });
   });
 });
 

@@ -48,6 +48,7 @@ describe("POST /api/v1/auth/register (FR-1.1, FR-1.2, FR-1.6)", () => {
       "email",
       "emailVerifiedAt",
       "id",
+      "pendingEmail",
       "state",
     ]);
     expect(JSON.stringify(res.body)).not.toContain(VALID_PASSWORD);

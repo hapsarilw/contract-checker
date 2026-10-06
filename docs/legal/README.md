@@ -24,6 +24,6 @@ BUILD-PLAN step 74 (OPS-11), status on 2026-10-05. PRD §12, SRS NFR-2.13, §12.
 2. Turn on GitHub's private vulnerability reporting.
 3. Decide whether to ask Anthropic for **zero data retention** (PRD §12.3: reduce provider retention "if it can be ... contractually"). It is an agreement, not a setting.
 4. Decide on US-only inference (`inference_geo: "us"`, priced at 1.1x) or the current "global" default, and keep the subprocessor list in step.
-5. **There is no in-product way to change an email address** (the API has `/api/v1/auth/change-email`; Settings has no screen for it). PRD §12.5 lists rectification as in-product, so the privacy policy currently says to write in, which it can honestly promise within 72 hours. Building the screen is a product decision.
+5. ~~There is no in-product way to change an email address.~~ **Built 2026-10-05 (step 75):** Settings → Change your email, and the `/confirm-email-change` screen the link opens. The privacy policy's rights table now says so ("Immediately, yourself").
 6. Confirm that revoking the old development key in the Anthropic console happened (the [secret-rotation](../runbooks/secret-rotation.md) log).
 7. Run the restore drill again from the managed provider's own backup once there is one, and every 6 months after (NFR-3.6).

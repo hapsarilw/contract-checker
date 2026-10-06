@@ -198,7 +198,61 @@ NFR-2.6's general limit is 100 requests per 15 minutes per address. With seven r
 
 Fixed, then re-run (above). Every request the drill makes is now counted against its address, and the reader uses only addresses with allowance left, at most 90 in any 15 minutes (`AddressBudget`, unit-tested and mutation-tested).
 
-**What the quiet run adds to the busy one.** The single page holds when the breaker never trips, so it does not depend on `circuit_open`. On a quiet day the page comes later: 4.6 and 5.0 minutes in the two quiet runs, against 3.3 on a busy one. The ratio needs enough failures inside its 15-minute window to pass 25%, and a quiet day supplies them slowly. A shorter outage on a quiet day may not page at all. That is Appendix C's ratio as written, and what the owner's minimum-volume question below is about.
+**What the quiet run adds to the busy one.** The single page holds when the breaker never trips, so it does not depend on `circuit_open`. On a quiet day the page comes later: 4.6 and 5.0 minutes in the two quiet runs, against 3.3 on a busy one. The ratio needs enough failures inside its 15-minute window to pass 25%, and a quiet day supplies them slowly. A shorter outage on a quiet day may not page at all. Since then the owner has added a floor of three failures to the two paging ratios (decided 2026-10-05). The quiet drill was re-run with it.
+
+**Quiet traffic with the floor, 2026-10-06, outage 07:28:29 to 07:33:29 UTC: every gate passed.**
+
+- **One page**: `analysis_failure_rate` (provider), **5.7 minutes** in, resolved at 10.7.
+- 5 of 5 failed analyses stated; 300 reads during the outage all answered.
+- The digest identical; 5 of 5 outage uploads kept and re-analysed; recovery in 30 s.
+- The breaker never tripped (15 provider calls).
+
+**What the floor costs.** On a quiet day it adds about a minute: 5.7 minutes against 4.6 and 5.0 without it, because the third failure has to arrive. An outage on a day this quiet that is over in under about five minutes now pages nobody. Its users still see the stated error, and the failures are counted. That is the trade the owner chose: no 3 a.m. page for one person's bad luck. It is to be revisited with the beta's first week of traffic.
+
+### A database outage (2026-10-06): the same drill, Postgres stopped
+
+The same harness with `--fault database`: Postgres is stopped for five minutes under busy traffic, then started again. It was not a DoD item, but the same question applies to the other dependency every request needs: does the outage page once, and is the user told the truth?
+
+**First run, 06:37:32 to 06:42:32 UTC:**
+
+- **One page, the right one.** `api_5xx_rate` (platform), 1.2 minutes in, resolved 16.2 minutes in. No provider page.
+- **No data lost.** The digest of every pre-outage row was identical; nothing was left `PENDING`; analysis was back 5 s after Postgres.
+- Three gates failed, each for a real reason:
+  - **A product defect.** 440 requests during the outage answered the new stated `503 DATABASE_UNAVAILABLE`, and **one answered `500 INTERNAL`**. It was the first request after Postgres stopped, which failed DNS (`EAI_AGAIN`, a Prisma error with no adapter kind). Prisma errors carrying a socket's network code (`ECONNREFUSED`, `ETIMEDOUT`, `EAI_AGAIN` and the rest) now count as the database being unavailable. The same codes on a Redis or email-provider error still do not.
+  - **A drill defect.** During a database outage the upload is what fails, and the drill read `Retry-After` only from the analyze response. It now reads it from both.
+  - **An invalid run.** Both loops paused together for up to 32 s, every ~32 s, in the first two minutes of the baseline, right after Docker Desktop had been restarted. The validity gate caught it, as it should.
+
+**Re-run, after the fixes:**
+
+**Re-run, outage 07:03:34 to 07:08:34 UTC: every gate passed, once one boundary in the drill itself was corrected.** The run lasted 23.4 minutes, with no loop pausing for more than 30 s.
+
+| Gate | Result |
+|---|---|
+| **ONE alert** | **one page**: `api_5xx_rate` (platform), **1.1 minutes** in, resolved 16.1 minutes in. Nothing from the provider domain. `readiness_failing` did not fire: its 5-minute window still held the ready answers from before the outage, and with its `for: 2m` a five-minute outage is too short. It would have joined the same notification |
+| The stated error | **147 of 147** failed analyses (all refused at upload) answered `503 DATABASE_UNAVAILABLE`, `Retry-After: 30`, "Nothing has been lost". **No `500` anywhere** in either instance's log |
+| Reads | **300 of 300** reads during the outage refused as stated; every read before and after answered 200 with the pre-outage report intact |
+| Data | digest identical before and after (`70d40e5e…`); 0 `PENDING` at the end; **1 analysis reaped**, the one in flight when Postgres stopped, as the profile allows |
+| Recovery | first successful analysis **3 s** after Postgres was back |
+
+**The correction, stated because it changed a verdict after the run.** The run printed one failure: one analysis answered the stated 503 at "-0.0 minutes".
+
+- The recorded data show it started **1.84 s before** Postgres was stopped. It lasted 3.05 s (the mock's 3 s), and was refused 1.21 s **into** the outage when its result could not be written. It is the in-flight analysis the reaper later failed.
+- The gate had counted a request as "during the outage" by its start alone. It now counts any request still in flight when the fault began, with a unit test on both sides of that line.
+- The verdict above is the corrected gate applied to the **same recorded run** (`gatesOutage` is a pure function of `result.json`). The run was not repeated.
+
+**What the database drill establishes.** A database outage pages once, on the platform's pager, within about a minute. Every user is told the same true thing. Nothing is lost, and the system recovers within seconds of the database. The new code that makes the user-facing half true was found wanting by the first run (`EAI_AGAIN`) and fixed before the second.
+
+### Redis unreachable when the API starts (found 2026-10-06, in this gate's final verification)
+
+Not a drill: found by booting the API against a Redis address with nothing behind it.
+
+- **The process exited at boot.** rate-limit-redis loads its two Lua scripts when a limiter is created, and the load rejects when Redis is unreachable. Nothing handled that rejection, so Node exited with `MaxRetriesPerRequestError`. FR-5.6 asks for the opposite: reads fail open, analysis fails closed, and the process stays up. On Render, a Key Value restarting during a deploy would have crash-looped the new instances.
+- **Had it survived, it would not have recovered.** The store keeps the rejected script promises and awaits them on every increment. Only a `NOSCRIPT` reply makes it load them again. Every limiter would have stayed failed after Redis came back, and the analyze path would have refused every request until a restart.
+- **The fix**, in `FailurePolicyStore`: a failed init is recorded, not thrown, and the next increment initialises the store again before using it. Requests arriving while that retry runs share it. A retry that fails is a store failure like any other, and the policy applies.
+- **Verified by the same boot.**
+  - With Redis absent, the process stayed up: `/api/health` answered 200 and `/api/ready` 503, and reads were let through unmetered.
+  - Redis was then started on that address. `/api/ready` turned 200 and the general limiter counted again: `RateLimit-Remaining` read 96 then 95, and the key appeared in Redis.
+- **Tested.** The unit tests drive the real rate-limit-redis store against a stand-in Redis. One of them pins the library's own behaviour: if a later version recovers by itself, that test fails and the retry can go. Three mutations were all killed.
 
 ## 4. Load at the target concurrency
 
@@ -216,7 +270,10 @@ The provider was the mock, answering in a fixed 25 s. So the run measures the sy
 Three caveats:
 
 - **TR-21 is unaffected by the mock's leak.** Step 75 found the mock provider had been retaining every document it was sent. That leaked about 6 MB per instance over TR-21's 10 minutes, nowhere near the 80% line.
-- **The leak does affect TR-22, the two-hour soak.** Its "flat memory" reading is withdrawn and the soak is owed again ([load-test-results.md](load-test-results.md)). It was not re-run on 2026-10-05: the machine was on battery at 18%, and a soak needs two hours awake.
+- **The leak does affect TR-22, the two-hour soak.** Its "flat memory" reading is withdrawn ([load-test-results.md](load-test-results.md)).
+  - The soak was re-run with the fix, on mains power, on 2026-10-05 from 14:23 to 16:24 UTC. It completed, with 1,185 analyses and none failed by the last line read.
+  - **Its result was then lost:** the machine restarted overnight, and the results directory under `/private/tmp` was cleared before the verdict was read.
+  - It is owed again. Drill and soak results now go to `.drill-evidence/` in the working tree, which survives a restart and is excluded from git.
 - **Staging is owed**, on the real provider.
 
 ## 5. Every alert fired, in staging
@@ -288,20 +345,42 @@ Two corrections were made on the way:
 - **An accuracy claim had gone stale.** The README said every §11.1 gate passed. The 2026-09-28 benchmark run failed precision in its worst repeat, which phase-1-dod.md §8 already recorded.
 - **The development database's analysis rows had been damaged by a mutation test.** On 2026-09-24 a reaper mutation was loaded by a development server watching the same files, and it marked every analysis `FAILED / STALE_ANALYSIS`. The original outcomes were recovered from `summary` and `overallRisk`, which only a completed analysis has: all 29 had completed. Step 75's mutation tests ran in an isolated copy of the tree.
 
+## What the owner's decisions of 2026-10-06 changed
+
+The owner answered the open decisions, stopped the old development server, and asked for everything that could be finished to be finished, and for a tutorial covering the rest: [panduan-pemilik.md](panduan-pemilik.md), in Indonesian. What was done:
+
+| Decision | What changed | Verified by |
+|---|---|---|
+| Stop the `node --watch` development server (running since 2026-09-24 with the development key) | Stopped: the `npm run dev` parent, the watcher and its child; port 3000 free | `ps`, `lsof` |
+| Build the environment (providers, staging) | Render Blueprints for staging and production (`ops/render/`); the deploy adapter for Render and Netlify (`scripts/deploy/platform.sh`); the metrics agent (`ops/monitoring/alloy`); real Alertmanager receivers (`server/scripts/render-alertmanager.js`); the static host's headers; [staging-setup.md](staging-setup.md). Accounts and secrets are the owner's (tutorial A–I) | `renderBlueprints.test.js`; the adapter against a fake of both APIs; Alloy scraping a real API instance; amtool on the rendered configuration; the CSP check below |
+| — | **The first real email provider**, Resend. Before it, no production-mode process could boot, staging included | at the fetch boundary, with one idempotency key across retries |
+| — | **The operator CLI in the production image.** Every runbook says `npm run ops` "from a shell on the platform"; `scripts/ops.js` was not in the image | `Dockerfile` |
+| — | **The frontend's Content Security Policy as the static host will send it**, built per environment, checked against the BUILT client on every screen. Its first run caught the policy refusing the client's own default API origin; the two now share one constant | `client/e2e/csp.spec.js`, 10 of 10 |
+| The precision gate (step 72) | Measured first (fixture 04 × 12: no flag), then the corpus given seven fair clauses so the 85% line can mean a percentage (phase-1-dod.md §8) | `verify-fixtures`; the benchmark re-run |
+| A minimum volume for the ratio alerts | At least three failures, on the two that page; provisional until the beta's first week | 4 promtool cases; the quiet drill re-run |
+| `inference_geo` | A switch (`ANTHROPIC_INFERENCE_GEO`), unset by default (no behaviour change), logged when the provider runs inference elsewhere than asked, and tied by a test to what the privacy policy says. The choice itself waits for counsel | `llmClient.test.js`, `renderBlueprints.test.js` |
+| The email-change screen | Settings → Change your email, the `/confirm-email-change` page, a banner that names the pending address; the privacy policy's rights table now says "Immediately, yourself" | unit tests; axe and the keyboard audit on both screens |
+| The database outage response | `503 DATABASE_UNAVAILABLE` with `Retry-After` and "Nothing has been lost" instead of `500 INTERNAL`, classified from the shapes measured against a real stopped Postgres; drilled end to end (§3) | unit, integration, the drill |
+| Zero data retention; confirming the old key is revoked; GitHub settings | Not things code can do: steps A and B of the tutorial | — |
+
 ## Owed, and by whom
 
-**The owner:**
+**The owner** ([panduan-pemilik.md](panduan-pemilik.md), in order):
 
-1. **Hosting, email and monitoring providers, then staging.** These unblock items 1, 2 (the managed restore), 4 (the staging run), 5 and 6, and Phase 1 DoD item 1.
-2. **A paging provider**, for item 5's last hop.
-3. **An external tester** for item 1, and another (or the same) for Phase 1 DoD item 2.
-4. **Counsel and the legal placeholders** (item 6).
-5. **A screen-reader pass** (item 7).
-6. **The step-72 precision decision** (phase-1-dod.md §8).
-7. **Whether the ratio alerts need a minimum volume before beta traffic.** At very low traffic, one failed analysis out of three is 33% and pages; `alerts.yml`'s header records this.
+1. **GitHub** (A): push, the first CI run, `scan.yml`, private vulnerability reporting, branch protection.
+2. **Anthropic** (B): confirm the old development key is revoked; a key per environment with its own spend limit; ZDR, if wanted; the `inference_geo` choice, with counsel.
+3. **The environment** (C–I): a domain, then Resend, Render, Netlify, the GitHub environments, the first staging deploy and the smoke account, Grafana Cloud and PagerDuty.
+4. **Drills in staging** (J): items 2, 3 and 5 for real.
+5. **Counsel and the legal placeholders** (K, item 6).
+6. **An external tester** (L, item 1 and Phase 1 DoD item 2).
+7. **A screen-reader pass** (M, item 7).
+8. **Production, then the internal stage, the closed beta, and public** (N).
 
 **Engineering:**
 
-1. **TR-22's soak, re-run on mains power** (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`).
-2. **The provider-outage drill and the restore drill, repeated in staging.**
-3. **A database outage, which has not been drilled.** `readiness_failing` inhibits its symptoms with the same timing limit `circuit_open` had: it waits two minutes, while `api_5xx_rate` fires in one. They are in the same group, so it would be one page, but in-flight analyses failing could also page `analysis_failure_rate` separately.
+1. **TR-22's soak, again** (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`). The second run completed and its result was lost to a restart (§4).
+2. **A backup source the weekly check can read on Render.** Until one exists, `backup_verify_failed` will page every week, truthfully ([staging-setup.md](staging-setup.md)).
+3. **A mailbox TR-24 can read in staging**, and **CSP violation reports**.
+4. **The cold-load screen during a database outage.** It shows sign-in where it should say the service is unavailable.
+5. **The provider, database and restore drills, repeated in staging.**
+6. **A Redis fault in the outage drill.** A Redis lost mid-run is covered end to end by the integration suite (step 44), and a Redis absent at boot by the check above. Neither has been through the drill's alerting path.

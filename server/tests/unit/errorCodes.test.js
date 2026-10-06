@@ -37,11 +37,12 @@ const SPEC_TABLE = {
   LLM_UNAVAILABLE: 503,
   SPEND_LIMIT_REACHED: 503,
   SERVER_BUSY: 503,
+  DATABASE_UNAVAILABLE: 503,
   LLM_TIMEOUT: 504,
 };
 
 describe("errorCodes.js (SRS §4.2)", () => {
-  it("has exactly the 27 codes the spec table lists, no more, no fewer", () => {
+  it("has exactly the 28 codes the spec table lists, no more, no fewer", () => {
     expect(Object.keys(ERROR_CODES).sort()).toEqual(Object.keys(SPEC_TABLE).sort());
   });
 

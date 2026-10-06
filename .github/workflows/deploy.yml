@@ -143,6 +143,7 @@ jobs:
         env:
           DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
           PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
         run: scripts/deploy/platform.sh deploy-api staging "$IMAGE:${{ needs.image.outputs.sha }}"
 
   frontend-staging:
@@ -173,8 +174,9 @@ jobs:
         run: npm run build
       - name: Publish
         env:
-          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
-          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+          FRONTEND_PLATFORM: ${{ vars.FRONTEND_PLATFORM }}
+          FRONTEND_PLATFORM_TOKEN: ${{ secrets.FRONTEND_PLATFORM_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
         run: scripts/deploy/platform.sh deploy-frontend staging client/dist
 
   verify-staging:
@@ -279,6 +281,7 @@ jobs:
         env:
           DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
           PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
         run: scripts/deploy/platform.sh deploy-api production "$IMAGE:${{ needs.image.outputs.sha }}"
       - uses: actions/setup-node@v4
         with:
@@ -317,8 +320,9 @@ jobs:
         run: npm run build
       - name: Publish
         env:
-          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
-          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+          FRONTEND_PLATFORM: ${{ vars.FRONTEND_PLATFORM }}
+          FRONTEND_PLATFORM_TOKEN: ${{ secrets.FRONTEND_PLATFORM_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
         run: scripts/deploy/platform.sh deploy-frontend production client/dist
 
   watch-production:
@@ -371,6 +375,7 @@ jobs:
         env:
           DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
           PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
         run: scripts/deploy/platform.sh deploy-api production "$IMAGE:${{ inputs.rollback_to }}"
       - name: Smoke (every instance on the rolled-back SHA)
         env:
@@ -418,6 +423,7 @@ jobs:
         run: npm run build
       - name: Publish
         env:
-          DEPLOY_PLATFORM: ${{ vars.DEPLOY_PLATFORM }}
-          PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
+          FRONTEND_PLATFORM: ${{ vars.FRONTEND_PLATFORM }}
+          FRONTEND_PLATFORM_TOKEN: ${{ secrets.FRONTEND_PLATFORM_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
         run: scripts/deploy/platform.sh deploy-frontend production client/dist

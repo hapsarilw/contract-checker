@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { checkPostgres, checkRedis } from "../../src/lib/readinessChecks.js";
+import { pingRedis } from "../../src/lib/redis.js";
+
+vi.mock("../../src/lib/redis.js", () => ({ pingRedis: vi.fn() }));
 import prisma from "../../src/lib/prisma.js";
 
 describe("checkPostgres (FR-4.7)", () => {
@@ -33,8 +36,22 @@ describe("checkPostgres (FR-4.7)", () => {
   });
 });
 
-describe("checkRedis (stubbed until step 44)", () => {
-  it("always reports ok — not wired into the request path yet", async () => {
+// checkRedis has sent a real PING since step 44, so this used to pass only
+// on a machine with a Redis on localhost:6379 and fail on any other (found
+// in step 75, after a restart left the development Redis stopped). The
+// client is mocked, so both outcomes are tested wherever this runs.
+describe("checkRedis (FR-4.7, a real PING since step 44)", () => {
+  it("returns ok: true when Redis answers", async () => {
+    vi.mocked(pingRedis).mockResolvedValueOnce(undefined);
     expect(await checkRedis()).toEqual({ ok: true });
+  });
+
+  it("reports the code when Redis does not answer", async () => {
+    vi.mocked(pingRedis).mockRejectedValueOnce(
+      Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:6379"), {
+        code: "ECONNREFUSED",
+      }),
+    );
+    expect(await checkRedis()).toEqual({ ok: false, error: "ECONNREFUSED" });
   });
 });

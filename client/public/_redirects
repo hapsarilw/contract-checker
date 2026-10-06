@@ -1,0 +1,4 @@
+# Netlify: every path the client router owns is index.html (BUILD-PLAN
+# step 75). Files that exist, the assets and /.well-known/security.txt, are
+# served as themselves first; this applies only where nothing matched.
+/*  /index.html  200

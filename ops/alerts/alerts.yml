@@ -28,12 +28,18 @@
 #
 # THRESHOLDS ARE THE TABLE'S, unchanged. Where a condition names a duration
 # ("open > 5 min") it is a `for:`; where it names a window ("over 15 min")
-# it is the range in the expression. One consequence worth knowing before
-# the first week of real traffic: the ratio alerts have no minimum volume,
-# so two analyses of which one failed is 50% and pages. That is Appendix C's
-# condition as written, and weakening a Sev-2 quietly would be worse than
-# living with it until there is traffic data to set a floor from
-# (ops/README.md records it as an open item).
+# it is the range in the expression.
+#
+# ONE ADDITION TO THE TABLE, decided by the owner on 2026-10-05 (step 75):
+# the two ratio alerts that PAGE also need a minimum count. Appendix C's
+# ratios alone page on almost nothing at low traffic: two analyses of which
+# one failed is 50%, and one stray 500 among thirty requests is over 2%. At
+# beta traffic that is a page at 3 a.m. for one person's bad luck. So
+# analysis_failure_rate and api_5xx_rate also require AT LEAST THREE
+# failures in their window. Three is provisional, chosen before there is
+# traffic to choose it from: revisit it after the closed beta's first week,
+# as the smallest count that is not that week's ordinary noise. The
+# digest ratios keep no floor; a digest at low traffic costs a glance.
 
 groups:
   # ---------------------------------------------------------------- safety
@@ -119,9 +125,17 @@ groups:
           runbook: provider-outage
           runbook_url: docs/runbooks/provider-outage.md
       - alert: analysis_failure_rate
+        # The floor (see the header): at least three failed analyses in the
+        # window as well as the ratio. `> 2.5` because increase()
+        # extrapolates to the window's edges, so three failures read as
+        # about 3.05 and two as about 2.03; 2.5 sits between them.
         expr: >-
-          sum(increase(analysis_total{outcome="failed"}[15m]))
-          / sum(increase(analysis_total[15m])) > 0.25
+          (
+            sum(increase(analysis_total{outcome="failed"}[15m]))
+            / sum(increase(analysis_total[15m])) > 0.25
+          )
+          and
+          sum(increase(analysis_total{outcome="failed"}[15m])) > 2.5
         for: 0s
         labels:
           severity: "2"
@@ -132,8 +146,8 @@ groups:
           summary: More than a quarter of analyses are failing
           description: >-
             Over the last 15 minutes, more than 25% of analyses reaching a terminal state
-            failed. The error_code labels on analysis_total say which failure it is; that is
-            the first thing the runbook asks for.
+            failed, and at least three did. The error_code labels on analysis_total say which
+            failure it is; that is the first thing the runbook asks for.
           runbook: analysis-failure-rate-high
           runbook_url: docs/runbooks/analysis-failure-rate-high.md
 
@@ -162,12 +176,22 @@ groups:
         # a change to its threshold or window. `or vector(0)` because an
         # instance that has never failed an analysis has no such series, and
         # a subtraction against nothing is nothing.
+        #
+        # And the floor (see the header): at least three such errors in the
+        # window, with the same extrapolation margin as analysis_failure_rate.
         expr: >-
           (
-            sum(rate(http_request_duration_seconds_count{status=~"5.."}[10m]))
-            - (sum(rate(analysis_total{outcome="failed"}[10m])) or vector(0))
+            (
+              sum(rate(http_request_duration_seconds_count{status=~"5.."}[10m]))
+              - (sum(rate(analysis_total{outcome="failed"}[10m])) or vector(0))
+            )
+            / sum(rate(http_request_duration_seconds_count[10m])) > 0.02
           )
-          / sum(rate(http_request_duration_seconds_count[10m])) > 0.02
+          and
+          (
+            sum(increase(http_request_duration_seconds_count{status=~"5.."}[10m]))
+            - (sum(increase(analysis_total{outcome="failed"}[10m])) or vector(0))
+          ) > 2.5
         for: 0s
         labels:
           severity: "2"
@@ -177,9 +201,9 @@ groups:
         annotations:
           summary: More than 2% of requests are answered 5xx, failed analyses aside
           description: >-
-            Over the last 10 minutes more than 2% of requests failed with a server error that
-            is not a failed analysis (analysis_failure_rate pages on those, with the error
-            code). So this is the platform: reads, sign-in, uploads, or the analyze route
+            Over the last 10 minutes more than 2% of requests, and at least three, failed with a
+            server error that is not a failed analysis (analysis_failure_rate pages on those,
+            with the error code). So this is the platform: reads, sign-in, uploads, or the analyze route
             failing before an analysis was created.
           runbook: analysis-failure-rate-high
           runbook_url: docs/runbooks/analysis-failure-rate-high.md

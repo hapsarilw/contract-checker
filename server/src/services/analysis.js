@@ -1,5 +1,6 @@
 import config from "../config.js";
 import { AppError } from "../lib/AppError.js";
+import { isDatabaseUnavailable } from "../lib/databaseErrors.js";
 import { loadOwnedDocument } from "../lib/ownership.js";
 import prisma from "../lib/prisma.js";
 import { mapPendingAnalysisConflict } from "../lib/prismaErrors.js";
@@ -157,7 +158,14 @@ async function analyzeDocumentInSpan({ documentId, userId }, span) {
     recordAnalysisMetrics({ record, durationMs: completed.durationMs ?? 0, completed });
     return completed;
   } catch (err) {
-    const errorCode = err instanceof AppError ? err.code : "INTERNAL";
+    // A database that went away mid-analysis is recorded as what it is
+    // (step 75), so the failure-rate runbook's first query names it.
+    const errorCode =
+      err instanceof AppError
+        ? err.code
+        : isDatabaseUnavailable(err)
+          ? "DATABASE_UNAVAILABLE"
+          : "INTERNAL";
     const durationMs = Date.now() - startedAt;
     try {
       await prisma.analysis.update({

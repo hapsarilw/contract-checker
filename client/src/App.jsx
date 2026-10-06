@@ -7,6 +7,7 @@ import HistoryPage from "./pages/HistoryPage.jsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import ConfirmEmailChangePage from "./pages/ConfirmEmailChangePage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 import LegalPage from "./pages/LegalPage.jsx";
@@ -100,6 +101,14 @@ export default function App() {
           element={
             <ErrorBoundary>
               <ResetPasswordPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/confirm-email-change"
+          element={
+            <ErrorBoundary>
+              <ConfirmEmailChangePage />
             </ErrorBoundary>
           }
         />

@@ -108,6 +108,24 @@
           "why": "Symmetric 30-day notice with payment for hours worked is fair; flagging it low is defensible, missing it is not an error."
         }
       ],
+      "fair_clauses_do_not_flag": [
+        {
+          "excerpt": "All source code, documentation, and related materials produced by Developer in performance of the Services shall be owned by Client upon payment of the invoice covering the period in which such materials were created.",
+          "why": "Ownership passes on payment, period by period. The arrangement recommended against 01's assignment-on-creation."
+        },
+        {
+          "excerpt": "Work outside the agreed scope shall be quoted separately and shall not commence until approved in writing by Client.",
+          "why": "Extra work is quoted and approved first. The scope protection a freelancer wants."
+        },
+        {
+          "excerpt": "Developer’s total liability under this Agreement shall not exceed the total fees paid in the twelve (12) months preceding the claim.",
+          "why": "Liability capped at twelve months of fees. The cap recommended against 01's uncapped indemnity."
+        },
+        {
+          "excerpt": "Where Client fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.",
+          "why": "Client delay extends the schedule. Protects the freelancer from deadlines the client caused."
+        }
+      ],
       "missing_protections": [
         "deposit",
         "late_payment_interest",

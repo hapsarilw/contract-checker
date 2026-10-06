@@ -5,6 +5,7 @@
 #
 #   ops/drills/provider-outage/run.sh                    an outage on a busy day
 #   DRILL_THINK_MS=60000 ops/drills/provider-outage/run.sh   on a quiet one
+#   DRILL_FAULT=database ops/drills/provider-outage/run.sh   Postgres stopped instead
 #
 # Results go to $DRILL_RESULTS_DIR (default: a new temporary directory,
 # printed at the start): result.json, the notifications Alertmanager sent,
@@ -113,7 +114,8 @@ awake() { if command -v caffeinate >/dev/null; then caffeinate -i "$@"; else "$@
 set +e
 awake node "$DRILL_DIR/drill.mjs" --sessions "$OUT/sessions.json" --notifications "$OUT/notifications" \
   --compose-file ops/deploy/rehearsal/compose.yml --compose-file "$DRILL_DIR/compose.yml" \
-  --think-ms "${DRILL_THINK_MS:-2000}" --out "$OUT/result.json" 2>&1 | tee "$OUT/drill.log"
+  --think-ms "${DRILL_THINK_MS:-2000}" --fault "${DRILL_FAULT:-provider}" \
+  --out "$OUT/result.json" 2>&1 | tee "$OUT/drill.log"
 code=${PIPESTATUS[0]}
 set -e
 rm -f "$OUT/sessions.json"

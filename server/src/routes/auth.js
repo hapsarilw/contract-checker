@@ -297,8 +297,10 @@ router.post(
       });
       res.status(202).json({
         pending: true,
+        // Step 75: "nothing changes" was untrue. FR-1.13 pauses analysis
+        // (UNVERIFIED) from this moment; only the address waits for the link.
         message:
-          "Check the new address for a confirmation link. Until you open it, nothing changes.",
+          "Check the new address for a confirmation link. Your address changes when you open it; until then, new checks are paused.",
       });
     } catch (err) {
       next(err);

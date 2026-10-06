@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AddressBudget,
   DRILL,
+  FAULTS,
   drillContract,
   gatesOutage,
   notifiedGroups,
@@ -375,6 +376,115 @@ describe("gatesOutage", () => {
       }));
     expect(gate(gatesOutage(platform), "ONE alert").pass).toBe(true);
     expect(gate(gatesOutage(platform), "points at the cause").pass).toBe(false);
+  });
+});
+
+describe("the database fault (step 75): the same drill, Postgres stopped", () => {
+  /** A database outage that went as it should, built from the passing provider run. */
+  function databaseRun() {
+    const run = passingRun();
+    run.fault = "database";
+    run.analyses = run.analyses.map((a) =>
+      a.status === 200
+        ? a
+        : {
+            ...a,
+            code: "DATABASE_UNAVAILABLE",
+            retryAfter: "30",
+            message: FAULTS.database.statedMessage,
+          },
+    );
+    // Reads are refused while it is down, with the stated error.
+    run.reads = run.reads.map((x) =>
+      x.at >= START && x.at < END
+        ? { ...x, status: 503, ok: false, code: "DATABASE_UNAVAILABLE" }
+        : x,
+    );
+    run.database = {
+      ...run.database,
+      reaped: 1,
+      failedCodes: { STALE_ANALYSIS: 1 },
+      outageDocuments: { uploaded: 0, present: 0 },
+    };
+    run.reanalyses = [];
+    for (const n of run.notifications) {
+      n.groupKey = n.groupKey.replace("provider", "platform");
+      n.groupLabels = { ...n.groupLabels, domain: "platform" };
+    }
+    for (const sample of run.am)
+      sample.alerts = sample.alerts.map((a) => ({
+        ...a,
+        alertname: "api_5xx_rate",
+        domain: "platform",
+      }));
+    return run;
+  }
+
+  it("states its own code and message, from errorCodes.js", () => {
+    expect(FAULTS.database.code).toBe("DATABASE_UNAVAILABLE");
+    expect(FAULTS.database.statedMessage).toBe(ERROR_CODES.DATABASE_UNAVAILABLE.message);
+    expect(FAULTS.database.retryAfter).toBe("30");
+    expect(FAULTS.provider.statedMessage).toBe(ERROR_CODES.LLM_UNAVAILABLE.message);
+  });
+
+  it("a database outage that went as it should passes every gate", () => {
+    expect(gatesOutage(databaseRun()).filter((g) => !g.pass)).toEqual([]);
+  });
+
+  it("reads: refused as stated during the outage is right; before it, or as a 500, is not", () => {
+    const early = databaseRun();
+    early.reads[0] = {
+      ...early.reads[0],
+      status: 503,
+      ok: false,
+      code: "DATABASE_UNAVAILABLE",
+    };
+    expect(gate(gatesOutage(early), "reads are refused").pass).toBe(false);
+
+    const unstated = databaseRun();
+    const i = unstated.reads.findIndex((x) => x.at >= START && x.at < END);
+    unstated.reads[i] = { ...unstated.reads[i], status: 500, code: "INTERNAL" };
+    expect(gate(gatesOutage(unstated), "reads are refused").pass).toBe(false);
+
+    // And a "database outage" that never refused a read did not happen.
+    const unfelt = databaseRun();
+    unfelt.reads = unfelt.reads.map((x) => ({ ...x, status: 200, ok: true, code: null }));
+    expect(gate(gatesOutage(unfelt), "reads are refused").pass).toBe(false);
+  });
+
+  it("the one analysis in flight may be left to the reaper, and no more; a provider outage leaves none", () => {
+    const two = databaseRun();
+    two.database.reaped = 2;
+    expect(gate(gatesOutage(two), "no analysis stuck").pass).toBe(false);
+
+    const provider = passingRun();
+    provider.database.reaped = 1;
+    expect(gate(gatesOutage(provider), "no analysis stuck").pass).toBe(false);
+  });
+
+  it("a request in flight when the fault began may fail as stated; one that ended before it may not", () => {
+    /** @param {number} at @param {number} ms */
+    const refused = (at, ms) => ({
+      ...degraded(at),
+      ms,
+      code: "DATABASE_UNAVAILABLE",
+      retryAfter: "30",
+      message: FAULTS.database.statedMessage,
+    });
+    const inFlight = databaseRun();
+    inFlight.analyses.push(refused(START - 1_840, 3_051));
+    expect(gate(gatesOutage(inFlight), "nothing else failed").pass).toBe(true);
+
+    const before = databaseRun();
+    before.analyses.push(refused(START - 5_000, 3_000));
+    expect(gate(gatesOutage(before), "nothing else failed").pass).toBe(false);
+  });
+
+  it("the cause is the platform's: a provider page for a database outage would send the operator the wrong way", () => {
+    const wrong = databaseRun();
+    for (const n of wrong.notifications)
+      n.groupLabels = { ...n.groupLabels, domain: "provider" };
+    expect(gate(gatesOutage(wrong), "points at the cause").pass).toBe(false);
   });
 });
 

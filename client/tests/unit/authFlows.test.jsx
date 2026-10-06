@@ -8,6 +8,7 @@ import VerifyEmailPage from "../../src/pages/VerifyEmailPage.jsx";
 import ForgotPasswordPage from "../../src/pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "../../src/pages/ResetPasswordPage.jsx";
 import VerifyEmailBanner from "../../src/components/VerifyEmailBanner.jsx";
+import ConfirmEmailChangePage from "../../src/pages/ConfirmEmailChangePage.jsx";
 import AuthForm from "../../src/pages/AuthForm.jsx";
 
 vi.mock("../../src/api/client.js", async (importOriginal) => {
@@ -171,6 +172,93 @@ describe("VerifyEmailBanner (FR-1.7)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send the link again" }));
 
     expect(await screen.findByText(/3 links an hour/)).toBeVisible();
+  });
+});
+
+describe("ConfirmEmailChangePage (FR-1.13, step 75)", () => {
+  it("spends the token exactly ONCE under StrictMode, names the new address, and refreshes the session", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ changed: true, email: "new@b.com" });
+    const { refreshUser } = renderAt(<ConfirmEmailChangePage />, {
+      path: "/confirm-email-change?token=strict-once",
+      user: { ...UNVERIFIED, pendingEmail: "new@b.com" },
+      strict: true,
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Email changed" }),
+    ).toBeVisible();
+    expect(screen.getByText(/Your address is now new@b.com/)).toBeVisible();
+    expect(calls("/api/v1/auth/confirm-email-change")).toHaveLength(1);
+    expect(calls("/api/v1/auth/confirm-email-change")[0][1]).toEqual({
+      method: "POST",
+      body: { token: "strict-once" },
+    });
+    expect(refreshUser).toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "Back to settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+  });
+
+  it("works signed out too, pointing at sign-in", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ changed: true, email: "new@b.com" });
+    renderAt(<ConfirmEmailChangePage />, {
+      path: "/confirm-email-change?token=signed-out",
+    });
+    expect(await screen.findByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+  });
+
+  it("says a spent or replaced link left the address unchanged, and where to get a new one", async () => {
+    vi.mocked(apiFetch).mockRejectedValue(apiError("VALIDATION_ERROR", "unusable"));
+    renderAt(<ConfirmEmailChangePage />, { path: "/confirm-email-change?token=spent" });
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "This link can't be used" }),
+    ).toBeVisible();
+    expect(screen.getByText(/Your address has not changed/)).toBeVisible();
+    expect(screen.getByText(/a newer change replaced it/)).toBeVisible();
+  });
+
+  it("a link with no token makes no request", () => {
+    renderAt(<ConfirmEmailChangePage />, { path: "/confirm-email-change" });
+    expect(
+      screen.getByRole("heading", { level: 1, name: "This link is incomplete" }),
+    ).toBeVisible();
+    expect(apiFetch).not.toHaveBeenCalled();
+  });
+
+  it("a failure that did not spend the link offers Try again, which makes a NEW request", async () => {
+    vi.mocked(apiFetch)
+      .mockRejectedValueOnce(
+        apiError("NETWORK_ERROR", "We couldn’t reach the server.", 0),
+      )
+      .mockResolvedValueOnce({ changed: true, email: "new@b.com" });
+    renderAt(<ConfirmEmailChangePage />, { path: "/confirm-email-change?token=retry" });
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Email changed" }),
+    ).toBeVisible();
+    expect(calls("/api/v1/auth/confirm-email-change")).toHaveLength(2);
+  });
+});
+
+describe("VerifyEmailBanner while an email change is pending (FR-1.13, step 75)", () => {
+  it("names the NEW mailbox, says checks are paused, and offers no resend to the old address", () => {
+    renderAt(<VerifyEmailBanner />, {
+      path: "/",
+      user: { ...UNVERIFIED, pendingEmail: "new@b.com" },
+    });
+    expect(screen.getByText("Confirm your new email to run a check")).toBeVisible();
+    expect(screen.getByText("new@b.com")).toBeVisible();
+    expect(screen.getByText(/checks are paused/)).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: /Start the change again in Settings/ }),
+    ).toHaveAttribute("href", "/settings");
+    // The signup variant's resend would mail the OLD address.
+    expect(screen.queryByRole("button", { name: /resend|send.*link/i })).toBeNull();
+    expect(screen.queryByText(/when you signed up/)).toBeNull();
   });
 });
 

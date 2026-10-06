@@ -20,6 +20,12 @@ export const C = {
   m_confidentiality: 'Developer shall not disclose the existence of this engagement, the identity of Client, or the nature of the Services to any third party without Client\u2019s prior written consent.',
   m_scope: 'Developer shall address bug reports submitted by Client relating to the Services for a period of six (6) months following delivery at no additional charge.',
   m_rate: 'The hourly rate may be adjusted by Client upon sixty (60) days written notice to Developer.',
+  // Fair clauses, labelled do-not-flag in the answer key (step 75): each is
+  // the arrangement the product itself recommends elsewhere in the corpus,
+  // so a model that flags one is wrong by the product's own advice.
+  m_out_of_scope: 'Work outside the agreed scope shall be quoted separately and shall not commence until approved in writing by Client.',
+  m_ip_on_payment: 'All source code, documentation, and related materials produced by Developer in performance of the Services shall be owned by Client upon payment of the invoice covering the period in which such materials were created.',
+  m_liability_cap: 'Developer\u2019s total liability under this Agreement shall not exceed the total fees paid in the twelve (12) months preceding the claim.',
 
   // ---- 04 mixed video production ----
   v_ip: 'Client shall own all right, title, and interest in the final edited video upon full payment of all amounts due under this Agreement.',
@@ -136,15 +142,15 @@ export const contracts = {
       ['p', C.m_net60],
       ['h', '3. Scope and Support'],
       ['p', C.m_scope + ' Bug reports shall be submitted through Client\u2019s issue tracker and triaged within two (2) business days.'],
-      ['p', 'Work outside the agreed scope shall be quoted separately and shall not commence until approved in writing by Client.'],
+      ['p', C.m_out_of_scope],
       ['h', '4. Intellectual Property'],
-      ['p', 'All source code, documentation, and related materials produced by Developer in performance of the Services shall be owned by Client upon payment of the invoice covering the period in which such materials were created. Developer retains ownership of any pre-existing libraries, tools, or frameworks used in the Services, and grants Client a perpetual, non-exclusive licence to use them as incorporated into the deliverables.'],
+      ['p', C.m_ip_on_payment + ' Developer retains ownership of any pre-existing libraries, tools, or frameworks used in the Services, and grants Client a perpetual, non-exclusive licence to use them as incorporated into the deliverables.'],
       ['h', '5. Term and Termination'],
       ['p', C.m_termination],
       ['h', '6. Confidentiality'],
       ['p', C.m_confidentiality + ' This obligation shall continue indefinitely following termination of this Agreement.'],
       ['h', '7. Warranties'],
-      ['p', 'Developer warrants that the Services will be performed with reasonable skill and care, and that the deliverables will not knowingly infringe the intellectual property rights of any third party. Developer\u2019s total liability under this Agreement shall not exceed the total fees paid in the twelve (12) months preceding the claim.'],
+      ['p', 'Developer warrants that the Services will be performed with reasonable skill and care, and that the deliverables will not knowingly infringe the intellectual property rights of any third party. ' + C.m_liability_cap],
       ['h', '8. Governing Law'],
       ['p', 'This Agreement is governed by the laws of the Netherlands. The parties submit to the exclusive jurisdiction of the courts of Amsterdam.'],
       ...boiler('Developer', 'Client'),

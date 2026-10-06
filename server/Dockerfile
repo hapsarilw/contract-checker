@@ -92,6 +92,12 @@ COPY prisma.config.js ./
 COPY prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
+# The operator's command line (runbooks: "npm run ops -- <command> from a
+# shell on the platform"), and nothing else from scripts/. Without it every
+# runbook action that needs it (DSAR erasure and export, suspension, the
+# restore's re-deletions, step 75's erasure check) would fail on the one
+# machine it was written for. Found in step 75; ops.js imports only src/.
+COPY scripts/ops.js ./scripts/ops.js
 
 # The official image's built-in "node" user (uid/gid 1000) — NFR-2.11's
 # non-root requirement. Ownership follows: files copied above land owned

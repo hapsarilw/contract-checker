@@ -1,4 +1,5 @@
 import { AppError } from "../lib/AppError.js";
+import { isDatabaseUnavailable } from "../lib/databaseErrors.js";
 import { ERROR_CODES, DEFAULT_RETRY_AFTER_SECONDS } from "../lib/errorCodes.js";
 import logger from "../observability/logger.js";
 import { reportError } from "../observability/errorTracker.js";
@@ -17,14 +18,26 @@ import { getRequestId } from "./requestId.js";
  */
 // eslint-disable-next-line no-unused-vars -- Express identifies error middleware by arity (4 params); `next` must stay in the signature even though this handler never calls it.
 export function errorHandler(err, req, res, next) {
-  const isAppError = err instanceof AppError;
-  const code = isAppError ? err.code : "INTERNAL";
-  const status = isAppError ? err.status : ERROR_CODES.INTERNAL.status;
-  const message = isAppError ? err.message : ERROR_CODES.INTERNAL.message;
+  // Step 75: a database that cannot be reached is a stated 503 with a
+  // Retry-After, like the provider's outage, not a bare INTERNAL.
+  // The ORIGINAL error is what gets logged (it names the host and the
+  // failure); the response is built from the stated one.
+  const databaseDown = !(err instanceof AppError) && isDatabaseUnavailable(err);
+  const known = databaseDown ? new AppError("DATABASE_UNAVAILABLE") : err;
+  const isAppError = known instanceof AppError;
+  const code = isAppError ? known.code : "INTERNAL";
+  const status = isAppError ? known.status : ERROR_CODES.INTERNAL.status;
+  const message = isAppError ? known.message : ERROR_CODES.INTERNAL.message;
   const requestId = getRequestId();
 
   const logPayload = { err, code, status, requestId };
-  if (status >= 500) {
+  if (databaseDown) {
+    // Logged at error, because an operator must act, but NOT sent to the
+    // error tracker: it is not a defect in the code, the outage pages
+    // through readiness_failing and api_5xx_rate, and one event per
+    // request during an outage would spend the tracker's quota on noise.
+    logger.error(logPayload, "request failed: database unavailable");
+  } else if (status >= 500) {
     logger.error(logPayload, "request failed");
     // Step 74: to the error tracker, with the route PATTERN and nothing else
     // about the request (observability/errorTracker.js says why).
@@ -49,8 +62,8 @@ export function errorHandler(err, req, res, next) {
   // guess; errorCodes.js's own static table intentionally has no
   // RATE_LIMITED default; there is nothing meaningful to default to for
   // a per-request rate-limit window without a window in front of it.
-  if (status === 503 || (isAppError && err.retryAfter)) {
-    const retryAfter = (isAppError && err.retryAfter) || DEFAULT_RETRY_AFTER_SECONDS;
+  if (status === 503 || (isAppError && known.retryAfter)) {
+    const retryAfter = (isAppError && known.retryAfter) || DEFAULT_RETRY_AFTER_SECONDS;
     res.set("Retry-After", String(retryAfter));
   }
 

@@ -122,6 +122,8 @@ describe("config.js — validated at boot (SRS §8, Appendix B)", () => {
       temperature: false,
       effort: true,
       model: "claude-opus-5",
+      // Step 75: no geography asked for unless ANTHROPIC_INFERENCE_GEO says so.
+      inferenceGeo: null,
     });
   });
 

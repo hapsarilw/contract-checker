@@ -70,11 +70,13 @@ Per environment, **environment-scoped, never repository-wide**, so that staging'
 | Kind | Name | What |
 |---|---|---|
 | secret | `DATABASE_URL` | that environment's database, for the migration job only |
-| secret | `PLATFORM_TOKEN` | the hosting platform's deploy token |
+| secret | `PLATFORM_TOKEN` | the API platform's deploy token (Render's API key, step 75) |
+| secret | `FRONTEND_PLATFORM_TOKEN` | the frontend platform's token (Netlify's, step 75) |
 | secret | `SMOKE_ACCOUNT_PASSWORD` | the smoke account's password |
 | secret | `SYNTHETIC_CHECK_TOKEN` | optional; only useful from an allowlisted address |
 | secret | `PROMETHEUS_TOKEN` | optional |
 | variable | `DEPLOY_PLATFORM`, `API_URL`, `FRONTEND_URL`, `SMOKE_ACCOUNT_EMAIL`, `PROMETHEUS_URL` | |
+| variable | `RENDER_SERVICE_ID`, `FRONTEND_PLATFORM`, `NETLIFY_SITE_ID` | step 75: which service and which site this environment deploys to |
 | variable | `E2E_MAILBOX` | where TR-24 reads the verification email (step 73); see §9 |
 
 **The provider key is not in this list, on purpose.** `ANTHROPIC_API_KEY` lives in the hosting platform's secret store, per environment, and nowhere in GitHub. `server/tests/unit/ciPipeline.test.js` fails if `deploy.yml` reads any secret outside the list above, or reads one from a job without an `environment:`.
@@ -163,6 +165,20 @@ Two defects were found by running this, not by reading it: the check's 502-versu
 6. **Migrations for a deploy run from the CI runner**, from the commit being deployed (§2). The platform's one-off job is the documented fallback.
 
 ## 9. Decisions still owed (the owner's)
+
+**Decided 2026-10-06 (step 75):**
+
+| Need | Provider |
+|---|---|
+| API | Render |
+| Frontend | Netlify |
+| Database | Render's managed Postgres, with point-in-time recovery |
+| Cache | Render Key Value |
+| Email | Resend |
+| Metrics and alerting | Grafana Cloud, one stack per environment |
+| Paging | PagerDuty |
+
+[staging-setup.md](staging-setup.md) records what the configuration assumes. The accounts, domains and secrets are the owner's, step by step in [panduan-pemilik.md](panduan-pemilik.md). The list below is kept as written, for the reasons each choice had to satisfy.
 
 Each of these blocks staging, and so blocks this step's "done when":
 

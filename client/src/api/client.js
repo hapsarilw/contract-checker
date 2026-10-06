@@ -1,4 +1,5 @@
 import { navigateTo } from "../lib/navigate.js";
+import { DEFAULT_API_BASE_URL } from "./baseUrl.js";
 import { clearDegraded, DEGRADED_CODES, markDegraded } from "./degraded.js";
 
 /**
@@ -11,7 +12,7 @@ import { clearDegraded, DEGRADED_CODES, markDegraded } from "./degraded.js";
  * SPA's only way to know who's signed in is calling GET /api/v1/auth/me.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 
 /** FR-1.12(d): GET/HEAD are side-effect free; everything else is state-changing. */
 const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);

@@ -39,6 +39,18 @@ describe("resolveAnalyzeError (BUILD-PLAN step 34 — all four ANALYZE_ERRORS st
     expect(result.code).toBe("EMAIL_NOT_VERIFIED · 403");
   });
 
+  it("DATABASE_UNAVAILABLE (step 75) says nothing was lost and to retry, and is not a degraded-mode code", async () => {
+    const result = resolveAnalyzeError({ code: "DATABASE_UNAVAILABLE", message: "x" });
+    expect(result.code).toBe("DATABASE_UNAVAILABLE · 503");
+    expect(result.body).toMatch(/Nothing has been lost/);
+    expect(result.primary).toBe("Try again");
+    expect(result.action).toBe("retry");
+    // The degraded banner promises saved reports are still there, which a
+    // database outage makes untrue.
+    const { DEGRADED_CODES } = await import("../../src/api/degraded.js");
+    expect(DEGRADED_CODES.has("DATABASE_UNAVAILABLE")).toBe(false);
+  });
+
   it("an unrecognised code still renders something actionable, using the server's own message", () => {
     const result = resolveAnalyzeError({
       code: "SOME_FUTURE_CODE",

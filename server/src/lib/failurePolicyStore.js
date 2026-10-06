@@ -36,6 +36,21 @@ import { AppError } from "./AppError.js";
  * succeeded into an error, so they are swallowed. `resetAll` is the
  * exception — it is test-only, and a test that silently fails to reset
  * state is worse than one that fails loudly.
+ *
+ * INIT [step 75]: a Redis that is unreachable when the process starts
+ * (Render's Key Value restarting during a deploy) is an outage like any
+ * other, not a reason to crash. rate-limit-redis's init loads its two Lua
+ * scripts and rejects when it cannot; express-rate-limit calls init and
+ * discards what this decorator returns, so before this step that rejection
+ * was unhandled and the process exited at boot. Worse, the store keeps the
+ * rejected script promises and awaits them on every increment, and only a
+ * NOSCRIPT reply makes it load them again: had the process survived, every
+ * limiter would have stayed failed after Redis came back, the analyze path
+ * refusing every request until a restart. So a failed init is recorded,
+ * not thrown, and the next increment initialises the store again before
+ * using it; one retry is shared by the requests that arrive while it runs.
+ * A retry that fails is a store failure like any other, and the policy
+ * applies.
  */
 
 /**
@@ -53,6 +68,16 @@ export class FailurePolicyStore {
   #onFailure;
   /** @type {number} */
   #windowMs = 60_000;
+  /** @type {Record<string, unknown> | undefined} */
+  #options;
+  /**
+   * The inner store's last init: settles to null once it is ready, or to the
+   * reason it is not. It never rejects. A store never initialised counts as
+   * ready, as express-rate-limit treats a store without init.
+   *
+   * @type {Promise<unknown>}
+   */
+  #ready = Promise.resolve(null);
 
   /**
    * @param {{
@@ -76,7 +101,30 @@ export class FailurePolicyStore {
    */
   init(options) {
     this.#windowMs = options.windowMs;
-    this.#inner.init?.(/** @type {any} */ (options));
+    this.#options = options;
+    this.#ready = this.#initInner();
+  }
+
+  /** @returns {Promise<unknown>} see #ready */
+  #initInner() {
+    try {
+      return Promise.resolve(this.#inner.init?.(/** @type {any} */ (this.#options))).then(
+        () => null,
+        (err) => err ?? new Error("rate-limit store failed to initialise"),
+      );
+    } catch (err) {
+      return Promise.resolve(err ?? new Error("rate-limit store failed to initialise"));
+    }
+  }
+
+  /** Throws the reason the inner store cannot be used yet, if it cannot. */
+  async #whenReady() {
+    const ready = this.#ready;
+    if ((await ready) === null) return;
+    // Every request that saw the same failed init shares one retry.
+    if (this.#ready === ready) this.#ready = this.#initInner();
+    const reason = await this.#ready;
+    if (reason !== null) throw reason;
   }
 
   /**
@@ -85,6 +133,7 @@ export class FailurePolicyStore {
    */
   async increment(key) {
     try {
+      await this.#whenReady();
       return await this.#inner.increment(key);
     } catch (err) {
       this.#onFailure(err, this.#policy);

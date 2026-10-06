@@ -20,6 +20,7 @@ import {
 } from "../../src/services/llm/index.js";
 import { MockLlmProvider } from "../../src/services/llm/mockProvider.js";
 import { AppError } from "../../src/lib/AppError.js";
+import logger from "../../src/observability/logger.js";
 import {
   SYSTEM_PROMPT,
   retryCorrection,
@@ -211,6 +212,72 @@ describe("the request (Appendix A, NFR-2.8)", () => {
     const correction = { invalidResponse: "  \n", errorSummary: "not valid JSON" };
     const params = buildMessageParams({ profile, documentText: DOCUMENT, correction });
     expect(params.messages.map((message) => message.role)).toEqual(["user", "user"]);
+  });
+});
+
+describe("inference geography (step 75, ANTHROPIC_INFERENCE_GEO)", () => {
+  it("sends inference_geo only when one is configured; unset leaves the workspace default", () => {
+    for (const geo of /** @type {const} */ (["us", "global"])) {
+      const { llmParamProfile } = parseConfig(env({ ANTHROPIC_INFERENCE_GEO: geo }));
+      expect(
+        buildMessageParams({ profile: llmParamProfile, documentText: DOCUMENT })
+          .inference_geo,
+      ).toBe(geo);
+    }
+    for (const unset of [{}, { ANTHROPIC_INFERENCE_GEO: "" }]) {
+      const { llmParamProfile } = parseConfig(env(unset));
+      expect(
+        buildMessageParams({ profile: llmParamProfile, documentText: DOCUMENT }),
+      ).not.toHaveProperty("inference_geo");
+    }
+  });
+
+  it("refuses a geography the API does not offer", () => {
+    expect(() => parseConfig(env({ ANTHROPIC_INFERENCE_GEO: "eu" }))).toThrow();
+  });
+
+  it("logs an error when the provider says inference ran somewhere else than asked", async () => {
+    const error = vi.spyOn(logger, "error").mockImplementation(() => logger);
+    const message = providerMessage();
+    message.usage = { ...message.usage, inference_geo: "global" };
+    const cfg = parseConfig(
+      env({ LLM_PROVIDER: "anthropic", ANTHROPIC_INFERENCE_GEO: "us" }),
+    );
+    const provider = createAnthropicProvider(cfg, {
+      anthropic: fakeAnthropic(() => Promise.resolve(message)),
+    });
+    await provider.analyze({ documentText: DOCUMENT });
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alert: "inference_geo_mismatch",
+        asked: "us",
+        ranIn: "global",
+      }),
+      expect.any(String),
+    );
+    error.mockRestore();
+  });
+
+  it("is quiet when inference ran where it was asked to, or nothing was asked", async () => {
+    const error = vi.spyOn(logger, "error").mockImplementation(() => logger);
+    const here = providerMessage();
+    here.usage = { ...here.usage, inference_geo: "us" };
+    const asked = parseConfig(
+      env({ LLM_PROVIDER: "anthropic", ANTHROPIC_INFERENCE_GEO: "us" }),
+    );
+    await createAnthropicProvider(asked, {
+      anthropic: fakeAnthropic(() => Promise.resolve(here)),
+    }).analyze({
+      documentText: DOCUMENT,
+    });
+    const unasked = parseConfig(env({ LLM_PROVIDER: "anthropic" }));
+    await createAnthropicProvider(unasked, {
+      anthropic: fakeAnthropic(() => Promise.resolve(here)),
+    }).analyze({
+      documentText: DOCUMENT,
+    });
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
   });
 });
 

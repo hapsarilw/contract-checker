@@ -107,6 +107,19 @@ const SCREENS = [
       ).toBeVisible();
     },
   },
+  // Step 75: FR-1.13's confirmation screen, opened from a mailbox, often
+  // signed out.
+  {
+    name: "confirm-email-change",
+    signedIn: false,
+    appChrome: false,
+    open: async (page) => {
+      await page.goto("/confirm-email-change?token=e2e-token");
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Email changed" }),
+      ).toBeVisible();
+    },
+  },
   // Step 74: the legal surface, public and held to the same audit. Long
   // text and wide tables are exactly where 320 px reflow breaks.
   ...[

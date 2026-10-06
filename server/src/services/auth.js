@@ -118,13 +118,19 @@ export function clearSessionCookieOptions() {
   return rest;
 }
 
-/** The user shape safe to return over the API: no hash, no tokenVersion. */
+/**
+ * The user shape safe to return over the API: no hash, no tokenVersion.
+ * `pendingEmail` (step 75) is the address an FR-1.13 change is waiting to
+ * confirm, or null: the account's own data, shown to its own owner, so the
+ * client can say which mailbox the link went to.
+ */
 export function toPublicUser(user) {
   return {
     id: user.id,
     email: user.email,
     state: user.state,
     emailVerifiedAt: user.emailVerifiedAt,
+    pendingEmail: user.pendingEmail ?? null,
     createdAt: user.createdAt,
   };
 }

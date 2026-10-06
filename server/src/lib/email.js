@@ -4,6 +4,7 @@ import config from "../config.js";
 import logger from "../observability/logger.js";
 import { TEMPLATES } from "./email/templates.js";
 import { createSinkProvider } from "./email/sinkProvider.js";
+import { createResendProvider } from "./email/resendProvider.js";
 
 /**
  * Transactional email (BUILD-PLAN step 51; NFR-3.8, NFR-3.7, SRS §6.5).
@@ -251,8 +252,8 @@ export function createEmailService({
  * Kept here, not in the templates, so a template stays a pure function of
  * its inputs and cannot reach for config.
  *
- * The paths are the client's real routes (step 63 built /verify-email and
- * /reset-password); /confirm-email-change has no screen yet.
+ * The paths are the client's real routes: step 63 built /verify-email and
+ * /reset-password, and step 75 /confirm-email-change.
  *
  * @param {string} type
  * @param {Record<string, string>} params
@@ -296,7 +297,12 @@ export function getEmailService() {
     (config.NODE_ENV === "test" ? undefined : join(process.cwd(), ".mail-sink"));
 
   service = createEmailService({
-    provider: createSinkProvider({ dir }),
+    provider:
+      config.EMAIL_PROVIDER === "resend"
+        ? createResendProvider({
+            apiKey: /** @type {string} */ (config.EMAIL_PROVIDER_KEY),
+          })
+        : createSinkProvider({ dir }),
     from: config.EMAIL_FROM ?? SINK_FROM,
     frontendOrigin: config.FRONTEND_ORIGIN,
   });

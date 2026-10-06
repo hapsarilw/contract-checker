@@ -1,4 +1,5 @@
 import { useAuth } from "../auth/useAuth.js";
+import ChangeEmailSection from "./settings/ChangeEmailSection.jsx";
 import ChangePasswordSection from "./settings/ChangePasswordSection.jsx";
 import DeleteAccountSection from "./settings/DeleteAccountSection.jsx";
 import ExportSection from "./settings/ExportSection.jsx";
@@ -6,8 +7,8 @@ import SignOutEverywhereSection from "./settings/SignOutEverywhereSection.jsx";
 import "./SettingsPage.css";
 
 /**
- * FR-7.1's /settings: change password, sign out everywhere, download my
- * data, delete my account. Rendered inside the app chrome by App.jsx's
+ * FR-7.1's /settings: change password, change email (FR-1.13, step 75),
+ * sign out everywhere, download my data, delete my account. Rendered inside the app chrome by App.jsx's
  * `Protected`, so the header and the auth guard are not this file's
  * business.
  *
@@ -30,6 +31,7 @@ export default function SettingsPage() {
         </p>
 
         <ChangePasswordSection />
+        <ChangeEmailSection />
         <SignOutEverywhereSection />
         <ExportSection />
         <DeleteAccountSection />

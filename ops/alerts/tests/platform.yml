@@ -85,6 +85,33 @@ tests:
           - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
 
   - interval: 1m
+    name: two server errors do not page, whatever the ratio (the floor, step 75)
+    # Two 500s among very few requests is a high ratio and two errors. The
+    # floor is three, so a quiet night's single bad request is a log line.
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="500"}'
+        values: "0 0 0 1 1 1 2 2 2 2 2 2 2 2 2 2"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="200"}'
+        values: "0+1x15"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: api_5xx_rate
+        exp_alerts: []
+
+  - interval: 1m
+    name: three server errors pass the floor and page when the ratio does
+    input_series:
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="500"}'
+        values: "0 0 0 1 1 1 2 2 2 3 3 3 3 3 3 3"
+      - series: 'http_request_duration_seconds_count{route="/api/v1/documents",method="GET",status="200"}'
+        values: "0+1x15"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: api_5xx_rate
+        exp_alerts:
+          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
+
+  - interval: 1m
     name: a 4xx rate is not a 5xx rate, however high
     # Deliberate refusals — a wrong password, an over-quota analyze, a file
     # that is not a PDF — are the system working. Paging on them would page

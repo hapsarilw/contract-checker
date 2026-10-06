@@ -102,6 +102,18 @@ const DYNAMIC = {
     primary: "See your saved reports",
     action: "reports",
   }),
+  // Step 75: the database cannot be reached. Not a degraded-mode code
+  // (degraded.js): the banner promises that saved reports are still
+  // there, and during a database outage they cannot be opened either.
+  // The contract itself was saved before the outage, or this screen
+  // would not have a document to check.
+  DATABASE_UNAVAILABLE: () => ({
+    code: "DATABASE_UNAVAILABLE · 503",
+    title: "We can’t reach your saved work right now.",
+    body: "Nothing has been lost. Your contract and your reports are safe; we just can’t open them for a moment. Try again in a minute.",
+    primary: "Try again",
+    action: "retry",
+  }),
   SERVER_BUSY: () => ({
     code: "SERVER_BUSY · 503",
     title: "We’re very busy right now.",

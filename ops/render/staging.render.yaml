@@ -1,0 +1,155 @@
+# Render Blueprint: STAGING (BUILD-PLAN step 75, docs/staging-setup.md).
+#
+# Created once from the Render dashboard (New → Blueprint, this repository,
+# Blueprint path `ops/render/staging.render.yaml`). After that, deploys come
+# from .github/workflows/deploy.yml through scripts/deploy/platform.sh,
+# which pins each deploy to one image by commit SHA: this file says what the
+# service IS, not which build it runs.
+#
+# docs/deployment.md §1 is the rule: staging and production run the SAME
+# image with the SAME config schema, NODE_ENV=production in both, and differ
+# only in DEPLOY_ENV, scale and secrets. production.render.yaml is this file
+# with exactly those differences; tests/unit/renderBlueprints.test.js
+# checks that and nothing else drifts.
+#
+# SECRETS ARE NEVER IN THIS FILE. `generateValue` has Render create a random
+# value at creation (and never again: AUDIT_SALT must not change, see
+# lib/audit.js). `sync: false` makes Render ask for the value in the
+# dashboard when the Blueprint is created; the owner pastes it there, in
+# Render's secret store, and nowhere else.
+#
+# Field names follow Render's Blueprint reference
+# (https://render.com/docs/blueprint-spec); check them against it when the
+# Blueprint is first created, and correct this file if Render says otherwise.
+
+services:
+  - type: web
+    name: clausecheck-api-staging
+    runtime: image
+    image:
+      # Public, built by deploy.yml. This tag is only what the service starts
+      # on; every deploy after it names its own commit's image.
+      url: ghcr.io/hapsarilw/clausecheck-server:bootstrap
+    # Singapore: the region nearest the users PRD §12 declares (Indonesia),
+    # and the same as the database and Key Value below.
+    region: singapore
+    # SRS §6.1: two instances at 512 MB. "starter" is 512 MB, the size the
+    # step-73 load tests measured against (MEMORY_LIMIT_BYTES below).
+    plan: starter
+    numInstances: 2
+    # Readiness, not liveness: an instance that cannot reach Postgres or
+    # Redis is taken out of rotation (FR-4.7).
+    healthCheckPath: /api/ready
+    # NFR-3.5: over the 90 s drain, so a rolling deploy never severs an
+    # analysis in flight (docs/deployment.md §5).
+    maxShutdownDelaySeconds: 100
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DEPLOY_ENV
+        value: staging
+      - key: DATABASE_URL
+        fromDatabase:
+          name: clausecheck-db-staging
+          property: connectionString
+      # Two instances x 10 stays well under the database's own limit (§6.1).
+      - key: DATABASE_POOL_SIZE
+        value: "10"
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: clausecheck-kv-staging
+          property: connectionString
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5
+      # STAGING'S OWN key, with its own spend limit in the Anthropic console.
+      # Never the development or the production key.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LLM_PRICE_INPUT_PER_MTOK
+        value: "2"
+      - key: LLM_PRICE_OUTPUT_PER_MTOK
+        value: "10"
+      - key: MONTHLY_SPEND_CEILING_USD
+        value: "10"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUDIT_SALT
+        generateValue: true
+      - key: METRICS_TOKEN
+        generateValue: true
+      # https://staging.<your domain>: the frontend's origin, exactly. It must
+      # be on the same registrable domain as this API's custom domain, or the
+      # SameSite=Lax session cookie is never sent (docs/staging-setup.md).
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: EMAIL_PROVIDER_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: MEMORY_LIMIT_BYTES
+        value: "536870912"
+      - key: LOG_LEVEL
+        value: info
+      # Staging only: step 68's alert drills. config.js refuses it anywhere
+      # DEPLOY_ENV is not staging.
+      - key: ALERT_DRILL_TOKEN
+        generateValue: true
+
+  - type: keyvalue
+    name: clausecheck-kv-staging
+    region: singapore
+    plan: starter
+    # Counters for rate limits, quotas and the circuit breaker. Evicting one
+    # would quietly reset a limit, so a full instance refuses writes instead
+    # (the analyze limiter then fails closed, FR-5.6).
+    maxmemoryPolicy: noeviction
+    # Reachable from Render's private network only.
+    ipAllowList: []
+
+  # Scrapes both API instances and writes to the metrics backend
+  # (ops/monitoring/alloy). Private: nothing on the internet reaches it.
+  - type: pserv
+    name: clausecheck-metrics-staging
+    runtime: docker
+    region: singapore
+    plan: starter
+    dockerfilePath: ops/monitoring/alloy/Dockerfile
+    dockerContext: ops/monitoring/alloy
+    envVars:
+      - key: DEPLOY_ENV
+        value: staging
+      # The API's per-instance discovery name on Render's private network.
+      - key: SCRAPE_DISCOVERY_NAME
+        value: clausecheck-api-staging-discovery
+      - key: SCRAPE_PORT
+        value: "10000"
+      - key: METRICS_TOKEN
+        fromService:
+          type: web
+          name: clausecheck-api-staging
+          envVarKey: METRICS_TOKEN
+      - key: REMOTE_WRITE_URL
+        sync: false
+      - key: REMOTE_WRITE_USERNAME
+        sync: false
+      - key: REMOTE_WRITE_PASSWORD
+        sync: false
+
+databases:
+  - name: clausecheck-db-staging
+    region: singapore
+    # A paid plan, for point-in-time recovery (PRD §14.2's RPO of 24 h, and
+    # the restore drill in staging). Check the plan's PITR window when
+    # creating it; the restore runbook needs it.
+    plan: basic-1gb
+    postgresMajorVersion: "15"
+    databaseName: clausecheck
+    user: clausecheck

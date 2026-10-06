@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useAuth } from "../auth/useAuth.js";
 import Banner from "./Banner.jsx";
 import ResendVerification from "./ResendVerification.jsx";
@@ -28,6 +29,21 @@ import ResendVerification from "./ResendVerification.jsx";
 export default function VerifyEmailBanner() {
   const { status, user, refreshUser } = useAuth();
   if (status !== "authenticated" || user.state !== "UNVERIFIED") return null;
+
+  // FR-1.13: unverified because an email CHANGE is waiting on its link
+  // (step 75). Pointing this person at "the link we sent when you signed
+  // up", and offering to resend it to the OLD address, would send them the
+  // wrong way; a new link comes from starting the change again.
+  if (user.pendingEmail) {
+    return (
+      <Banner tone="warning" role="group" title="Confirm your new email to run a check">
+        Open the link we sent to <strong>{user.pendingEmail}</strong>. Until you do, your
+        address stays <strong>{user.email}</strong> and checks are paused; your reports
+        are all still here. Wrong address, or no email?{" "}
+        <Link to="/settings">Start the change again in Settings</Link>.
+      </Banner>
+    );
+  }
 
   return (
     <Banner tone="warning" role="group" title="Verify your email to run a check">

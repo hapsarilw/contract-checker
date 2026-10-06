@@ -46,7 +46,7 @@ select d."userId", d."sourceType", d."wordCount", a."errorCode", count(*)
   where a.status = 'FAILED' and a."createdAt" > now() - interval '1 hour'
   group by 1, 2, 3, 4 order by 5 desc limit 20;
 ```
-One user retrying one strange document can dominate a low-traffic hour — the ratio alerts have no minimum volume yet (`docs/alert-drills.md` §6). If that is all it is, it is not an incident: note it and look at the document shape (source type, word count) for a reproducible case.
+One user retrying one strange document can dominate a low-traffic hour. The alert needs at least three failures (`docs/alert-drills.md` §6), so three attempts at one bad document are enough to page. If that is all it is, it is not an incident: note it and look at the document shape (source type, word count) for a reproducible case.
 
 **5. `STALE_ANALYSIS`** — analyses dying without reaching a terminal state. See [stuck-pending-analyses](stuck-pending-analyses.md).
 

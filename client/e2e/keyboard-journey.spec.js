@@ -65,6 +65,12 @@ test("keyboard only: register, paste, analyze, read and copy, delete the contrac
   await expect(page).toHaveURL("/");
 
   // --- Upload, by pasting -----------------------------------------------
+  // The URL changes before the upload page has rendered, and a Tab pressed
+  // in between missed the skip link about one run in ten (measured
+  // 2026-10-06: 1 of 10 on this commit and on the one before; 30 of 30
+  // after this wait). No keyboard user tabs through a page that is not
+  // there yet, so the test waits for it, as the user does.
+  await expect(page.getByRole("tab", { name: "Upload a file" })).toBeVisible();
   // The skip link is the first stop and lands in main, past the nav.
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Skip to main content" })).toBeFocused();

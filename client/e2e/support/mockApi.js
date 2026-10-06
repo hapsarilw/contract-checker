@@ -156,6 +156,11 @@ export async function mockApi(
     return route.fulfill(json(200, { analysis: ANALYSIS }));
   });
 
+  // Step 75: FR-1.13's confirmation link.
+  await page.route("**/api/v1/auth/confirm-email-change", (route) =>
+    route.fulfill(json(200, { changed: true, email: "new-address@example.com" })),
+  );
+
   await page.route("**/api/v1/account", (route) => {
     state.accountDeleted = true;
     state.signedIn = false;

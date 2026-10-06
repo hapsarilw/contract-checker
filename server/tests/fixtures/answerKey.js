@@ -117,6 +117,32 @@ export const answerKey = {
           why: "Symmetric 30-day notice with payment for hours worked is fair; flagging it low is defensible, missing it is not an error.",
         },
       ],
+      // Step 75: the corpus had three fair clauses, all in 04, so one flag in
+      // one repeat was 66.7% and PRD §11.1's 85% line could only read "never
+      // flag anything". These four are the arrangements the product itself
+      // recommends (01's and 04's suggested changes), so flagging one is
+      // wrong by the product's own advice. Seven in all: one stray flag in a
+      // repeat is 85.7%, two are 71.4%. docs/phase-1-dod.md §8 records the
+      // decision and the measurement behind it.
+      fair_clauses_do_not_flag: [
+        {
+          excerpt: C.m_ip_on_payment,
+          why: "Ownership passes on payment, period by period. The arrangement recommended against 01's assignment-on-creation.",
+        },
+        {
+          excerpt: C.m_out_of_scope,
+          why: "Extra work is quoted and approved first. The scope protection a freelancer wants.",
+        },
+        {
+          excerpt: C.m_liability_cap,
+          why: "Liability capped at twelve months of fees. The cap recommended against 01's uncapped indemnity.",
+        },
+        {
+          excerpt:
+            "Where Client fails to provide required materials or approvals within five (5) business days of a written request, the delivery schedule shall be extended by an equivalent period.",
+          why: "Client delay extends the schedule. Protects the freelancer from deadlines the client caused.",
+        },
+      ],
       missing_protections: ["deposit", "late_payment_interest", "kill_fee"],
     },
     {

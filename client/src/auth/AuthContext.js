@@ -15,7 +15,7 @@ import { createContext } from "react";
  * test passed.
  *
  * @typedef {"UNVERIFIED" | "ACTIVE" | "LOCKED" | "SUSPENDED"} AccountState
- * @typedef {{ id: string, email: string, state: AccountState, emailVerifiedAt?: string | null, createdAt?: string }} AuthUser
+ * @typedef {{ id: string, email: string, state: AccountState, emailVerifiedAt?: string | null, pendingEmail?: string | null, createdAt?: string }} AuthUser
  * @typedef {
  *   | { status: "loading", user: null }
  *   | { status: "authenticated", user: AuthUser }

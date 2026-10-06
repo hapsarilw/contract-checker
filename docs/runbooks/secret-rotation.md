@@ -36,7 +36,10 @@ SRS §12.5's rotation schedule, for **every secret the system holds** (step 74).
 | `SENTRY_DSN` | platform secret store | when abused (it is semi-public by design: it can only send events, never read them) | Someone sending junk events with it |
 | `ALERT_DRILL_TOKEN` | staging's secret store only | after each drill campaign | Enables the drill routes in staging |
 | `DATABASE_URL` / `REDIS_URL` credentials | platform secret store; `DATABASE_URL` also in GitHub environment secrets, for the migration job | annually, by the provider's mechanism | Reads and writes everything |
-| `PLATFORM_TOKEN` | GitHub environment secrets (staging, production) | annually | Deploys |
+| `PLATFORM_TOKEN` | GitHub environment secrets (staging, production): the Render API key (step 75) | annually | Deploys the API |
+| `FRONTEND_PLATFORM_TOKEN` | GitHub environment secrets (staging, production): the Netlify access token (step 75) | annually | Publishes the frontend |
+| `REMOTE_WRITE_PASSWORD` | the metrics agent's platform secrets, per environment (step 75) | annually | Writes metrics into that environment's backend |
+| PagerDuty routing key, digest SMTP password | the alerting backend's Alertmanager configuration only, loaded by `server/scripts/render-alertmanager.js` (step 75) | annually | Pages the on-call; sends the digest |
 | `SMOKE_ACCOUNT_PASSWORD` | GitHub environment secrets | annually | Signs in as the synthetic smoke account |
 | `PROMETHEUS_TOKEN` | GitHub environment secrets | annually | Reads metrics for the deploy watch |
 | `ANTHROPIC_BENCHMARK_KEY` | GitHub environment secrets (`benchmark`, `benchmark-pr`) | annually | The benchmark's own provider key, with its own spend limit |

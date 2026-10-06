@@ -1,0 +1,51 @@
+// The metrics agent for a deployed environment (BUILD-PLAN step 75,
+// docs/staging-setup.md): scrapes EVERY API instance's /metrics and writes
+// the samples to the metrics backend, where ops/alerts/alerts.yml runs.
+//
+// Each instance directly, never through the load balancer. Through the
+// balancer each scrape would land on a random instance, so one counter's
+// series would jump between instances' values and every rate() in the
+// alert rules would read nonsense. Render's private network resolves
+// "<service>-discovery" to the address of every running instance; that is
+// the discovery below.
+//
+// Everything specific comes from the environment, set in
+// ops/render/*.render.yaml: no address, token or credential is in this file.
+
+discovery.dns "api" {
+  names = [sys.env("SCRAPE_DISCOVERY_NAME")]
+  type  = "A"
+  port  = sys.env("SCRAPE_PORT")
+}
+
+prometheus.scrape "api" {
+  targets         = discovery.dns.api.targets
+  metrics_path    = "/metrics"
+  scrape_interval = "15s"
+  job_name        = "clausecheck-api"
+
+  authorization {
+    type        = "Bearer"
+    credentials = sys.env("METRICS_TOKEN")
+  }
+
+  forward_to = [prometheus.remote_write.backend.receiver]
+}
+
+prometheus.remote_write "backend" {
+  endpoint {
+    url = sys.env("REMOTE_WRITE_URL")
+
+    basic_auth {
+      username = sys.env("REMOTE_WRITE_USERNAME")
+      password = sys.env("REMOTE_WRITE_PASSWORD")
+    }
+  }
+
+  // One backend per environment (docs/staging-setup.md): the label is for
+  // reading dashboards, not for keeping staging's alerts off production's
+  // pager, which it would not do.
+  external_labels = {
+    environment = sys.env("DEPLOY_ENV"),
+  }
+}

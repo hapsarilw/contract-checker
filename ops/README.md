@@ -72,7 +72,7 @@ cd server && npx vitest run --project integration tests/integration/alertRouting
 
 The first needs Docker (promtool comes from the Prometheus image); the second runs a real Alertmanager against the committed config and watches the webhooks arrive.
 
-**An open decision, for when there is traffic.** The ratio alerts have no minimum volume, so two analyses of which one failed is a 50% failure rate and pages. That is Appendix C's condition as written and it is implemented as written; the fix is a floor, and the number for it should come from a week of real traffic rather than a guess. See `docs/alert-drills.md` §6.
+**A floor on the paging ratios (decided 2026-10-05, provisional).** At low traffic a ratio alone pages on almost nothing: two analyses of which one failed is 50%. So `analysis_failure_rate` and `api_5xx_rate` also require at least three failures in their window. Revisit the number after the closed beta's first week. See `docs/alert-drills.md` §6.
 
 **Every alert's runbook is in `docs/runbooks/`**, including the four Appendix C left blank (`db_pool_saturated`, `analysis_latency_p95`, `memory_high`, `email_delivery_failures`) and the `cross_user_access` adaptation. A test checks that every alert's `runbook_url` resolves.
 

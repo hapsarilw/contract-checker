@@ -156,8 +156,8 @@ export const privacy = {
               ],
               [
                 "Correct your data",
-                "Write to us from your account’s address; there is no in-product way to change your email address yet",
-                "Within 72 hours of your request",
+                "Settings → Change your email (it changes once you open the link we send to the new address) or Change your password; for anything else, write to us",
+                "Immediately, yourself",
               ],
               [
                 "Withdraw, object, or ask us to stop or restrict processing",

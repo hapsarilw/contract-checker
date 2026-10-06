@@ -72,8 +72,44 @@ export const DRILL = Object.freeze({
 });
 
 /**
+ * What each fault the drill can inject is expected to do (step 75). The
+ * provider outage is PRD §9 DoD item 3; the database outage is the same
+ * drill pointed at the other dependency every request needs.
+ */
+export const FAULTS = Object.freeze({
+  provider: Object.freeze({
+    label: "the provider",
+    code: "LLM_UNAVAILABLE",
+    statedMessage: ERROR_CODES.LLM_UNAVAILABLE.message,
+    retryAfter: String(ERROR_CODES.LLM_UNAVAILABLE.retryAfter),
+    // Reads never touch the provider (PRD D13): every one must answer.
+    readsRefused: false,
+    domain: "provider",
+    // Nothing dies mid-write, so nothing is left for the reaper.
+    maxReaped: 0,
+    // Failed analyses are rows, with the stated code.
+    failuresAreRows: true,
+  }),
+  database: Object.freeze({
+    label: "the database",
+    code: "DATABASE_UNAVAILABLE",
+    statedMessage: ERROR_CODES.DATABASE_UNAVAILABLE.message,
+    retryAfter: String(ERROR_CODES.DATABASE_UNAVAILABLE.retryAfter),
+    // Reads need the database too: refused while it is down, with the
+    // stated error, and answered again once it is back.
+    readsRefused: true,
+    domain: "platform",
+    // The one analysis in flight when it went down cannot record its end;
+    // the reaper fails it later (FR-3.8). The drill has one analysing user.
+    maxReaped: 1,
+    // A request refused before an analysis row exists leaves no row.
+    failuresAreRows: false,
+  }),
+});
+
+/**
  * @typedef {{ at: number, ms: number, status: number | null, code: string | null, retryAfter: string | null, message: string | null, documentId: string | null }} AnalysisCall
- * @typedef {{ at: number, kind: "list" | "report", status: number | null, ok: boolean, why?: string }} Read
+ * @typedef {{ at: number, kind: "list" | "report", status: number | null, ok: boolean, why?: string, code?: string | null }} Read
  * @typedef {{ t: number, alerts: { alertname: string, state: string }[] }} PromSample
  * @typedef {{ t: number, alerts: { alertname: string, route: string, domain: string, state: string, inhibitedBy: string[] }[] }} AmSample
  * @typedef {{ at: number, receiver: string, groupKey: string, status: string, firing: string[], resolved: string[], groupLabels: Record<string, string> }} Notification
@@ -223,10 +259,12 @@ export function stalls(ticks, limitMs) {
  *   prom: PromSample[], am: AmSample[], notifications: Notification[],
  *   database: { snapshotBefore: string | null, snapshotAfter: string | null, pendingAtEnd: number | null, reaped: number | null, failedCodes: Record<string, number>, outageDocuments: { uploaded: number, present: number | null } },
  *   observedUntilQuiet: boolean,
+ *   fault?: keyof typeof FAULTS,
  * }} r
  * @returns {Gate[]}
  */
 export function gatesOutage(r) {
+  const fault = FAULTS[r.fault ?? "provider"];
   const before = (/** @type {number} */ t) => t < r.outageStartAt;
   const promBefore = r.prom.filter((s) => before(s.t));
   const amBefore = r.am.filter((s) => before(s.t));
@@ -241,9 +279,9 @@ export function gatesOutage(r) {
   const stated = failedDuring.filter(
     (a) =>
       a.status === 503 &&
-      a.code === "LLM_UNAVAILABLE" &&
-      a.retryAfter === DRILL.retryAfter &&
-      a.message === DRILL.degradedMessage,
+      a.code === fault.code &&
+      a.retryAfter === fault.retryAfter &&
+      a.message === fault.statedMessage,
   );
 
   const recovered = r.analyses.find((a) => a.at >= r.outageEndAt && a.status === 200);
@@ -251,11 +289,27 @@ export function gatesOutage(r) {
   const unexpected = r.analyses.filter(
     (a) =>
       a.status !== 200 &&
-      !(a.code === "LLM_UNAVAILABLE" && a.at >= r.outageStartAt && a.at <= (recoveredAt ?? Infinity)),
+      !(
+        a.code === fault.code &&
+        // In flight when the fault began counts as during it: the database
+        // drill's re-run met one, started 1.8 s before Postgres stopped and
+        // refused 1.2 s after, as it should have been.
+        a.at + a.ms >= r.outageStartAt &&
+        a.at <= (recoveredAt ?? Infinity)
+      ),
   );
 
   const readsDuring = r.reads.filter((x) => x.at >= r.outageStartAt && x.at < r.outageEndAt);
-  const badReads = r.reads.filter((x) => !x.ok);
+  // A read refused with the stated error is expected of a database outage,
+  // and only while it lasts (with the recovery allowance after it).
+  const refusedAsStated = (/** @type {Read} */ x) =>
+    fault.readsRefused &&
+    x.status === 503 &&
+    x.code === fault.code &&
+    x.at >= r.outageStartAt &&
+    x.at <= r.outageEndAt + DRILL.recoveryMs;
+  const badReads = r.reads.filter((x) => !x.ok && !refusedAsStated(x));
+  const refusedReads = r.reads.filter(refusedAsStated);
 
   const groups = notifiedGroups(r.notifications, r.outageStartAt);
   const notYetSent = pendingGroupsAtEnd(r.am).filter(
@@ -264,7 +318,8 @@ export function gatesOutage(r) {
   const describe = (/** @type {ReturnType<typeof notifiedGroups>[number]} */ g) =>
     `${g.receiver} ${JSON.stringify(g.groupLabels)}: [${g.alertnames.join(", ")}], first ${minutes(g.firstAt - r.outageStartAt)} after the outage began, ${g.firing} firing + ${g.resolved} resolved message(s)`;
   const db = r.database;
-  const otherFailures = Object.entries(db.failedCodes).filter(([code]) => code !== "LLM_UNAVAILABLE");
+  const allowedFailureCodes = fault.maxReaped > 0 ? [fault.code, "STALE_ANALYSIS"] : [fault.code];
+  const otherFailures = Object.entries(db.failedCodes).filter(([code]) => !allowedFailureCodes.includes(code));
   // The reader waits for each answer, so one slow read is a gap too; the
   // limit allows for that and for a poll that times out (10 s).
   const hostStalls = [
@@ -300,7 +355,7 @@ export function gatesOutage(r) {
               : `${r.baselineRules.length} rule groups evaluated, ${promBefore.length} polls, nothing pending or firing, nothing sent`,
     },
     {
-      name: "the degraded-mode error is stated: 503 LLM_UNAVAILABLE, Retry-After 60, the document-is-saved message",
+      name: `the degraded-mode error is stated: 503 ${fault.code}, Retry-After ${fault.retryAfter}, the nothing-is-lost message`,
       pass: failedDuring.length >= DRILL.minDegradedResponses && stated.length === failedDuring.length,
       detail: `${stated.length} of ${failedDuring.length} failed analyses during the outage (${during.length - failedDuring.length} in-flight one(s) completed)`,
     },
@@ -309,20 +364,30 @@ export function gatesOutage(r) {
       pass: r.analyses.length > 0 && unexpected.length === 0,
       detail:
         unexpected.length === 0
-          ? `${r.analyses.length} analyses, every non-200 a 503 LLM_UNAVAILABLE inside the outage and its recovery`
+          ? `${r.analyses.length} analyses, every non-200 a 503 ${fault.code} inside the outage and its recovery`
           : unexpected
               .slice(0, 5)
               .map((a) => `${a.status ?? "dropped"} ${a.code ?? ""} at ${minutes(a.at - r.outageStartAt)}`)
               .join("; "),
     },
-    {
-      name: "reads are unaffected: every list and report read answered, with the pre-outage report intact",
-      pass: readsDuring.length >= DRILL.minReadsDuringOutage && badReads.length === 0,
-      detail:
-        badReads.length === 0
-          ? `${r.reads.length} reads, ${readsDuring.length} during the outage, all 200 and intact`
-          : badReads.slice(0, 5).map((x) => `${x.kind} ${x.status ?? "dropped"} ${x.why ?? ""}`).join("; "),
-    },
+    fault.readsRefused
+      ? {
+          name: `reads are refused with the stated 503 ${fault.code} while it is down, and only then, with the pre-outage report intact after`,
+          pass:
+            readsDuring.length >= DRILL.minReadsDuringOutage && refusedReads.length > 0 && badReads.length === 0,
+          detail:
+            badReads.length === 0
+              ? `${r.reads.length} reads, ${readsDuring.length} during the outage, ${refusedReads.length} refused as stated, every other one 200 and intact`
+              : badReads.slice(0, 5).map((x) => `${x.kind} ${x.status ?? "dropped"} ${x.code ?? ""} ${x.why ?? ""}`).join("; "),
+        }
+      : {
+          name: "reads are unaffected: every list and report read answered, with the pre-outage report intact",
+          pass: readsDuring.length >= DRILL.minReadsDuringOutage && badReads.length === 0,
+          detail:
+            badReads.length === 0
+              ? `${r.reads.length} reads, ${readsDuring.length} during the outage, all 200 and intact`
+              : badReads.slice(0, 5).map((x) => `${x.kind} ${x.status ?? "dropped"} ${x.why ?? ""}`).join("; "),
+        },
     {
       name: "no data loss: every row that existed before the outage is unchanged after it",
       pass: db.snapshotBefore !== null && db.snapshotBefore === db.snapshotAfter,
@@ -335,20 +400,32 @@ export function gatesOutage(r) {
     },
     {
       name: "every document uploaded during the outage was kept, and analyses once it is over",
-      pass:
-        db.outageDocuments.uploaded > 0 &&
-        db.outageDocuments.present === db.outageDocuments.uploaded &&
-        r.reanalyses.length > 0 &&
-        r.reanalyses.every((x) => x.status === 200),
+      // A database outage refuses uploads (stated, and gated above); what
+      // must hold is that none it ACCEPTED was lost.
+      pass: fault.failuresAreRows
+        ? db.outageDocuments.uploaded > 0 &&
+          db.outageDocuments.present === db.outageDocuments.uploaded &&
+          r.reanalyses.length > 0 &&
+          r.reanalyses.every((x) => x.status === 200)
+        : db.outageDocuments.present === db.outageDocuments.uploaded &&
+          r.reanalyses.every((x) => x.status === 200),
       detail: `${db.outageDocuments.present ?? "?"} of ${db.outageDocuments.uploaded} kept; ${r.reanalyses.filter((x) => x.status === 200).length} of ${r.reanalyses.length} re-analysed after recovery`,
     },
     {
-      name: "no analysis stuck: none PENDING at the end, none left for the reaper, every failure LLM_UNAVAILABLE",
-      pass: db.pendingAtEnd === 0 && db.reaped === 0 && otherFailures.length === 0 && (db.failedCodes.LLM_UNAVAILABLE ?? 0) > 0,
+      name:
+        fault.maxReaped === 0
+          ? `no analysis stuck: none PENDING at the end, none left for the reaper, every failure ${fault.code}`
+          : `no analysis stuck: none PENDING at the end, at most the ${fault.maxReaped} in flight left to the reaper`,
+      pass:
+        db.pendingAtEnd === 0 &&
+        db.reaped !== null &&
+        db.reaped <= fault.maxReaped &&
+        otherFailures.length === 0 &&
+        (!fault.failuresAreRows || (db.failedCodes[fault.code] ?? 0) > 0),
       detail: `PENDING ${db.pendingAtEnd ?? "?"}, reaped ${db.reaped ?? "?"}, failed by code ${JSON.stringify(db.failedCodes)}`,
     },
     {
-      name: `analysis recovers within ${DRILL.recoveryMs / 1000} s of the provider recovering`,
+      name: `analysis recovers within ${DRILL.recoveryMs / 1000} s of ${fault.label} recovering`,
       pass: recoveredAt !== null && recoveredAt - r.outageEndAt <= DRILL.recoveryMs,
       detail: recoveredAt === null ? "no analysis succeeded after the outage" : `first success ${((recoveredAt - r.outageEndAt) / 1000).toFixed(0)} s after`,
     },
@@ -361,8 +438,8 @@ export function gatesOutage(r) {
         (r.observedUntilQuiet ? "" : "; the run ended before everything had resolved"),
     },
     {
-      name: "the one alert points at the cause: the provider, on the pager",
-      pass: groups.length === 1 && groups[0].receiver === "page" && groups[0].groupLabels.domain === "provider",
+      name: `the one alert points at the cause: ${fault.label} (${fault.domain}), on the pager`,
+      pass: groups.length === 1 && groups[0].receiver === "page" && groups[0].groupLabels.domain === fault.domain,
       detail: groups.length === 1 ? describe(groups[0]) : `${groups.length} groups`,
     },
   ];
@@ -440,11 +517,17 @@ async function main() {
       "after-minutes": { type: "string", default: "5" },
       "after-max-minutes": { type: "string", default: "35" },
       "think-ms": { type: "string", default: "2000" },
+      fault: { type: "string", default: "provider" },
       out: { type: "string" },
     },
   });
   if (!flags.sessions || !flags.notifications || !flags["compose-file"]?.length) {
     console.error("usage: node drill.mjs --sessions FILE --notifications DIR --compose-file F [--compose-file F2] [--out FILE]");
+    process.exit(2);
+  }
+  const faultName = /** @type {keyof typeof FAULTS} */ (String(flags.fault));
+  if (!(faultName in FAULTS)) {
+    console.error(`--fault must be one of ${Object.keys(FAULTS).join(", ")}`);
     process.exit(2);
   }
   const baseUrl = String(flags["base-url"]);
@@ -476,12 +559,32 @@ async function main() {
     process.exit(2);
   }
   /** @param {boolean} on */
-  const setOutage = (on) =>
+  const setProviderOutage = (on) =>
     Promise.all(
       ["api1", "api2"].map((api) =>
         docker("exec", "-T", api, "sh", "-c", on ? `echo 529 > ${outageFile}` : `rm -f ${outageFile}`),
       ),
     );
+  // The database outage: Postgres stopped, as a managed database's failover
+  // or an outage looks from the API, and started again.
+  /** @param {boolean} on */
+  const setDatabaseOutage = async (on) => {
+    if (on) {
+      await docker("stop", "-t", "5", "postgres");
+      return;
+    }
+    await docker("start", "postgres");
+    for (let i = 0; i < 60; i += 1) {
+      const ready = await docker("exec", "-T", "postgres", "pg_isready", "-U", "rehearsal").then(
+        () => true,
+        () => false,
+      );
+      if (ready) return;
+      await sleep(1_000);
+    }
+    throw new Error("Postgres did not come back within 60 s");
+  };
+  const setOutage = faultName === "database" ? setDatabaseOutage : setProviderOutage;
 
   const runId = `drill-${Date.now().toString(36)}`;
   const startedAt = Date.now();
@@ -518,6 +621,9 @@ async function main() {
           body: JSON.stringify({ text: drillContract(runId, next) }),
         });
         if (created.status !== 201) {
+          // A database outage refuses the upload itself; its Retry-After is
+          // part of the stated error as much as the analyze route's is.
+          record.retryAfter = created.headers.get("retry-after");
           Object.assign(record, { status: created.status }, await errorOf(created));
         } else {
           const { document } = /** @type {any} */ (await created.json());
@@ -575,11 +681,13 @@ async function main() {
           const body = /** @type {any} */ (await res.json().catch(() => null));
           read.ok = res.status === 200 && body?.analysis?.id === doc.analysisId && body?.analysis?.status === "COMPLETED";
           if (!read.ok && res.status === 200) read.why = `latest analysis ${body?.analysis?.id} ${body?.analysis?.status}`;
+          if (res.status !== 200) read.code = body?.error?.code ?? null;
         } else {
           const res = await call(who(lister), "/api/v1/documents?limit=10");
           read.status = res.status;
-          await res.arrayBuffer();
+          const body = /** @type {any} */ (await res.json().catch(() => null));
           read.ok = res.status === 200;
+          if (res.status !== 200) read.code = body?.error?.code ?? null;
         }
       } catch {
         // dropped: ok stays false
@@ -654,7 +762,11 @@ async function main() {
   await sleep(1_000);
   const snapshotBefore = await snapshot(cutoff).catch(() => null);
 
-  log(`outage: every provider call answers 529 for ${plan.outageMs / 60_000} min`);
+  log(
+    faultName === "database"
+      ? `outage: Postgres stopped for ${plan.outageMs / 60_000} min`
+      : `outage: every provider call answers 529 for ${plan.outageMs / 60_000} min`,
+  );
   const outageStartAt = Date.now();
   phase = "outage";
   await setOutage(true);
@@ -662,7 +774,7 @@ async function main() {
   await setOutage(false);
   const outageEndAt = Date.now();
   phase = "after";
-  log("outage over: the provider answers again");
+  log(faultName === "database" ? "outage over: Postgres is back" : "outage over: the provider answers again");
 
   // Re-analyse documents uploaded during the outage, once analysis works
   // again: "Your document is saved — try again" has to be true.
@@ -754,6 +866,7 @@ async function main() {
   const allNotifications = await notifications();
   const result = {
     runId,
+    fault: faultName,
     plan,
     baselineRules,
     startedAt,
@@ -779,7 +892,7 @@ async function main() {
   const gates = gatesOutage(result);
   if (flags.out) await writeFile(String(flags.out), JSON.stringify({ ...result, gates }, null, 2));
 
-  console.log(`\nprovider-outage drill ${runId}: ${minutes(endedAt - startedAt)}, outage ${minutes(outageEndAt - outageStartAt)}`);
+  console.log(`\n${faultName}-outage drill ${runId}: ${minutes(endedAt - startedAt)}, outage ${minutes(outageEndAt - outageStartAt)}`);
   console.log(
     `  breaker: ${JSON.stringify(breakerEvents)}; llm_circuit_state changes (minutes from outage start): ${result.breaker.transitions.map((x) => `${x.minute}->${x.to}`).join(" ") || "none"}`,
   );

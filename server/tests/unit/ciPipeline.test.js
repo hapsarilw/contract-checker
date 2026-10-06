@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import process from "node:process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -211,6 +220,9 @@ describe("deploy.yml: SRS §8's procedure, and its secrets kept apart (step 71)"
   const ALLOWED_SECRETS = [
     "DATABASE_URL",
     "PLATFORM_TOKEN",
+    // Step 75: the frontend's host is a different platform from the API's
+    // (Netlify and Render), with a token of its own.
+    "FRONTEND_PLATFORM_TOKEN",
     "SMOKE_ACCOUNT_PASSWORD",
     "SYNTHETIC_CHECK_TOKEN",
     "PROMETHEUS_TOKEN",
@@ -316,6 +328,142 @@ describe("deploy.yml: SRS §8's procedure, and its secrets kept apart (step 71)"
       encoding: "utf8",
     });
     expect(badEnv.status).toBe(2);
+  });
+
+  describe("scripts/deploy/platform.sh's Render and Netlify cases (step 75), against a fake API", () => {
+    const script = join(ROOT, "scripts", "deploy", "platform.sh");
+    const fake = join(ROOT, "server", "tests", "fixtures", "deploy", "fake-curl.sh");
+    /** @param {string[]} args @param {Record<string, string>} env */
+    const runPlatform = (args, env) => {
+      const dir = mkdtempSync(join(tmpdir(), "platform-"));
+      const log = join(dir, "curl.log");
+      const result = spawnSync("bash", [script, ...args], {
+        encoding: "utf8",
+        env: {
+          // The child needs the runner's PATH to find bash, jq and zip; this
+          // is not the application's configuration.
+          // eslint-disable-next-line no-restricted-syntax -- see above
+          PATH: process.env.PATH ?? "",
+          CURL: fake,
+          FAKE_CURL_LOG: log,
+          FAKE_CURL_COUNTER: join(dir, "counter"),
+          POLL_INTERVAL_SECONDS: "0",
+          ...env,
+        },
+      });
+      const calls = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : [];
+      rmSync(dir, { recursive: true, force: true });
+      return { ...result, calls };
+    };
+    const render = {
+      DEPLOY_PLATFORM: "render",
+      PLATFORM_TOKEN: "rnd_test",
+      RENDER_SERVICE_ID: "srv-test",
+    };
+
+    it("Render: deploys exactly that image and waits until the deploy is live", () => {
+      const r = runPlatform(["deploy-api", "staging", "ghcr.io/x/server:abc123"], {
+        ...render,
+        FAKE_STATES: "created,update_in_progress,live",
+      });
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.calls[0]).toContain("https://api.render.com/v1/services/srv-test/deploys");
+      expect(r.calls[0]).toContain('"imageUrl": "ghcr.io/x/server:abc123"');
+      expect(r.calls[0]).toContain("Authorization: Bearer rnd_test");
+      expect(r.calls).toHaveLength(4);
+      expect(r.stdout).toContain("live");
+    });
+
+    it("Render: a failed update fails the job, and does not wait out the timeout", () => {
+      const r = runPlatform(["deploy-api", "production", "img:sha"], {
+        ...render,
+        FAKE_STATES: "update_in_progress,update_failed",
+      });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain("ended update_failed");
+    });
+
+    it("Render: a deploy that never finishes fails at the timeout", () => {
+      const r = runPlatform(["deploy-api", "staging", "img:sha"], {
+        ...render,
+        FAKE_STATES: "update_in_progress",
+        POLL_TIMEOUT_SECONDS: "0",
+      });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain("did not finish");
+    });
+
+    it("Render: a missing service id is refused before any request", () => {
+      const r = runPlatform(["deploy-api", "staging", "img:sha"], {
+        DEPLOY_PLATFORM: "render",
+        PLATFORM_TOKEN: "rnd_test",
+      });
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("RENDER_SERVICE_ID is not set");
+      expect(r.calls).toEqual([]);
+    });
+
+    it("Netlify: uploads the directory as a zip and waits until the deploy is ready", () => {
+      const dist = mkdtempSync(join(tmpdir(), "dist-"));
+      writeFileSync(join(dist, "index.html"), "<!doctype html>");
+      const r = runPlatform(["deploy-frontend", "staging", dist], {
+        FRONTEND_PLATFORM: "netlify",
+        FRONTEND_PLATFORM_TOKEN: "nfp_test",
+        NETLIFY_SITE_ID: "site-test",
+        FAKE_KEY: "state",
+        FAKE_STATES: "uploading,processing,ready",
+      });
+      rmSync(dist, { recursive: true, force: true });
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.calls[0]).toContain(
+        "https://api.netlify.com/api/v1/sites/site-test/deploys",
+      );
+      expect(r.calls[0]).toContain("Content-Type: application/zip");
+      expect(r.calls).toHaveLength(4);
+    });
+
+    it("the frontend fails loudly with no platform, like the API", () => {
+      const r = runPlatform(["deploy-frontend", "staging", "client/dist"], {});
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain("No hosting platform has been chosen for the frontend");
+    });
+
+    it("the workflow passes each platform its own token and ids", () => {
+      for (const job of ["deploy-staging", "deploy-production"]) {
+        const step = jobs[job].steps.find((/** @type {any} */ x) =>
+          /deploy-api/.test(x.run ?? ""),
+        );
+        expect(Object.keys(step.env).sort(), job).toEqual(
+          ["DEPLOY_PLATFORM", "PLATFORM_TOKEN", "RENDER_SERVICE_ID"].sort(),
+        );
+      }
+      for (const job of ["frontend-staging", "frontend-production"]) {
+        const step = jobs[job].steps.find((/** @type {any} */ x) =>
+          /deploy-frontend/.test(x.run ?? ""),
+        );
+        expect(Object.keys(step.env).sort(), job).toEqual(
+          ["FRONTEND_PLATFORM", "FRONTEND_PLATFORM_TOKEN", "NETLIFY_SITE_ID"].sort(),
+        );
+      }
+    });
+  });
+
+  it("the runtime image ships the operator CLI the runbooks run on the platform, and no other script", () => {
+    // Step 75: every runbook says "npm run ops -- <command> from a shell on
+    // the platform", and scripts/ops.js was not in the image.
+    const dockerfile = readFileSync(join(ROOT, "server", "Dockerfile"), "utf8");
+    const runtime = dockerfile.slice(dockerfile.indexOf("AS runtime"));
+    expect(runtime).toMatch(/^COPY scripts\/ops\.js \.\/scripts\/ops\.js$/m);
+    expect(runtime).not.toMatch(/^COPY scripts(\/)? /m);
+    // ops.js may import only what the image has: src/ and Node's own modules.
+    const imports = [
+      ...readFileSync(join(ROOT, "server", "scripts", "ops.js"), "utf8").matchAll(
+        /from "([^"]+)"/g,
+      ),
+    ].map((m) => m[1]);
+    expect(
+      imports.filter((x) => !x.startsWith("../src/") && !x.startsWith("node:")),
+    ).toEqual([]);
   });
 
   it("never cancels a deploy half-way", () => {

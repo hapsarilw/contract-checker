@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { SYSTEM_PROMPT, retryCorrection, userMessage } from "../../prompts/analyze.js";
+import logger from "../../observability/logger.js";
 
 /**
  * SRS §5.4 — the real provider behind LLM_PROVIDER=anthropic (FR-3.5,
@@ -15,7 +16,7 @@ export const MAX_TOKENS = 4096;
 /**
  * @typedef {import("@anthropic-ai/sdk").Anthropic.MessageCreateParamsNonStreaming} MessageParams
  * @typedef {import("@anthropic-ai/sdk").Anthropic.Message & { _request_id?: string | null }} ProviderMessage
- * @typedef {{ model: string, temperature: boolean, effort: boolean }} ParamProfile
+ * @typedef {{ model: string, temperature: boolean, effort: boolean, inferenceGeo?: "global" | "us" | null }} ParamProfile
  * @typedef {{ invalidResponse: string, errorSummary: string }} Correction
  * @typedef {{ rawText: string, inputTokens: number, outputTokens: number, model: string, durationMs: number, providerRequestId: string | null }} ProviderResult
  */
@@ -66,6 +67,9 @@ export function buildMessageParams({ profile, documentText, correction }) {
   };
   if (profile.temperature) params.temperature = 0;
   if (profile.effort) params.output_config = { effort: "low" };
+  // Step 75: only when configured (ANTHROPIC_INFERENCE_GEO). Unset, the
+  // request carries nothing and the workspace's default applies.
+  if (profile.inferenceGeo) params.inference_geo = profile.inferenceGeo;
   return params;
 }
 
@@ -106,6 +110,16 @@ export function createAnthropicProvider(
           // This request's correlation id, carried on the provider call.
           ...(requestId ? { headers: { "X-Request-Id": requestId } } : {}),
         });
+        // Step 75: the provider reports where inference actually ran. When
+        // a geography was asked for, a different answer means the privacy
+        // policy's statement is no longer true, so it is logged loudly.
+        const ranIn = response.usage?.inference_geo ?? null;
+        if (params.inference_geo && ranIn && ranIn !== params.inference_geo) {
+          logger.error(
+            { alert: "inference_geo_mismatch", asked: params.inference_geo, ranIn },
+            "the provider ran inference outside the configured geography",
+          );
+        }
         return {
           // Text blocks only: models with thinking on by default (§5.4)
           // return thinking blocks ahead of the answer.

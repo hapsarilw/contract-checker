@@ -352,6 +352,7 @@ Upload and analyze stay separate even though Phase 1 could combine them: Phase 2
 | `LLM_UNAVAILABLE` | 503 | Provider failing, or circuit breaker open |
 | `SPEND_LIMIT_REACHED` | 503 | Monthly platform spend ceiling reached |
 | `SERVER_BUSY` | 503 | Upload concurrency cap, or limiter dependency down |
+| `DATABASE_UNAVAILABLE` | 503 | The database cannot be reached for the moment: refused, dropped, timed out, or out of connections. Added at BUILD-PLAN step 75; before it a database outage answered `INTERNAL` |
 | `LLM_TIMEOUT` | 504 | No model response in 60 s |
 
 Every message tells the user what to do next, not only what failed (NFR-4.3). Every 503 carries a `Retry-After` header.

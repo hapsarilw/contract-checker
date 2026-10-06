@@ -4,6 +4,8 @@
 // files that could drift about which plugins run.
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import process from "node:process";
+import { staticHostHeaders } from "./scripts/staticHostHeaders.js";
 
 /**
  * FR-7.9 — Vite's default production output already satisfies "no inline
@@ -72,8 +74,27 @@ function preloadBodyFont() {
   };
 }
 
+/**
+ * Step 75: the static host's `_headers` (FR-7.9's CSP and the rest), built
+ * for the API this build talks to. See scripts/staticHostHeaders.js.
+ * @returns {import("vite").Plugin}
+ */
+function staticHostHeadersFile() {
+  return {
+    name: "clausecheck:static-host-headers",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "_headers",
+        source: staticHostHeaders(process.env.VITE_API_BASE_URL),
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), preloadBodyFont()],
+  plugins: [react(), preloadBodyFont(), staticHostHeadersFile()],
   build: {
     // No inline sourcemap script, no legacy inline shims.
     sourcemap: true,

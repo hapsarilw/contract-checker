@@ -128,6 +128,16 @@ const envSchema = z
           });
         }
       }),
+    // Step 75: where the provider runs inference (the Messages API's
+    // `inference_geo`). Unset sends nothing, and the workspace default
+    // applies, which is "global" unless changed in the Console: what the
+    // published subprocessor list says today. "us" keeps inference on
+    // US-based infrastructure, at 1.1x the price. It is the owner's call,
+    // with counsel, and it must be changed TOGETHER with the subprocessor
+    // list and the privacy policy (client/src/legal/content.js), which
+    // tests/unit/inferenceGeo.test.js holds to whatever render.yaml
+    // configures for production.
+    ANTHROPIC_INFERENCE_GEO: z.enum(["global", "us"]).optional(),
     // §2.3: ci uses the mock provider only — no network calls to the
     // real provider from CI. `anthropic` calls the real API; `mock`
     // selects server/src/services/llm/mockProvider.js.
@@ -209,14 +219,13 @@ const envSchema = z
         "must be an exact origin, no wildcard, no path",
       ),
 
-    // Which transport sends transactional email (step 51). Only "sink" exists
-    // today: it writes each message to a local directory instead of sending
-    // it, which is what development and the step-73 E2E tests need. A real
-    // provider is added by extending this enum and adding one file under
-    // src/lib/email/ — the rest of the system never learns which
-    // one is in use. EMAIL_PROVIDER_KEY becomes required for any provider
-    // other than "sink" at that point.
-    EMAIL_PROVIDER: z.enum(["sink"]).default("sink"),
+    // Which transport sends transactional email (step 51). "sink" writes each
+    // message to a local directory instead of sending it, which is what
+    // development and the step-73 E2E tests need. "resend" (step 75) sends
+    // through Resend's API (src/lib/email/resendProvider.js), and needs
+    // EMAIL_PROVIDER_KEY and a verified EMAIL_FROM (below). The rest of the
+    // system never learns which one is in use.
+    EMAIL_PROVIDER: z.enum(["sink", "resend"]).default("sink"),
     EMAIL_PROVIDER_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().email().optional(),
     EMAIL_SINK_DIR: z.string().min(1).optional(),
@@ -312,6 +321,22 @@ const envSchema = z
           'the "sink" provider only writes messages to disk and must not run in production; ' +
           "configure a real transactional email provider",
       });
+    }
+
+    // Step 75: a real provider needs its key, and a sender on the domain
+    // verified with it. Without EMAIL_FROM every message would go from the
+    // sink's .invalid address, which a real provider rejects: accounts
+    // created, nobody able to verify, the same silent failure as the sink.
+    if (env.EMAIL_PROVIDER === "resend") {
+      for (const name of /** @type {const} */ (["EMAIL_PROVIDER_KEY", "EMAIL_FROM"])) {
+        if (!env[name]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [name],
+            message: 'required with EMAIL_PROVIDER="resend"',
+          });
+        }
+      }
     }
 
     // §6.6: in production, metrics exist and are private, or boot stops.
@@ -485,7 +510,11 @@ export function parseConfig(rawEnv) {
   return Object.freeze({
     ...parsed,
     isProduction: parsed.NODE_ENV === "production",
-    llmParamProfile: Object.freeze({ ...llmParamProfile, model: parsed.ANTHROPIC_MODEL }),
+    llmParamProfile: Object.freeze({
+      ...llmParamProfile,
+      model: parsed.ANTHROPIC_MODEL,
+      inferenceGeo: parsed.ANTHROPIC_INFERENCE_GEO ?? null,
+    }),
     // The timeout chain, resolved. See the constants above for why only
     // `llm` is env-tunable and why the ordering is enforced at boot.
     timeouts: Object.freeze({

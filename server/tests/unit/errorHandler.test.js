@@ -92,6 +92,32 @@ describe("errorHandler (SRS §4, NFR-3.2)", () => {
     expect(serialized).not.toContain("stack");
   });
 
+  it("maps an unreachable database to 503 DATABASE_UNAVAILABLE with Retry-After, not INTERNAL (step 75)", () => {
+    // The shape measured against a real Postgres that was stopped.
+    const dbDown = Object.assign(
+      new Error("Can't reach database server at db.internal:5432"),
+      {
+        name: "PrismaClientKnownRequestError",
+        code: "P1001",
+        meta: {
+          driverAdapterError: {
+            cause: { kind: "DatabaseNotReachable", host: "db.internal" },
+          },
+        },
+      },
+    );
+    const { res } = withRequestContext((req, res) => {
+      errorHandler(dbDown, req, res, vi.fn());
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.body.error.code).toBe("DATABASE_UNAVAILABLE");
+    expect(res.body.error.message).toBe(ERROR_CODES.DATABASE_UNAVAILABLE.message);
+    expect(res.body.error.message).toMatch(/Nothing has been lost/);
+    expect(res.headers["Retry-After"]).toBe("30");
+    // The host belongs in the log, never in the response.
+    expect(JSON.stringify(res.body)).not.toContain("db.internal");
+  });
+
   it("never includes a stack trace in the response body, even for an AppError", () => {
     const { res } = withRequestContext((req, res) => {
       errorHandler(new AppError("INTERNAL"), req, res, vi.fn());

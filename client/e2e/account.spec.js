@@ -169,6 +169,7 @@ test.describe("/settings", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2 })).toHaveText([
       "Change your password",
+      "Change your email",
       "Sign out everywhere",
       "Download your data",
       "Delete your account",

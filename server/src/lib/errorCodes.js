@@ -7,7 +7,9 @@
  * listed 26 rows — this module follows the table, not the prose count,
  * since the table is what step 59's contract test and the client both
  * depend on. CSRF_CHECK_FAILED was added to both the table and this file
- * at step 14 (FR-1.12 needed a code and §4.2 had none), bringing it to 27.
+ * at step 14 (FR-1.12 needed a code and §4.2 had none), bringing it to 27,
+ * and DATABASE_UNAVAILABLE at step 75 (a database outage needed a stated
+ * response rather than INTERNAL), bringing it to 28.
  *
  * `message` is the default, NFR-4.3-compliant user-facing text ("what to
  * do next", not only what failed). A call site MAY supply a more specific
@@ -172,6 +174,17 @@ export const ERROR_CODES = Object.freeze({
     status: 503,
     message: "The server is at capacity right now. Please try again in a few seconds.",
     retryAfter: 5,
+  }),
+  // Added at BUILD-PLAN step 75, to SRS §4.2 with it: the database cannot
+  // be reached for the moment (lib/databaseErrors.js says which failures
+  // count). Before it, a database outage answered every request with a
+  // bare INTERNAL 500, which says neither that nothing was lost nor when
+  // to come back.
+  DATABASE_UNAVAILABLE: Object.freeze({
+    status: 503,
+    message:
+      "We can't reach your saved contracts and reports for a moment. Nothing has been lost. Try again in a minute.",
+    retryAfter: 30,
   }),
   LLM_TIMEOUT: Object.freeze({
     status: 504,
