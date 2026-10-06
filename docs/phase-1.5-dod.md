@@ -336,13 +336,13 @@ What each stage should record here when it happens:
 
 The README now quotes measured numbers, with their sample sizes and their sources:
 
-- **Cost.** **USD 0.0192 per analysis** over the 32 real-provider analyses on the shipping configuration. It ranges from USD 0.0107 for a short clean contract to USD 0.0480 near the length cap, where measured input tokens ran to almost twice SRS §5.4's estimate.
+- **Cost.** **USD 0.0192 per analysis** over the 32 real-provider analyses on the shipping configuration (47 after the 2026-10-06 benchmark run; still USD 0.0192). It ranges from USD 0.0107 for a short clean contract to USD 0.0480 near the length cap, where measured input tokens ran to almost twice SRS §5.4's estimate.
 - **Failure rate.** **0 of 29** analyses through the API path failed. That is consistent with a true rate up to about 10%, which the README says.
 - **Hallucination-catch rate.** **1 of 137** reported findings was discarded by the verifier.
 
 Two corrections were made on the way:
 
-- **An accuracy claim had gone stale.** The README said every §11.1 gate passed. The 2026-09-28 benchmark run failed precision in its worst repeat, which phase-1-dod.md §8 already recorded.
+- **An accuracy claim had gone stale.** The README said every §11.1 gate passed. The 2026-09-28 benchmark run failed precision in its worst repeat, which phase-1-dod.md §8 already recorded. (The 2026-10-06 run at `c263c64` passes every gate; the README now says that, and that it is one sample.)
 - **The development database's analysis rows had been damaged by a mutation test.** On 2026-09-24 a reaper mutation was loaded by a development server watching the same files, and it marked every analysis `FAILED / STALE_ANALYSIS`. The original outcomes were recovered from `summary` and `overallRisk`, which only a completed analysis has: all 29 had completed. Step 75's mutation tests ran in an isolated copy of the tree.
 
 ## What the owner's decisions of 2026-10-06 changed
@@ -356,7 +356,7 @@ The owner answered the open decisions, stopped the old development server, and a
 | — | **The first real email provider**, Resend. Before it, no production-mode process could boot, staging included | at the fetch boundary, with one idempotency key across retries |
 | — | **The operator CLI in the production image.** Every runbook says `npm run ops` "from a shell on the platform"; `scripts/ops.js` was not in the image | `Dockerfile` |
 | — | **The frontend's Content Security Policy as the static host will send it**, built per environment, checked against the BUILT client on every screen. Its first run caught the policy refusing the client's own default API origin; the two now share one constant | `client/e2e/csp.spec.js`, 10 of 10 |
-| The precision gate (step 72) | Measured first (fixture 04 × 12: no flag), then the corpus given seven fair clauses so the 85% line can mean a percentage (phase-1-dod.md §8) | `verify-fixtures`; the benchmark re-run |
+| The precision gate (step 72) | Measured first (fixture 04 × 12: no flag), then the corpus given seven fair clauses so the 85% line can mean a percentage (phase-1-dod.md §8) | `verify-fixtures`; the benchmark re-run at `c263c64`: every gate passes, in every repeat (phase-1-dod.md §8) |
 | A minimum volume for the ratio alerts | At least three failures, on the two that page; provisional until the beta's first week | 4 promtool cases; the quiet drill re-run |
 | `inference_geo` | A switch (`ANTHROPIC_INFERENCE_GEO`), unset by default (no behaviour change), logged when the provider runs inference elsewhere than asked, and tied by a test to what the privacy policy says. The choice itself waits for counsel | `llmClient.test.js`, `renderBlueprints.test.js` |
 | The email-change screen | Settings → Change your email, the `/confirm-email-change` page, a banner that names the pending address; the privacy policy's rights table now says "Immediately, yourself" | unit tests; axe and the keyboard audit on both screens |
