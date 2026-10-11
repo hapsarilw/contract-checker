@@ -73,8 +73,9 @@ poll() {
 
 # ------------------------------------------------------------------ Render
 # A deploy of an image-backed web service, pinned to the exact image. Render
-# starts the new instances, waits for /api/ready (the service's health check),
-# then stops the old ones with the service's shutdown delay (100 s in
+# starts the new instances, waits for /api/health (the service's health
+# check: liveness, see ops/render/*.yaml for why not readiness), then stops
+# the old ones with the service's shutdown delay (100 s in
 # ops/render/*.yaml, over the 90 s drain). "live" is reported only once that
 # is done.
 render_deploy_api() {

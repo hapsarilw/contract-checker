@@ -254,6 +254,37 @@ Not a drill: found by booting the API against a Redis address with nothing behin
   - Redis was then started on that address. `/api/ready` turned 200 and the general limiter counted again: `RateLimit-Remaining` read 96 then 95, and the key appeared in Redis.
 - **Tested.** The unit tests drive the real rate-limit-redis store against a stand-in Redis. One of them pins the library's own behaviour: if a later version recovers by itself, that test fails and the retry can go. Three mutations were all killed.
 
+### A Redis outage, drilled (2026-10-11 UTC), and the health check it changed
+
+**Before the run, a configuration defect.** The Render Blueprints set the platform health check to `/api/ready`, which fails when Postgres **or** Redis is unreachable. Render stops routing to an instance that fails its health check for 15 s and restarts it after 60 s (render.com/docs/health-checks, read 2026-10-12). Every instance shares both dependencies, so in an outage of either, every instance would have been pulled and restarted together:
+
+- the stated `DATABASE_UNAVAILABLE` would have become the platform's own error page;
+- a Redis outage, which FR-5.6 keeps reads up through, would have become a total one.
+
+FR-4.7 warns against exactly this ("conflating the two causes a database blip to restart every healthy application instance"). The local drills could not show it: the rehearsal's nginx does not route on health.
+
+- **The health check is now `/api/health`** (liveness), in both Blueprints, with a test. A deploy whose instances cannot reach a dependency is still caught: the post-deploy smoke check reads `/api/ready`.
+- **`readiness_failing` moved onto a metric.** It had counted answers to `/api/ready`, which existed only because the health check called it; with the health check on `/api/health` it would have gone silent. It now reads `dependency_up{dependency}`, which every instance reports at scrape time, running the same checks as the route, each bounded at 3 s so an outage cannot fail the scrape.
+  - SRS FR-4.7, §6.6 and Appendix C say so.
+  - Four promtool cases: Postgres, Redis, one instance down, a one-minute blip.
+
+**The run: `--fault redis`, outage 21:44:42 to 21:49:43 UTC on 2026-10-11, busy traffic. Every gate passed.** The run lasted 24.2 minutes, with no loop pausing for more than 30 s.
+
+| Gate | Result |
+|---|---|
+| **ONE alert** | **one page**: the platform group, first sent 1.9 minutes in, naming `api_5xx_rate`; resolved 16.9 minutes in |
+| The stated error | **72 of 72** analyses during the outage answered `503 SERVER_BUSY`, `Retry-After: 5` (FR-5.6: the analyze limiter fails closed). No `500` anywhere |
+| Reads | **297 of 297** during the outage answered 200 with the pre-outage report intact (FR-5.6: read paths fail open) |
+| Uploads | 72 of 72 accepted during the outage were kept; 5 of 5 re-analysed after it |
+| Data | digest identical before and after; 0 `PENDING`; nothing reaped |
+| Recovery | first successful analysis **5 s** after Redis was back. No API restart: the limiters initialised again on the next request (the boot fix above) |
+
+What it showed beyond the gates:
+
+- **`readiness_failing{dependency="redis"}` worked against a real Prometheus.** It was pending from 0.5 minutes and firing from 2.5 to 5.3 minutes.
+- **But the pager never named Redis while it mattered.** Alertmanager sends a group's updates every `group_interval`. The first page (1.9 minutes) carried only `api_5xx_rate`; by the next update (6.9 minutes) `readiness_failing` had already resolved. The on-call learns the cause from the `api_5xx_rate` runbook, which maps `SERVER_BUSY` to Redis and says to check `/api/ready`. Its line on the database was out of date (a `500`) and now says `DATABASE_UNAVAILABLE`.
+- **The user is told something untrue for the whole outage.** `SERVER_BUSY`'s server message says the server "is at capacity", and the analyze screen says "too many checks are running at once… wait a few seconds". `Retry-After: 5` was repeated for five minutes. FR-5.6 names the code, so changing what it says is a product decision; it is owed, below.
+
 ### The first screen during a database outage (fixed 2026-10-12)
 
 The database drill's reads were API calls. A person opening the app saw something the drill did not measure: `GET /auth/me` answered the stated 503, and the client read any failed check as "not signed in".
@@ -399,4 +430,4 @@ The owner answered the open decisions, stopped the old development server, and a
 2. **A backup source the weekly check can read on Render.** Until one exists, `backup_verify_failed` will page every week, truthfully ([staging-setup.md](staging-setup.md)).
 3. **A mailbox TR-24 can read in staging**, and **CSP violation reports**.
 4. **The provider, database and restore drills, repeated in staging.**
-5. **A Redis fault in the outage drill.** A Redis lost mid-run is covered end to end by the integration suite (step 44), and a Redis absent at boot by the check above. Neither has been through the drill's alerting path.
+5. **What a Redis outage tells the person checking a contract.** `SERVER_BUSY` says "at capacity" and "wait a few seconds" for as long as Redis is down (§3, the Redis drill). A truthful message and a longer `Retry-After` for the limiter's own failure, perhaps the degraded banner, need a decision on FR-5.6's wording first.

@@ -74,7 +74,8 @@ export const DRILL = Object.freeze({
 /**
  * What each fault the drill can inject is expected to do (step 75). The
  * provider outage is PRD §9 DoD item 3; the database outage is the same
- * drill pointed at the other dependency every request needs.
+ * drill pointed at the other dependency every request needs; the Redis
+ * outage is FR-5.6's degraded mode (reads open, analysis closed).
  */
 export const FAULTS = Object.freeze({
   provider: Object.freeze({
@@ -103,6 +104,22 @@ export const FAULTS = Object.freeze({
     // the reaper fails it later (FR-3.8). The drill has one analysing user.
     maxReaped: 1,
     // A request refused before an analysis row exists leaves no row.
+    failuresAreRows: false,
+  }),
+  redis: Object.freeze({
+    label: "Redis",
+    // FR-5.6: the analyze limiter fails CLOSED. SRS §4.2's code for it.
+    code: "SERVER_BUSY",
+    statedMessage: ERROR_CODES.SERVER_BUSY.message,
+    retryAfter: String(ERROR_CODES.SERVER_BUSY.retryAfter),
+    // FR-5.6: every other limiter fails OPEN, and reads need only Postgres.
+    readsRefused: false,
+    // api_5xx_rate (a 5xx that is not a failed analysis) and
+    // readiness_failing{dependency="redis"}: both the platform's.
+    domain: "platform",
+    // Postgres is up: an analysis past the limiter finishes and records.
+    maxReaped: 0,
+    // Refused by the limiter, before an analysis row exists.
     failuresAreRows: false,
   }),
 });
@@ -565,26 +582,33 @@ async function main() {
         docker("exec", "-T", api, "sh", "-c", on ? `echo 529 > ${outageFile}` : `rm -f ${outageFile}`),
       ),
     );
-  // The database outage: Postgres stopped, as a managed database's failover
-  // or an outage looks from the API, and started again.
-  /** @param {boolean} on */
-  const setDatabaseOutage = async (on) => {
+  // The database and Redis outages: the container stopped, as a managed
+  // service's failover or an outage looks from the API, and started again.
+  /**
+   * @param {string} service
+   * @param {string[]} readyCommand run in the container until it succeeds
+   */
+  const serviceOutage = (service, readyCommand) => async (/** @type {boolean} */ on) => {
     if (on) {
-      await docker("stop", "-t", "5", "postgres");
+      await docker("stop", "-t", "5", service);
       return;
     }
-    await docker("start", "postgres");
+    await docker("start", service);
     for (let i = 0; i < 60; i += 1) {
-      const ready = await docker("exec", "-T", "postgres", "pg_isready", "-U", "rehearsal").then(
+      const ready = await docker("exec", "-T", service, ...readyCommand).then(
         () => true,
         () => false,
       );
       if (ready) return;
       await sleep(1_000);
     }
-    throw new Error("Postgres did not come back within 60 s");
+    throw new Error(`${service} did not come back within 60 s`);
   };
-  const setOutage = faultName === "database" ? setDatabaseOutage : setProviderOutage;
+  const setOutage = {
+    provider: setProviderOutage,
+    database: serviceOutage("postgres", ["pg_isready", "-U", "rehearsal"]),
+    redis: serviceOutage("redis", ["redis-cli", "ping"]),
+  }[faultName];
 
   const runId = `drill-${Date.now().toString(36)}`;
   const startedAt = Date.now();
@@ -763,9 +787,11 @@ async function main() {
   const snapshotBefore = await snapshot(cutoff).catch(() => null);
 
   log(
-    faultName === "database"
-      ? `outage: Postgres stopped for ${plan.outageMs / 60_000} min`
-      : `outage: every provider call answers 529 for ${plan.outageMs / 60_000} min`,
+    {
+      provider: `outage: every provider call answers 529 for ${plan.outageMs / 60_000} min`,
+      database: `outage: Postgres stopped for ${plan.outageMs / 60_000} min`,
+      redis: `outage: Redis stopped for ${plan.outageMs / 60_000} min`,
+    }[faultName],
   );
   const outageStartAt = Date.now();
   phase = "outage";
@@ -774,7 +800,13 @@ async function main() {
   await setOutage(false);
   const outageEndAt = Date.now();
   phase = "after";
-  log(faultName === "database" ? "outage over: Postgres is back" : "outage over: the provider answers again");
+  log(
+    {
+      provider: "outage over: the provider answers again",
+      database: "outage over: Postgres is back",
+      redis: "outage over: Redis is back",
+    }[faultName],
+  );
 
   // Re-analyse documents uploaded during the outage, once analysis works
   // again: "Your document is saved — try again" has to be true.

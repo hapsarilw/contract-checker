@@ -488,6 +488,75 @@ describe("the database fault (step 75): the same drill, Postgres stopped", () =>
   });
 });
 
+describe("the Redis fault (step 75): FR-5.6's degraded mode, Redis stopped", () => {
+  /** A Redis outage that went as it should: analysis refused, reads untouched. */
+  function redisRun() {
+    const run = passingRun();
+    run.fault = "redis";
+    run.analyses = run.analyses.map((a) =>
+      a.status === 200
+        ? a
+        : {
+            ...a,
+            code: "SERVER_BUSY",
+            retryAfter: "5",
+            message: FAULTS.redis.statedMessage,
+          },
+    );
+    // Uploads need only Postgres: kept, and analysed once Redis is back.
+    run.database = { ...run.database, reaped: 0, failedCodes: {} };
+    for (const n of run.notifications) {
+      n.groupKey = n.groupKey.replace("provider", "platform");
+      n.groupLabels = { ...n.groupLabels, domain: "platform" };
+    }
+    for (const sample of run.am)
+      sample.alerts = sample.alerts.map((a) => ({
+        ...a,
+        alertname: "api_5xx_rate",
+        domain: "platform",
+      }));
+    return run;
+  }
+
+  it("states FR-5.6's code, from errorCodes.js", () => {
+    expect(FAULTS.redis.code).toBe("SERVER_BUSY");
+    expect(FAULTS.redis.statedMessage).toBe(ERROR_CODES.SERVER_BUSY.message);
+    expect(FAULTS.redis.retryAfter).toBe(String(ERROR_CODES.SERVER_BUSY.retryAfter));
+    expect(FAULTS.redis.readsRefused).toBe(false);
+  });
+
+  it("a Redis outage that went as it should passes every gate", () => {
+    expect(gatesOutage(redisRun()).filter((g) => !g.pass)).toEqual([]);
+  });
+
+  it("a read refused during it fails: FR-5.6 keeps the read paths open", () => {
+    const run = redisRun();
+    const i = run.reads.findIndex((x) => x.at >= START && x.at < END);
+    run.reads[i] = { ...run.reads[i], status: 503, ok: false, code: "SERVER_BUSY" };
+    expect(gate(gatesOutage(run), "reads are unaffected").pass).toBe(false);
+  });
+
+  it("an analysis refused with the wrong code (a 500, or the database's) fails", () => {
+    const run = redisRun();
+    const i = run.analyses.findIndex((a) => a.status !== 200);
+    run.analyses[i] = { ...run.analyses[i], code: "DATABASE_UNAVAILABLE" };
+    expect(gate(gatesOutage(run), "the degraded-mode error is stated").pass).toBe(false);
+  });
+
+  it("nothing is left for the reaper: Postgres was up throughout", () => {
+    const run = redisRun();
+    run.database.reaped = 1;
+    expect(gate(gatesOutage(run), "no analysis stuck").pass).toBe(false);
+  });
+
+  it("the cause is the platform's, not the provider's", () => {
+    const wrong = redisRun();
+    for (const n of wrong.notifications)
+      n.groupLabels = { ...n.groupLabels, domain: "provider" };
+    expect(gate(gatesOutage(wrong), "points at the cause").pass).toBe(false);
+  });
+});
+
 describe("AddressBudget: the drill's own traffic stays inside NFR-2.6's 100 per 15 minutes", () => {
   it("counts each address's requests over the last 15 minutes, and forgets older ones", () => {
     const budget = new AddressBudget({ limit: 90, windowMs: 15 * MIN });

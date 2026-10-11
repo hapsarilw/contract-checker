@@ -6,6 +6,7 @@
 #   ops/drills/provider-outage/run.sh                    an outage on a busy day
 #   DRILL_THINK_MS=60000 ops/drills/provider-outage/run.sh   on a quiet one
 #   DRILL_FAULT=database ops/drills/provider-outage/run.sh   Postgres stopped instead
+#   DRILL_FAULT=redis ops/drills/provider-outage/run.sh      Redis stopped instead (FR-5.6)
 #
 # Results go to $DRILL_RESULTS_DIR (default: a new temporary directory,
 # printed at the start): result.json, the notifications Alertmanager sent,

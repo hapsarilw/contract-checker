@@ -208,14 +208,13 @@ groups:
           runbook: analysis-failure-rate-high
           runbook_url: docs/runbooks/analysis-failure-rate-high.md
       - alert: readiness_failing
-        # "or vector(0)" matters: if readiness has been failing since boot
-        # there is no status="200" series at all, and a bare == 0 against a
-        # missing series yields nothing, so the alert would never fire in the
-        # exact case it is for.
-        expr: >-
-          sum(rate(http_request_duration_seconds_count{route="/api/ready",status!="200"}[5m])) > 0
-          and
-          (sum(rate(http_request_duration_seconds_count{route="/api/ready",status="200"}[5m])) or vector(0)) == 0
+        # From dependency_up (step 75), not from answers to /api/ready: the
+        # platform's health check is /api/health now (ops/render says why),
+        # so nothing calls /api/ready often enough to alert on. The max
+        # across instances is 0 only when EVERY instance reports the
+        # dependency down; one bad instance is the platform's to replace.
+        # The dependency label names which (postgres or redis).
+        expr: max by (dependency) (dependency_up) == 0
         for: 2m
         labels:
           severity: "2"
@@ -225,8 +224,10 @@ groups:
         annotations:
           summary: /api/ready is failing on every instance
           description: >-
-            No instance has answered /api/ready with a 200 for two minutes, so Postgres or
-            Redis is unreachable from all of them (FR-4.7). The response body names which.
+            Every instance has reported {{ $labels.dependency }} unreachable for two
+            minutes (FR-4.7's readiness checks, as dependency_up). Postgres down: reads
+            and analysis answer DATABASE_UNAVAILABLE. Redis down: reads stay up, analysis
+            answers SERVER_BUSY (FR-5.6).
           runbook: database-restore
           runbook_url: docs/runbooks/database-restore.md
       - alert: db_pool_saturated

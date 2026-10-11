@@ -9,6 +9,7 @@
 One of three things, which lead to different sections:
 
 - **Everything is down.** `/api/ready` answers 503 naming `postgres`; the app answers errors on every signed-in page. → "The database is unreachable" below.
+- **Analysis is refused, everything else works.** The alert's `dependency` label is `redis`, and `/api/ready` names `redis`. This is FR-5.6's degraded mode, not a restore: reads and sign-in work unmetered, and checking a contract answers `SERVER_BUSY`. → "Redis is unreachable" below.
 - **The backup check failed.** Nothing is broken yet. The last backup is missing, too old, too small, or shrank. → "The backup check failed".
 - **Data is wrong or missing** — a bad migration, a mistaken bulk change, corruption. → "Restoring".
 
@@ -20,6 +21,14 @@ Most of these are **not** restores. Rule those out first — restoring when the 
 2. The database provider's status page and console: is the instance up? Out of storage? Out of connections?
 3. If the provider shows the instance healthy, check [db-pool-saturated](db-pool-saturated.md): a wedged pool looks like an unreachable database from outside.
 4. Only if the instance is **gone or unrecoverable** do you restore.
+
+## Redis is unreachable
+
+Nothing is restored, and nothing is lost: Redis holds counters, the circuit breaker and idempotency keys, all of which expire or rebuild.
+
+1. The Key Value instance's status in the platform console. Out of memory with `noeviction` refuses writes, which looks the same as down.
+2. Wait for it, or restart it. Each API instance reconnects within a couple of seconds and its rate limiters initialise again on the next request (step 75); no API restart is needed.
+3. Confirm: `/api/ready` 200, and a contract check succeeding.
 
 ## The backup check failed
 

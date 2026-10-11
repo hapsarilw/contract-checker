@@ -39,7 +39,7 @@ All nineteen were fired and observed arriving at the destination Appendix C name
 | `llm_config_error` | 2 | page | A 401 counted into `llm_request_total`. |
 | `analysis_failure_rate` * | 2 | page | Four analyses failing in five, and a third failing, over 15 minutes. |
 | `api_5xx_rate` * | 2 | page | 3% and 4.8% of requests answered 5xx over 10 minutes. |
-| `readiness_failing` | 2 | page | `/api/ready` answering 503 on every instance, with no successful series at all. |
+| `readiness_failing` | 2 | page | `dependency_up` 0 on every instance for two minutes, once for Postgres and once for Redis; one instance still up, and a one-minute blip, do not page. |
 | `db_pool_saturated` * | 2 | page | `db_pool_waiting` above zero for six minutes. |
 | `spend_ceiling_100` | 2 | page | Spend equal to, and over, the ceiling. |
 | `backup_verify_failed` | 2 | page | The gauge at 1. |

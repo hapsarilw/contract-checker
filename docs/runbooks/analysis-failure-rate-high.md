@@ -54,7 +54,7 @@ One user retrying one strange document can dominate a low-traffic hour. The aler
 ```promql
 sum by (route, status) (rate(http_request_duration_seconds_count{status=~"5.."}[10m]))
 ```
-The alert has already subtracted failed analyses, so an analyze-route 5xx here failed **before** an analysis existed: `503 SERVER_BUSY` is the analysis limiter failing closed, which means Redis; a `500` is the database or branch 3. Anything else is branch 3, or the database: check `/api/ready` and [db-pool-saturated](db-pool-saturated.md).
+The alert has already subtracted failed analyses, so an analyze-route 5xx here failed **before** an analysis existed: `503 SERVER_BUSY` is the analysis limiter failing closed, which means Redis; `503 DATABASE_UNAVAILABLE` is the database (step 75); a `500` is branch 3. Anything else is branch 3, or the database: check `/api/ready` and [db-pool-saturated](db-pool-saturated.md).
 
 ## Act
 

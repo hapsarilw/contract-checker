@@ -67,7 +67,7 @@ describe.each(["staging", "production"])("ops/render/%s.render.yaml", (env) => {
   it("is the shape the load tests measured and the drain needs", () => {
     expect(api.runtime).toBe("image");
     expect(api.numInstances).toBe(2);
-    expect(api.healthCheckPath).toBe("/api/ready");
+    expect(api.healthCheckPath).toBe("/api/health");
     // NFR-3.5: over the 90 s drain.
     expect(api.maxShutdownDelaySeconds).toBeGreaterThan(90);
     expect(api.maxShutdownDelaySeconds).toBeLessThanOrEqual(300);

@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { Counter, Gauge, Histogram, collectDefaultMetrics, register } from "prom-client";
 import config from "../config.js";
 import { pool } from "../lib/prisma.js";
+import { checkPostgres, checkRedis } from "../lib/readinessChecks.js";
 import { getRequestId } from "../middleware/requestId.js";
 import { uploadsInFlight } from "../middleware/uploadConcurrency.js";
 import { getCircuitState } from "../services/llm/circuitBreaker.js";
@@ -208,6 +209,60 @@ export const llmCircuitState = once(
       async collect() {
         const state = await getCircuitState();
         this.set(state.open ? 1 : 0);
+      },
+    }),
+);
+
+/**
+ * How long one dependency check may take at scrape time before it counts
+ * as down. Prometheus gives up on a scrape after 10 s by default; two
+ * checks in parallel, each bounded here, keep an outage from turning
+ * into a failed scrape, which would hide every other metric with it.
+ */
+export const DEPENDENCY_CHECK_TIMEOUT_MS = 3_000;
+
+/**
+ * @param {Promise<import("../lib/readinessChecks.js").CheckResult>} check
+ * @returns {Promise<boolean>}
+ */
+async function upWithin(check) {
+  /** @type {NodeJS.Timeout | undefined} */
+  let timer;
+  const timedOut = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ ok: false }), DEPENDENCY_CHECK_TIMEOUT_MS);
+  });
+  try {
+    const result = /** @type {{ ok: boolean }} */ (await Promise.race([check, timedOut]));
+    return result.ok;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * FR-4.7's readiness, as a metric (step 75). `readiness_failing` used to
+ * count answers to GET /api/ready, which only existed because the
+ * platform's health check called it. The platform now probes /api/health
+ * instead (ops/render/*.render.yaml says why: Render restarts an instance
+ * that fails its health check for 60 s, so a readiness health check turns
+ * a shared dependency's outage into every instance restarting), and the
+ * alert would have gone silent with nobody calling /api/ready. Measured at
+ * scrape time, the same checks the route runs, like llm_circuit_state.
+ */
+export const dependencyUp = once(
+  "dependency_up",
+  () =>
+    new Gauge({
+      name: "dependency_up",
+      help: "FR-4.7's readiness checks, run at scrape time: 1 if this instance reaches the dependency, 0 if not (or not within 3 s).",
+      labelNames: ["dependency"],
+      async collect() {
+        const [postgres, redis] = await Promise.all([
+          upWithin(checkPostgres()),
+          upWithin(checkRedis()),
+        ]);
+        this.set({ dependency: "postgres" }, postgres ? 1 : 0);
+        this.set({ dependency: "redis" }, redis ? 1 : 0);
       },
     }),
 );
@@ -439,6 +494,7 @@ export const SPEC_METRICS = Object.freeze({
   llm_circuit_state: [],
   db_pool_in_use: [],
   db_pool_waiting: [],
+  dependency_up: ["dependency"],
   uploads_in_flight: [],
   retention_job_last_success_timestamp: ["job"],
   email_send_total: ["type", "outcome"],

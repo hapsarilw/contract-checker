@@ -129,34 +129,65 @@ tests:
         exp_alerts: []
 
   - interval: 1m
-    name: readiness failing on every instance since boot still fires
-    # The case the `or vector(0)` exists for: Postgres was unreachable from
-    # the first request, so there has never been a status="200" series for
-    # /api/ready at all. A bare `== 0` against a missing series yields
-    # nothing, and the alert would stay silent through the whole outage.
+    name: the database unreachable from every instance pages, naming it
+    # Step 75: from dependency_up, which every instance reports at scrape
+    # time whether or not anything calls /api/ready.
     input_series:
-      - series: 'http_request_duration_seconds_count{route="/api/ready",method="GET",status="503"}'
-        values: "0+2x20"
+      - series: 'dependency_up{dependency="postgres",instance="api1"}'
+        values: "1 1 0x10"
+      - series: 'dependency_up{dependency="postgres",instance="api2"}'
+        values: "1 1 0x10"
+      - series: 'dependency_up{dependency="redis",instance="api1"}'
+        values: "1x12"
+      - series: 'dependency_up{dependency="redis",instance="api2"}'
+        values: "1x12"
     alert_rule_test:
-      - eval_time: 1m
+      - eval_time: 3m
         alertname: readiness_failing
         exp_alerts: []
       - eval_time: 5m
         alertname: readiness_failing
         exp_alerts:
-          - exp_labels: { severity: "2", route: page, owner: maintainer, domain: platform }
+          - exp_labels:
+              { severity: "2", route: page, owner: maintainer, domain: platform, dependency: postgres }
 
   - interval: 1m
-    name: one instance still answering readiness is not an outage
+    name: Redis unreachable from every instance pages too, as redis
+    input_series:
+      - series: 'dependency_up{dependency="redis",instance="api1"}'
+        values: "0x10"
+      - series: 'dependency_up{dependency="redis",instance="api2"}'
+        values: "0x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: readiness_failing
+        exp_alerts:
+          - exp_labels:
+              { severity: "2", route: page, owner: maintainer, domain: platform, dependency: redis }
+
+  - interval: 1m
+    name: one instance still reaching the dependency is not an outage
     # "failing on ALL instances" — a single unhealthy instance is the
     # platform's business to replace, not a person's to be woken for.
     input_series:
-      - series: 'http_request_duration_seconds_count{route="/api/ready",method="GET",status="503"}'
-        values: "0+2x20"
-      - series: 'http_request_duration_seconds_count{route="/api/ready",method="GET",status="200"}'
-        values: "0+2x20"
+      - series: 'dependency_up{dependency="postgres",instance="api1"}'
+        values: "0x20"
+      - series: 'dependency_up{dependency="postgres",instance="api2"}'
+        values: "1x20"
     alert_rule_test:
       - eval_time: 10m
+        alertname: readiness_failing
+        exp_alerts: []
+
+  - interval: 1m
+    name: a one-minute blip does not page
+    input_series:
+      - series: 'dependency_up{dependency="postgres",instance="api1"}'
+        values: "1 1 0 1x10"
+      - series: 'dependency_up{dependency="postgres",instance="api2"}'
+        values: "1 1 0 1x10"
+    alert_rule_test:
+      - eval_time: 4m
         alertname: readiness_failing
         exp_alerts: []
 

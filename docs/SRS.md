@@ -239,7 +239,7 @@ Normalization is a pure function in `services/extraction.js` with its own unit t
 
 **FR-4.6 Account deletion. [P1.5]** `DELETE /api/v1/account`, confirmed by re-entering the password, shall in one transaction delete the user row and all descendants by cascade, increment nothing (the row is gone, so all tokens fail the FR-1.9 check by absence), clear the session cookie, and enqueue a confirmation email. Deletion is synchronous and hard; no tombstone, no anonymized shell row. Audit records (§5.1) retain the fact and timestamp of the deletion with a non-reversible user reference, and no personal data — the evidence that deletion occurred must survive the deletion.
 
-**FR-4.7 Health and readiness. [P1.5]** `GET /api/health` is a **liveness** probe: process responsiveness only, no dependency checks, always fast. `GET /api/ready` is a **readiness** probe: verifies database connectivity and Redis, returns 503 with a per-dependency breakdown when either is unavailable. Conflating the two causes a database blip to restart every healthy application instance.
+**FR-4.7 Health and readiness. [P1.5]** `GET /api/health` is a **liveness** probe: process responsiveness only, no dependency checks, always fast. `GET /api/ready` is a **readiness** probe: verifies database connectivity and Redis, returns 503 with a per-dependency breakdown when either is unavailable. Conflating the two causes a database blip to restart every healthy application instance. The platform's own health check is therefore the liveness probe: a platform that stops routing to, and restarts, an instance failing its health check (Render does both) would otherwise turn an outage of a dependency every instance shares into a total one. Readiness is alerted on from the `dependency_up` metric (§6.6), and checked after every deploy (§8).
 
 **FR-4.8 Version endpoint. [P1.5]** `GET /api/version` returns the build's git SHA and build timestamp, sourced from `GIT_SHA` and `BUILD_TIMESTAMP` (Appendix B) — both set by CI at build time, never computed by the running process, since a process only knows when it started, not when its code was built. Without this endpoint, "which code is actually running" is guesswork during an incident.
 
@@ -796,6 +796,7 @@ Structured JSON logs via `pino` to stdout, collected by the platform. Every requ
 | `llm_request_total` | counter | outcome, http_status |
 | `llm_circuit_state` | gauge | — |
 | `db_pool_in_use` / `db_pool_waiting` | gauge | — |
+| `dependency_up` | gauge | dependency (postgres/redis) |
 | `uploads_in_flight` | gauge | — |
 | `retention_job_last_success_timestamp` | gauge | job |
 | `email_send_total` | counter | type, outcome |
@@ -1351,7 +1352,7 @@ Every alert names a condition, a severity, a destination, and a runbook. **Phase
 | `llm_config_error` | any non-retryable 4xx from the provider (FR-3.11) | 2 | page | `provider-outage` |
 | `circuit_open` | breaker open > 5 min | 2 | page | `provider-outage` |
 | `api_5xx_rate` | > 2% of requests over 10 min | 2 | page | `analysis-failure-rate-high` |
-| `readiness_failing` | `/api/ready` failing on all instances > 2 min | 2 | page | `database-restore` / platform |
+| `readiness_failing` | `dependency_up` 0 for Postgres or Redis on all instances > 2 min | 2 | page | `database-restore` / platform |
 | `db_pool_saturated` | `db_pool_waiting` > 0 for 5 min | 2 | page | — |
 | `spend_ceiling_80` | monthly spend ≥ 80% of ceiling | 3 | digest | `spend-ceiling-approaching` |
 | `spend_ceiling_100` | monthly spend ≥ 100% | 2 | page | `spend-ceiling-approaching` |

@@ -45,9 +45,10 @@ function specTable() {
 describe("SRS §6.6 metrics are all registered, with the table's names and labels", () => {
   const table = specTable();
 
-  it("the table parses to the 15 metric names it lists", () => {
-    // 14 rows; db_pool_in_use / db_pool_waiting share one.
-    expect(Object.keys(table)).toHaveLength(15);
+  it("the table parses to the 16 metric names it lists", () => {
+    // 15 rows; db_pool_in_use / db_pool_waiting share one. dependency_up
+    // joined at step 75, when readiness_failing moved onto it.
+    expect(Object.keys(table)).toHaveLength(16);
     expect(Object.keys(table).sort()).toEqual(Object.keys(SPEC_METRICS).sort());
   });
 

@@ -38,9 +38,17 @@ services:
     # step-73 load tests measured against (MEMORY_LIMIT_BYTES below).
     plan: starter
     numInstances: 2
-    # Readiness, not liveness: an instance that cannot reach Postgres or
-    # Redis is taken out of rotation (FR-4.7).
-    healthCheckPath: /api/ready
+    # LIVENESS, not readiness (FR-4.7). Render stops routing to an instance
+    # that fails this for 15 s and RESTARTS it after 60 s
+    # (render.com/docs/health-checks, read 2026-10-12). Postgres and Redis
+    # are shared by every instance, so a readiness check here would pull
+    # and restart all of them at once in an outage of either: the stated
+    # DATABASE_UNAVAILABLE becomes the platform's own error page, and a
+    # Redis outage, which FR-5.6 keeps reads up through, becomes a total
+    # one. FR-4.7's own warning. Readiness is still measured: the
+    # readiness_failing alert (dependency_up) and the post-deploy smoke
+    # check (ops/deploy/checks.mjs) both read it.
+    healthCheckPath: /api/health
     # NFR-3.5: over the 90 s drain, so a rolling deploy never severs an
     # analysis in flight (docs/deployment.md §5).
     maxShutdownDelaySeconds: 100
