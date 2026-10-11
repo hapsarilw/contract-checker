@@ -89,6 +89,8 @@ Every guard above was checked by mutation: the defect was put back, the named te
 
 **The legal pages (step 74)** are in the automated audit like every other screen: `/privacy`, `/terms` and `/subprocessors` pass axe at desktop width and at 320 px, reflow without sideways scrolling (wide tables scroll inside a focusable, labelled region), 24 px targets, and keyboard reach. The legal footer on every screen passes the same checks.
 
+**Two screens from step 75** are in the same loop: `/confirm-email-change` (FR-1.13), and the screen a protected route shows when the session check cannot be answered, for example during a database outage (`session-unavailable`). The second passes all seven checks; its message is a `role="alert"` region, and its retry button uses `aria-disabled` rather than `disabled` while a retry runs, so keyboard focus is not dropped (`client/e2e/sessionUnavailable.spec.js` asserts it).
+
 ## 5. Screen-reader pass: not done, and how to do it
 
 This pass needs a person listening to a real screen reader. The accessibility-tree checks in §2 and §3 establish what the browser *tells* assistive technology. They can't establish what a screen reader *does* with it: announcement order and verbosity, whether a live region is read at all in a given browser and reader pairing, how the glossary popover is read. §7.15 says automated checks catch "roughly a third" of real barriers, and that is why this pass is mandatory.

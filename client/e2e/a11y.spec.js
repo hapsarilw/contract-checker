@@ -107,6 +107,38 @@ const SCREENS = [
       ).toBeVisible();
     },
   },
+  // Step 75: a signed-in person opening the app while the database is
+  // down. The session check answers 503, and the screen says so instead
+  // of sending them to sign in.
+  {
+    name: "session-unavailable",
+    signedIn: true,
+    appChrome: false,
+    open: async (page) => {
+      await page.route("**/api/v1/auth/me", (route) =>
+        route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          headers: {
+            "Retry-After": "30",
+            "Access-Control-Expose-Headers": "Retry-After",
+          },
+          body: JSON.stringify({
+            error: {
+              code: "DATABASE_UNAVAILABLE",
+              message:
+                "We can't reach your saved contracts and reports for a moment. Nothing has been lost. Try again in a minute.",
+              requestId: "r",
+            },
+          }),
+        }),
+      );
+      await page.goto("/documents");
+      await expect(
+        page.getByRole("heading", { level: 1, name: /can’t be reached/ }),
+      ).toBeVisible();
+    },
+  },
   // Step 75: FR-1.13's confirmation screen, opened from a mailbox, often
   // signed out.
   {

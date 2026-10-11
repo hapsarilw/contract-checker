@@ -14,18 +14,25 @@ import { createContext } from "react";
  * the wrong name would have shown it to no one, ever, while every mocked
  * test passed.
  *
+ * "unavailable" [step 75]: the session check failed with something other
+ * than a 401, so the server could not say whether anyone is signed in
+ * (AuthProvider.jsx's header). `message` is the server's own; the check
+ * runs again after `retryAfter` seconds.
+ *
  * @typedef {"UNVERIFIED" | "ACTIVE" | "LOCKED" | "SUSPENDED"} AccountState
  * @typedef {{ id: string, email: string, state: AccountState, emailVerifiedAt?: string | null, pendingEmail?: string | null, createdAt?: string }} AuthUser
  * @typedef {
  *   | { status: "loading", user: null }
  *   | { status: "authenticated", user: AuthUser }
  *   | { status: "unauthenticated", user: null, endedBecause?: string }
+ *   | { status: "unavailable", user: null, message: string, retryAfter: number, checking: boolean }
  * } AuthState
  * @typedef {AuthState & {
  *   setUser: (user: AuthUser) => void,
  *   signOut: () => Promise<void>,
  *   clearSession: (reason?: string) => void,
  *   refreshUser: () => Promise<void>,
+ *   retrySessionCheck: () => Promise<void>,
  * }} AuthContextValue
  */
 export const AuthContext = createContext(/** @type {AuthContextValue | null} */ (null));

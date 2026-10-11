@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router";
 import { useAuth } from "./useAuth.js";
+import SessionUnavailablePage from "../pages/SessionUnavailablePage.jsx";
 
 /**
  * BUILD-PLAN step 32, FR-7.1 — "All but auth routes redirect
@@ -30,6 +31,13 @@ export function RequireAuth({ children }) {
         {"Loading…"}
       </p>
     );
+  }
+
+  // Step 75: the check could not be answered (the database down, the
+  // network). Whether anyone is signed in is unknown, so this neither
+  // shows the page nor sends a possibly signed-in person to /login.
+  if (status === "unavailable") {
+    return <SessionUnavailablePage />;
   }
 
   if (status === "unauthenticated") {

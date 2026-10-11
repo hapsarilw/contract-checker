@@ -254,6 +254,23 @@ Not a drill: found by booting the API against a Redis address with nothing behin
   - Redis was then started on that address. `/api/ready` turned 200 and the general limiter counted again: `RateLimit-Remaining` read 96 then 95, and the key appeared in Redis.
 - **Tested.** The unit tests drive the real rate-limit-redis store against a stand-in Redis. One of them pins the library's own behaviour: if a later version recovers by itself, that test fails and the retry can go. Three mutations were all killed.
 
+### The first screen during a database outage (fixed 2026-10-12)
+
+The database drill's reads were API calls. A person opening the app saw something the drill did not measure: `GET /auth/me` answered the stated 503, and the client read any failed check as "not signed in".
+
+- **What it did.** A signed-in person reloading during the outage was sent to the sign-in page. Signing in there then failed with the same 503. Nothing was lost, but the first screen told them something untrue.
+- **What it does now.** Only a 401 means signed out. Any other failure (a 5xx, a network failure) is a new "unavailable" state, and a protected route shows it in place of the page:
+  - the server's own message, announced: "Nothing has been lost";
+  - "If you were signed in, you still are";
+  - a retry button, and a check that runs again by itself after the server's `Retry-After` (capped at two minutes).
+
+  The page opens as soon as the check succeeds. A late re-check cannot overwrite a sign-in that happened meanwhile. The sign-in page itself is unchanged.
+- **Verified.**
+  - Unit tests on the state and the screen.
+  - `client/e2e/sessionUnavailable.spec.js`, 5 tests, 25 of 25 over five repeats. It covers the screen, recovery by button and by itself, and the keyboard: the skip link first, and focus kept on the button while a retry runs.
+  - The full accessibility audit's seven checks on the new screen, 7 of 7.
+  - Six mutations, all killed.
+
 ## 4. Load at the target concurrency
 
 **Met locally, on 2026-09-29.** TR-21: 20 analyses in flight (NFR-1.3's target) for 10 minutes against two instances at 512 MB each, with no swap.
@@ -381,6 +398,5 @@ The owner answered the open decisions, stopped the old development server, and a
 1. **TR-22's soak, again** (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`). The second run completed and its result was lost to a restart (§4).
 2. **A backup source the weekly check can read on Render.** Until one exists, `backup_verify_failed` will page every week, truthfully ([staging-setup.md](staging-setup.md)).
 3. **A mailbox TR-24 can read in staging**, and **CSP violation reports**.
-4. **The cold-load screen during a database outage.** It shows sign-in where it should say the service is unavailable.
-5. **The provider, database and restore drills, repeated in staging.**
-6. **A Redis fault in the outage drill.** A Redis lost mid-run is covered end to end by the integration suite (step 44), and a Redis absent at boot by the check above. Neither has been through the drill's alerting path.
+4. **The provider, database and restore drills, repeated in staging.**
+5. **A Redis fault in the outage drill.** A Redis lost mid-run is covered end to end by the integration suite (step 44), and a Redis absent at boot by the check above. Neither has been through the drill's alerting path.

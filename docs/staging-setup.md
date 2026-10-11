@@ -45,8 +45,7 @@ SRS §8 names Render (or Railway) for the API and Netlify (or Vercel) for the fr
    - That is engineering work, owed. Until it exists, the page is true: nobody has verified a backup.
 2. **TR-24's mailbox.** `verify-staging` runs the signup journey, which reads the verification email. In staging that needs a mailbox a test can read (§9 of deployment.md); until one exists, that check fails, deliberately.
 3. **CSP violation reports.** FR-7.9 asks for them during rollout. There is no report endpoint, so the policy enforces but does not report.
-4. **The session check on a cold load during a database outage.** `/api/auth/me` answers 503 `DATABASE_UNAVAILABLE`, and the client treats any failed check as "not signed in". It shows the sign-in page, where signing in answers the stated 503. Nothing is lost; the first screen is the wrong one.
-5. **Render and Netlify field names.** They follow their published references as of this writing, and the first Blueprint sync is where they are checked. Correct this repository if a field has changed, and the guard tests with it.
+4. **Render and Netlify field names.** They follow their published references as of this writing, and the first Blueprint sync is where they are checked. Correct this repository if a field has changed, and the guard tests with it.
 
 ## What to run, and what proves it
 

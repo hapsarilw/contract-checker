@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../api/client.js";
 import { AuthContext } from "./AuthContext.js";
 
@@ -14,8 +14,60 @@ import { AuthContext } from "./AuthContext.js";
  * comment named. api/client.js still doesn't import this file — the
  * event is what keeps that a one-way dependency.
  *
+ * A CHECK THAT COULD NOT BE ANSWERED [step 75] is not "signed out". Only
+ * a 401 says nobody is signed in. Anything else (the database down, a
+ * network failure, a 5xx) means the server could not say, and until step
+ * 75 it was treated as signed out: during a database outage a signed-in
+ * person reloading the app landed on the sign-in page, where signing in
+ * then failed with the stated 503. Now it is the "unavailable" state,
+ * carrying the server's own message; RequireAuth shows it instead of
+ * redirecting, and the check runs again by itself after the server's
+ * Retry-After (or DEFAULT_RECHECK_SECONDS), or when the person asks.
+ *
  * @param {{ children: import("react").ReactNode }} props
  */
+/** When the server named no wait: the same half minute errorCodes.js gives DATABASE_UNAVAILABLE. */
+/** @param {import("./AuthContext.js").AuthState} s */
+const waiting = (s) => s.status === "loading" || s.status === "unavailable";
+
+export const DEFAULT_RECHECK_SECONDS = 30;
+/** So a long Retry-After (a rate limit's 15 minutes) does not leave the screen waiting that long. */
+export const MAX_RECHECK_SECONDS = 120;
+
+const UNKNOWN_FAILURE_MESSAGE =
+  "We couldn't reach ClauseCheck just now. Try again in a minute.";
+
+/**
+ * The "unavailable" state for a check that failed with anything but a 401.
+ * The message is the server's (SRS §4 messages are written for the
+ * person reading them), or api/client.js's own for a network failure.
+ *
+ * @param {unknown} err
+ * @returns {import("./AuthContext.js").AuthState}
+ */
+function unavailableState(err) {
+  const e = /** @type {{ message?: unknown, retryAfter?: unknown }} */ (err ?? {});
+  const message =
+    typeof e.message === "string" && e.message.length > 0 && "status" in e
+      ? e.message
+      : UNKNOWN_FAILURE_MESSAGE;
+  const asked =
+    typeof e.retryAfter === "number" && e.retryAfter > 0
+      ? e.retryAfter
+      : DEFAULT_RECHECK_SECONDS;
+  return {
+    status: "unavailable",
+    user: null,
+    message,
+    retryAfter: Math.min(asked, MAX_RECHECK_SECONDS),
+    checking: false,
+  };
+}
+
+/** @param {unknown} err */
+const isUnauthenticated = (err) =>
+  typeof err === "object" && err !== null && "status" in err && err.status === 401;
+
 export function AuthProvider({ children }) {
   const [state, setState] = useState(
     /** @type {import("./AuthContext.js").AuthState} */ ({
@@ -24,35 +76,61 @@ export function AuthProvider({ children }) {
     }),
   );
 
-  useEffect(() => {
-    let cancelled = false;
+  // False once unmounted, so a check that resolves afterwards sets nothing.
+  const mounted = useRef(true);
 
+  /**
+   * One GET /auth/me. Its answer applies only while the app is still
+   * waiting on one (loading, or unavailable): a sign-in that succeeded on
+   * /login while a re-check was in flight must not be overwritten by
+   * that re-check's 503.
+   */
+  const checkSession = useCallback(() => {
     // suppressAuthRedirect: a 401 here means "nobody's signed in yet,"
     // not "your session was revoked" — see client.js's own note on this
     // flag for the bug this avoids (a spurious "session expired" banner
     // on /login's own first load).
-    apiFetch("/api/v1/auth/me", { suppressAuthRedirect: true }).then(
+    return apiFetch("/api/v1/auth/me", { suppressAuthRedirect: true }).then(
       (body) => {
-        if (cancelled) return;
+        if (!mounted.current) return;
         const user = /** @type {{ user: import("./AuthContext.js").AuthUser }} */ (body)
           .user;
-        setState({ status: "authenticated", user });
+        setState((s) => (waiting(s) ? { status: "authenticated", user } : s));
       },
-      () => {
-        if (cancelled) return;
-        // A 401 here is the ordinary "nobody's signed in yet" case, not
-        // a failure. Any other rejection (a network failure, a 500)
-        // still leaves the app in "not signed in" rather than stuck on
-        // "loading" forever — this initial check has no UI of its own
-        // to report a transport error through.
-        setState({ status: "unauthenticated", user: null });
+      (err) => {
+        if (!mounted.current) return;
+        // A 401 is the ordinary "nobody's signed in yet" case. Anything
+        // else is a check the server could not answer (see the header).
+        const next = isUnauthenticated(err)
+          ? /** @type {const} */ ({ status: "unauthenticated", user: null })
+          : unavailableState(err);
+        setState((s) => (waiting(s) ? next : s));
       },
     );
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    checkSession();
+    return () => {
+      mounted.current = false;
+    };
+  }, [checkSession]);
+
+  const retrySessionCheck = useCallback(() => {
+    setState((s) => (s.status === "unavailable" ? { ...s, checking: true } : s));
+    return checkSession();
+  }, [checkSession]);
+
+  // Unavailable: check again by itself after the server's own wait, so the
+  // screen clears when the outage does, with nobody pressing anything.
+  const recheckInSeconds =
+    state.status === "unavailable" && !state.checking ? state.retryAfter : null;
+  useEffect(() => {
+    if (recheckInSeconds === null) return undefined;
+    const timer = setTimeout(retrySessionCheck, recheckInSeconds * 1000);
+    return () => clearTimeout(timer);
+  }, [recheckInSeconds, retrySessionCheck]);
 
   useEffect(() => {
     function onSessionExpired() {
@@ -135,8 +213,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ ...state, setUser, signOut, clearSession, refreshUser }),
-    [state, setUser, signOut, clearSession, refreshUser],
+    () => ({ ...state, setUser, signOut, clearSession, refreshUser, retrySessionCheck }),
+    [state, setUser, signOut, clearSession, refreshUser, retrySessionCheck],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

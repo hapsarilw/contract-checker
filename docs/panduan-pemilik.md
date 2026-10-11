@@ -239,7 +239,6 @@ Ini bukan tugas Anda, tetapi perlu Anda ketahui:
 
 - sumber backup untuk `backup-verify` di Render;
 - kotak surat yang bisa dibaca TR-24 di staging;
-- endpoint laporan pelanggaran CSP;
-- tampilan saat database mati ketika halaman dimuat ulang (sekarang muncul halaman masuk, bukan pesan gangguan).
+- endpoint laporan pelanggaran CSP.
 
 Detailnya ada di [staging-setup.md](staging-setup.md), bagian "Known gaps".
