@@ -19,6 +19,7 @@ BUILD-PLAN langkah 75. Semua yang bisa dikerjakan dari repositori sudah dikerjak
 | B | Anthropic: cabut kunci lama, kunci per lingkungan, keputusan ZDR dan `inference_geo` | staging, produksi |
 | C | Domain | email, staging |
 | D | Resend (email) | staging bisa boot |
+| D2 | AWS S3: backup database harian, terenkripsi | pemeriksaan backup mingguan |
 | E | Render (API, database, Redis) | staging |
 | F | Netlify (frontend) | staging |
 | G | GitHub environments: secret dan variabel | deploy otomatis |
@@ -88,6 +89,73 @@ Beli satu domain (contoh di bawah: `example.com`). **Frontend dan API harus bera
 3. *API Keys* → buat **dua kunci dengan izin *Sending access* saja**, satu untuk staging dan satu untuk produksi.
 4. Alamat pengirim, misalnya `ClauseCheck <noreply@mail.example.com>`, menjadi `EMAIL_FROM`.
 
+## D2. AWS S3 (backup database harian)
+
+Keputusan Anda pada 2026-10-12: backup di **Amazon S3**, **dihancurkan dalam 30 hari** (sesuai janji di PRD §12.4 dan kebijakan privasi), **dienkripsi dengan `age`**.
+
+Cara kerjanya:
+- Setiap malam pukul 02.00 WIB, cron job di Render membuat `pg_dump`, mengenkripsinya dengan kunci **publik** Anda, lalu mengunggahnya ke S3.
+- Seminggu sekali API memeriksa daftar isi bucket. Kalau backup terbaru hilang, lebih tua dari 36 jam, terlalu kecil, atau menyusut lebih dari separuh, alert `backup_verify_failed` berbunyi.
+- Kunci **privat** hanya Anda yang pegang. Kunci itu hanya diperlukan untuk restore.
+
+Semua ini sudah diuji di lokal dengan MinIO (tiruan S3), memakai kebijakan IAM yang sama persis dengan yang akan Anda pasang ([ops/backup/README.md](../ops/backup/README.md)).
+
+Lakukan langkah ini **dua kali**, sekali untuk staging dan sekali untuk produksi. Jangan pernah berbagi bucket, kunci, atau kunci `age` antar-lingkungan.
+
+1. **Akun AWS.** Daftar di aws.amazon.com.
+   - Aktifkan MFA untuk akun root, lalu jangan pakai root untuk pekerjaan sehari-hari.
+   - Buat user admin untuk diri Anda sendiri lewat *IAM Identity Center*.
+2. **Bucket.** Buka S3 → *Create bucket*.
+   - Nama: `clausecheck-backups-staging-<sesuatu-yang-unik>`. Nama bucket harus unik di seluruh dunia.
+   - Region: **Asia Pacific (Singapore) `ap-southeast-1`**, sama dengan Render.
+   - *Block all public access*: **tetap dicentang**.
+   - Enkripsi default (SSE-S3) biarkan menyala.
+   - Versioning biarkan mati. Kalau dinyalakan, versi lama bisa bertahan melewati 30 hari.
+3. **Aturan masa simpan.** Di bucket: *Management* → *Create lifecycle rule*.
+   - Berlaku untuk semua objek.
+   - *Expire current versions of objects*: **29 hari**.
+   - *Delete incomplete multipart uploads*: 1 hari.
+
+   Kenapa 29, bukan 30: S3 menghapus objek secara asinkron, biasanya terlambat sekitar sehari, dan janji kita "dalam 30 hari". Isinya sama dengan [ops/backup/lifecycle.json](../ops/backup/lifecycle.json).
+4. **Dua user IAM**, masing-masing dengan satu kebijakan *inline*. Ganti `BUCKET_NAME` di file kebijakan dengan nama bucket Anda.
+
+   | User | Kebijakan | Dipakai oleh | Boleh |
+   |---|---|---|---|
+   | `clausecheck-backup-writer-staging` | [policy-writer.json](../ops/backup/policy-writer.json) | cron job backup | hanya **mengunggah** |
+   | `clausecheck-backup-lister-staging` | [policy-lister.json](../ops/backup/policy-lister.json) | API | hanya **melihat daftar** |
+
+   - Untuk masing-masing: *Security credentials* → *Create access key* → *Application running outside AWS*.
+   - Simpan *Access key ID* dan *Secret* di password manager. Jangan di chat, repo, atau file.
+   - Kalau penulis bocor, orang lain tetap tidak bisa membaca atau menghapus backup. Kalau pembaca daftar bocor, yang terlihat hanya nama file.
+   - User untuk restore ([policy-restorer.json](../ops/backup/policy-restorer.json)) **jangan dibuat sekarang**. Buat saat dibutuhkan, atau restore dengan akun admin Anda.
+5. **Kunci enkripsi `age`.**
+   - Di Mac: `brew install age`, lalu `age-keygen -o clausecheck-backup-staging.key`.
+   - Perintah itu mencetak **kunci publik** (`age1...`). Kunci publik itulah yang dimasukkan ke Render.
+   - Isi file `.key` adalah **kunci privat**:
+     - simpan di password manager;
+     - simpan satu salinan offline (misalnya dicetak, atau di flashdisk yang disimpan aman);
+     - hapus file aslinya dari laptop.
+   - **Kalau kunci privat hilang, semua backup tidak bisa dibuka lagi.**
+6. **Isi di Render** saat langkah E meminta nilai `sync: false`:
+
+   | Layanan | Variabel | Nilai |
+   |---|---|---|
+   | `clausecheck-backup-staging` (cron) | `BACKUP_S3_BUCKET`, `BACKUP_S3_REGION` | nama bucket, `ap-southeast-1` |
+   | | `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` | kunci **penulis** |
+   | | `BACKUP_AGE_RECIPIENT` | kunci **publik** `age1...` |
+   | `clausecheck-api-staging` | `BACKUP_S3_BUCKET`, `BACKUP_S3_REGION` | sama |
+   | | `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` | kunci **pembaca daftar**, bukan penulis |
+
+7. **Periksa setelah deploy pertama (langkah H).**
+   - Di Render, buka cron job → *Trigger Run*. Lognya harus diakhiri `backup: uploaded ...`.
+   - Di S3, bucket sekarang berisi satu file `....dump.age`.
+   - Dalam satu jam, log API memuat `backup verification passed`.
+8. **Uji restore sekali, ke database kosong**, mengikuti runbook [database-restore](runbooks/database-restore.md), bagian "Restoring from the S3 backup". Ini bagian dari drill di staging (langkah J).
+
+Biaya kira-kira: S3 di Singapore beberapa sen dolar per GB per bulan, dan backup yang terenkripsi dan terkompresi untuk staging ukurannya kecil. Periksa *Billing* setelah sebulan.
+
+Untuk langkah K (legal): AWS kini menjadi **subprocessor** yang menyimpan backup terenkripsi. Barisnya sudah ditambahkan ke daftar subprocessor dengan region sebagai placeholder. Konsultan hukum perlu meninjaunya bersama baris lain.
+
 ## E. Render (API, Postgres, Key Value, agen metrik)
 
 1. Daftar di render.com dan tambahkan metode pembayaran. Plan yang dipakai berbayar: *starter* untuk API dan Key Value, *basic-1gb* untuk Postgres.
@@ -104,6 +172,7 @@ Beli satu domain (contoh di bawah: `example.com`). **Frontend dan API harus bera
      | `FRONTEND_ORIGIN` | `https://staging.example.com` |
      | `SENTRY_DSN` | boleh kosong |
      | `REMOTE_WRITE_*` | dari langkah I; boleh diisi belakangan |
+     | `BACKUP_*` (API dan cron job backup) | dari langkah D2.6 |
 
    - Kalau Render menolak nama field (misalnya `maxShutdownDelaySeconds`), cocokkan dengan referensi Blueprint Render, perbaiki file, lalu jalankan `npm test` di `server` (tes `renderBlueprints` ikut diperbarui).
 5. Di layanan `clausecheck-api-staging`, tambahkan domain kustom `api.staging.example.com` lalu pasang record DNS-nya.

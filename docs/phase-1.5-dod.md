@@ -285,6 +285,25 @@ What it showed beyond the gates:
 - **But the pager never named Redis while it mattered.** Alertmanager sends a group's updates every `group_interval`. The first page (1.9 minutes) carried only `api_5xx_rate`; by the next update (6.9 minutes) `readiness_failing` had already resolved. The on-call learns the cause from the `api_5xx_rate` runbook, which maps `SERVER_BUSY` to Redis and says to check `/api/ready`. Its line on the database was out of date (a `500`) and now says `DATABASE_UNAVAILABLE`.
 - **The user is told something untrue for the whole outage.** `SERVER_BUSY`'s server message says the server "is at capacity", and the analyze screen says "too many checks are running at once… wait a few seconds". `Retry-After: 5` was repeated for five minutes. FR-5.6 names the code, so changing what it says is a product decision; it is owed, below.
 
+### Backups on Render, made and checked (built 2026-10-12)
+
+A managed database's backups are not files the API can list, so in production the weekly `backup-verify` job would have paged from the first week, truthfully: nobody could verify a backup. The owner decided on 2026-10-12: **Amazon S3, encrypted with `age`, destroyed within 30 days** (the window PRD §12.4, the privacy policy and the terms already publish; I had first proposed 35 days, which would have broken that promise, and said so).
+
+- **A nightly Render cron job** ([ops/backup](../ops/backup/README.md), 19:00 UTC): `pg_dump`, read back with `pg_restore --list` so a truncated dump is never uploaded, encrypted to the owner's PUBLIC key, uploaded. Nothing on Render can decrypt a backup.
+- **The weekly check lists the bucket** (`listBackupsInS3`; `BACKUP_S3_*`, validated at boot: one source, and a bucket with its region and both key halves). Only objects named like the job's dumps count. The SDK is loaded only when a bucket is configured.
+- **Three IAM policies, least privilege:** the job may only add objects, the API may only list, a person restoring may list and download. The bucket's lifecycle rule expires objects at 29 days, a day inside the promise, because S3 deletes asynchronously.
+- **`restore.sh`** and the runbook's "Restoring from the S3 backup".
+- **`BACKUP_MIN_BYTES` 16384**, under the measured 18,550-byte encrypted dump of an empty database, so a new staging database does not page.
+- AWS joins the subprocessor list (region a placeholder, for counsel). The owner's steps are panduan-pemilik.md D2.
+
+**Verified end to end, against MinIO with the same policy files** (`ops/backup/drill.sh`, 2,000 synthetic documents): **12 of 12.**
+- The writer can neither list nor read; the lister can list but not read or write; the restorer cannot write.
+- The object carries the `age` header, no document text, and `pg_restore` cannot read it.
+- The API's own `listBackupsInS3` and `assessBackups`, as the lister: both dumps listed, the check passes.
+- `restore.sh` into an empty Postgres: every row count and the checksums of every document's text and every finding's excerpt identical.
+
+MinIO's own images are no longer public on Docker Hub; the drill uses Bitnami's legacy mirror. **Not verified:** AWS itself (no account yet), and Render running the cron job. Both are the owner's steps D2 and H.
+
 ### CSP violation reports (built 2026-10-12)
 
 FR-7.9 asks for violations to "report to an endpoint during rollout"; there was none, so the policy enforced but nobody would have heard about what it blocked.
@@ -435,7 +454,7 @@ The owner answered the open decisions, stopped the old development server, and a
 
 1. **GitHub** (A): push, the first CI run, `scan.yml`, private vulnerability reporting, branch protection.
 2. **Anthropic** (B): confirm the old development key is revoked; a key per environment with its own spend limit; ZDR, if wanted; the `inference_geo` choice, with counsel.
-3. **The environment** (C–I): a domain, then Resend, Render, Netlify, the GitHub environments, the first staging deploy and the smoke account, Grafana Cloud and PagerDuty.
+3. **The environment** (C–I): a domain, then Resend, an AWS account and the backup bucket (D2), Render, Netlify, the GitHub environments, the first staging deploy and the smoke account, Grafana Cloud and PagerDuty.
 4. **Drills in staging** (J): items 2, 3 and 5 for real.
 5. **Counsel and the legal placeholders** (K, item 6).
 6. **An external tester** (L, item 1 and Phase 1 DoD item 2).
@@ -444,7 +463,6 @@ The owner answered the open decisions, stopped the old development server, and a
 
 **Engineering:**
 
-1. **A backup source the weekly check can read on Render.** Until one exists, `backup_verify_failed` will page every week, truthfully ([staging-setup.md](staging-setup.md)).
-2. **A mailbox TR-24 can read in staging.**
-3. **The provider, database and restore drills, repeated in staging.**
-4. **What a Redis outage tells the person checking a contract.** `SERVER_BUSY` says "at capacity" and "wait a few seconds" for as long as Redis is down (§3, the Redis drill). A truthful message and a longer `Retry-After` for the limiter's own failure, perhaps the degraded banner, need a decision on FR-5.6's wording first.
+1. **A mailbox TR-24 can read in staging.**
+2. **The provider, database and restore drills, repeated in staging.**
+3. **What a Redis outage tells the person checking a contract.** `SERVER_BUSY` says "at capacity" and "wait a few seconds" for as long as Redis is down (§3, the Redis drill). A truthful message and a longer `Retry-After` for the limiter's own failure, perhaps the degraded banner, need a decision on FR-5.6's wording first.

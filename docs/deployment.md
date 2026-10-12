@@ -23,7 +23,7 @@ What differs, and nothing else:
 |---|---|---|
 | `DEPLOY_ENV` | `staging` | `production` |
 | Instances | 2 (fewer is not a smaller production: a rolling deploy needs two) | ≥ 2 (SRS §8) |
-| Secrets: `JWT_SECRET`, `AUDIT_SALT`, `METRICS_TOKEN`, `DATABASE_URL`, `REDIS_URL`, `EMAIL_PROVIDER_KEY`, `SYNTHETIC_CHECK_TOKEN` | its own | its own |
+| Secrets: `JWT_SECRET`, `AUDIT_SALT`, `METRICS_TOKEN`, `DATABASE_URL`, `REDIS_URL`, `EMAIL_PROVIDER_KEY`, `SYNTHETIC_CHECK_TOKEN`, the backup bucket's keys and `age` public key (step 75) | its own | its own |
 | `ANTHROPIC_API_KEY` | **its own key**, with its own `MONTHLY_SPEND_CEILING_USD` | its own key |
 | `FRONTEND_ORIGIN`, public URLs | staging's | production's |
 | `ALERT_DRILL_TOKEN` | set, for the alert drills (step 68) | **refused at boot** |

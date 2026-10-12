@@ -19,7 +19,9 @@ const schedule = runbook.slice(
   runbook.indexOf("## Schedule"),
   runbook.indexOf("## Per secret"),
 );
-const scheduled = [...schedule.matchAll(/`([A-Z_]+)`/g)].map((m) => m[1]);
+// Digits too: BACKUP_S3_SECRET_ACCESS_KEY (step 75) was the first secret
+// with one, and a reader without them could never find its row.
+const scheduled = [...schedule.matchAll(/`([A-Z][A-Z0-9_]+)`/g)].map((m) => m[1]);
 
 const SECRET_NAME = /(SECRET|TOKEN|_KEY|SALT|PASSWORD|_DSN|DATABASE_URL|REDIS_URL)$/;
 
@@ -42,7 +44,9 @@ function workflowSecrets() {
       readFileSync(join(dir, f), "utf8")
         .split("\n")
         .filter((line) => !line.trim().startsWith("#"))
-        .flatMap((line) => [...line.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1])),
+        .flatMap((line) =>
+          [...line.matchAll(/secrets\.([A-Z][A-Z0-9_]+)/g)].map((m) => m[1]),
+        ),
     );
   return [...new Set(names)];
 }

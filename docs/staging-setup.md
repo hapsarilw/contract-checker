@@ -38,11 +38,7 @@ SRS §8 names Render (or Railway) for the API and Netlify (or Vercel) for the fr
 
 ## Known gaps, in this configuration
 
-1. **Backup verification has no source on Render.**
-   - In production mode, the weekly `backup-verify` job runs whether or not `BACKUP_DIR` is set. Unset, it records `no_source_configured` and **`backup_verify_failed` pages** (step 62's deliberate choice: an unverified backup is a hope).
-   - A managed database's backups are not files the API can list, so this will page from the first week.
-   - What is needed: a source the job can check. For example, a daily logical backup (`pg_dump`) to an S3-compatible bucket, with the job listing that bucket.
-   - That is engineering work, owed. Until it exists, the page is true: nobody has verified a backup.
+1. **Backups on Render: built, waiting on the owner's AWS account.** A managed database's backups are not files the API can list, so the weekly `backup-verify` job would have paged from the first week. Since step 75 (the owner's decisions of 2026-10-12) a nightly cron job writes an encrypted `pg_dump` to S3 and the API lists the bucket ([ops/backup](../ops/backup/README.md)). Until the bucket and keys exist (panduan-pemilik.md D2), the check still fails in production, truthfully.
 2. **TR-24's mailbox.** `verify-staging` runs the signup journey, which reads the verification email. In staging that needs a mailbox a test can read (§9 of deployment.md); until one exists, that check fails, deliberately.
 3. **Render and Netlify field names.** They follow their published references as of this writing, and the first Blueprint sync is where they are checked. Correct this repository if a field has changed, and the guard tests with it.
 

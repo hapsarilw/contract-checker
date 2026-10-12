@@ -95,7 +95,7 @@ const backupVerifyHandle = shouldScheduleBackupVerify()
   : undefined;
 if (!backupVerifyHandle) {
   logger.info(
-    "backup verification not scheduled: no BACKUP_DIR in a non-production environment",
+    "backup verification not scheduled: no BACKUP_DIR or BACKUP_S3_BUCKET in a non-production environment",
   );
 }
 

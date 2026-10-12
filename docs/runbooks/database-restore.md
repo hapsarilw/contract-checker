@@ -55,7 +55,7 @@ Fix the backup source, then wait for the next check (it retries hourly after a f
 
 1. **Stop writes.** `ANALYSIS_ENABLED=false` and restart, so nothing new is written to the database you are about to leave. (Sign-ins and deletions still write; if the restore will take long, put the app in maintenance at the platform level.)
 2. **Choose the backup.** The provider's point-in-time recovery if it has one — pick a moment just before the damage. Otherwise the newest backup that predates it.
-3. **Restore into a new database.** With the provider's own restore, or from a `pg_dump` file:
+3. **Restore into a new database.** With the provider's own restore, or from our own nightly backup in S3 (below), or from any other `pg_dump` file:
    ```bash
    pg_restore -d "<new database url>" --no-owner --exit-on-error clausecheck.dump
    ```
@@ -86,6 +86,31 @@ Fix the backup source, then wait for the next check (it retries hourly after a f
 6. **Switch.** Point `DATABASE_URL` at the new database in the platform's secret store, restart, and check `/api/ready` answers 200.
 7. **Prove it serves.** Sign in as a test account, open history, open a report.
 8. **Re-enable** analysis. **Stop the clock** and record the elapsed time against the 4-hour RTO.
+
+### Restoring from the S3 backup
+
+Our own copy, independent of the database provider (step 75, [ops/backup](../../ops/backup/README.md)): a `pg_dump` every night at 19:00 UTC, encrypted with `age`, kept under 30 days. Use it when the provider's restore is unavailable or untrusted, or when the provider itself is the problem.
+
+You need three things:
+- a **restorer key**: an IAM user with [policy-restorer.json](../../ops/backup/policy-restorer.json), created now, or your admin account;
+- the **private age key**, from the password manager or the offline copy;
+- an **empty** Postgres 15 database to restore into.
+
+`restore.sh` is in the backup image, so the same tool that wrote the backup reads it back:
+
+```bash
+# The private key as a file only you can read. Never in an environment variable.
+umask 077; pbpaste > /tmp/backup.key        # or copy it in from the offline copy
+docker build -t clausecheck-backup ops/backup
+docker run --rm -v /tmp/backup.key:/key:ro \
+  -e BACKUP_S3_BUCKET=<bucket> -e BACKUP_S3_REGION=ap-southeast-1 \
+  -e BACKUP_S3_ACCESS_KEY_ID=<restorer key id> -e BACKUP_S3_SECRET_ACCESS_KEY=<restorer secret> \
+  -e BACKUP_AGE_IDENTITY_FILE=/key -e TARGET_DATABASE_URL="<new database url>" \
+  --entrypoint restore.sh clausecheck-backup latest
+rm /tmp/backup.key
+```
+
+`latest` takes the newest dump. Give a key instead (`2026-10-12T190000Z.dump.age`) to restore one from before the damage. Then go on from step 4. The keys belong in your shell's history no more than in a file: type them with a leading space if your shell skips those, or export them from the password manager's CLI.
 
 **What is lost.** Everything written between the backup and the damage. Users who signed up in that window no longer exist; documents uploaded in it are gone.
 

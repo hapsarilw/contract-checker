@@ -1,0 +1,11 @@
+{
+  "Rules": [
+    {
+      "ID": "destroy-within-30-days",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "Expiration": { "Days": 29 },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 1 }
+    }
+  ]
+}

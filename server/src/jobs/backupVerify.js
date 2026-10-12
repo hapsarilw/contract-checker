@@ -24,7 +24,11 @@ import { startRecurring, stopRecurring } from "./scheduler.js";
  * the `database-restore` runbook's job. This is the smoke alarm, not the
  * fire drill.
  *
- * THE BACKUP SOURCE IS A DIRECTORY, AND THAT IS A DECISION TO REVISIT.
+ * THE BACKUP SOURCE: A DIRECTORY, OR (STEP 75) AN S3 BUCKET. Revisited on
+ * 2026-10-12, when the hosting choice (Render) showed the gap the text below
+ * anticipated: a managed provider's backups are not files the API can see.
+ * The owner chose a nightly encrypted pg_dump to S3 (ops/backup), destroyed within 30
+ * days, and listBackupsInS3 below reads it. The original reasoning:
  * §2.1 names three candidate managed-Postgres providers (Render, Neon,
  * Supabase), each with its own backup API, and the hosting choice has
  * not been made. Writing an adapter for a provider nobody has picked
@@ -105,6 +109,106 @@ export async function listBackupsInDirectory(dir) {
   return infos.sort((a, b) => b.takenAt.getTime() - a.takenAt.getTime());
 }
 
+/** What ops/backup/backup.sh names every dump: encrypted with age. */
+export const S3_BACKUP_SUFFIX = ".dump.age";
+
+/**
+ * @typedef {{ Bucket: string, Prefix: string, ContinuationToken?: string }} ListInput
+ * @typedef {{
+ *   Contents?: { Key?: string, LastModified?: Date | string, Size?: number }[],
+ *   IsTruncated?: boolean,
+ *   NextContinuationToken?: string,
+ * }} ListPage
+ */
+
+/**
+ * ListObjectsV2 against the configured bucket, with the AWS SDK loaded
+ * only when a bucket is configured: it is a large module, and a process
+ * that never lists a bucket should not carry it.
+ *
+ * @param {{ region?: string, endpoint?: string, accessKeyId?: string, secretAccessKey?: string }} [options]
+ *   the configured bucket's, unless a test points it elsewhere
+ * @returns {(input: ListInput) => Promise<ListPage>}
+ */
+export function s3Lister({
+  region = config.BACKUP_S3_REGION,
+  endpoint = config.BACKUP_S3_ENDPOINT,
+  accessKeyId = config.BACKUP_S3_ACCESS_KEY_ID,
+  secretAccessKey = config.BACKUP_S3_SECRET_ACCESS_KEY,
+} = {}) {
+  /** @type {Promise<(input: ListInput) => Promise<ListPage>> | undefined} */
+  let ready;
+  return async (input) => {
+    ready ??= import("@aws-sdk/client-s3").then(({ S3Client, ListObjectsV2Command }) => {
+      const client = new S3Client({
+        region,
+        ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
+        credentials: {
+          accessKeyId: /** @type {string} */ (accessKeyId),
+          secretAccessKey: /** @type {string} */ (secretAccessKey),
+        },
+        // NFR-3.7: a bounded wait, like every other outbound call.
+        requestHandler: { requestTimeout: 15_000, connectionTimeout: 5_000 },
+      });
+      return (/** @type {ListInput} */ listInput) =>
+        /** @type {Promise<ListPage>} */ (
+          client.send(new ListObjectsV2Command(listInput))
+        );
+    });
+    return (await ready)(input);
+  };
+}
+
+/**
+ * The second real source (step 75): the bucket ops/backup's nightly job
+ * writes to, newest first. Only objects named like its dumps count, so a
+ * stray upload or a half-written multipart part is not taken for a backup.
+ * Upload time stands for the time the dump was taken: the job uploads as
+ * soon as the dump is encrypted.
+ *
+ * @param {{ bucket: string, prefix?: string, list?: (input: ListInput) => Promise<ListPage> }} options
+ * @returns {Promise<BackupInfo[]>}
+ */
+export async function listBackupsInS3({ bucket, prefix = "", list = s3Lister() }) {
+  /** @type {BackupInfo[]} */
+  const backups = [];
+  /** @type {string | undefined} */
+  let token;
+  do {
+    const page = await list({
+      Bucket: bucket,
+      Prefix: prefix,
+      ...(token ? { ContinuationToken: token } : {}),
+    });
+    for (const object of page.Contents ?? []) {
+      if (
+        typeof object.Key === "string" &&
+        object.Key.endsWith(S3_BACKUP_SUFFIX) &&
+        object.LastModified &&
+        typeof object.Size === "number"
+      ) {
+        backups.push({ takenAt: new Date(object.LastModified), sizeBytes: object.Size });
+      }
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return backups.sort((a, b) => b.takenAt.getTime() - a.takenAt.getTime());
+}
+
+/** The configured source, or undefined when there is none (a failure in production). */
+function configuredSource() {
+  if (config.BACKUP_DIR) {
+    const dir = config.BACKUP_DIR;
+    return () => listBackupsInDirectory(dir);
+  }
+  if (config.BACKUP_S3_BUCKET) {
+    const bucket = config.BACKUP_S3_BUCKET;
+    const list = s3Lister();
+    return () => listBackupsInS3({ bucket, prefix: config.BACKUP_S3_PREFIX, list });
+  }
+  return undefined;
+}
+
 /**
  * The check itself, pure over a list, so every reason is tested without a
  * filesystem. Order matters and is the order of increasing subtlety:
@@ -170,9 +274,7 @@ export function isBackupVerifyDue({ lastSuccessAt, lastFailureAt }, now) {
 export async function runBackupVerify(
   now = new Date(),
   {
-    listBackups = config.BACKUP_DIR
-      ? () => listBackupsInDirectory(/** @type {string} */ (config.BACKUP_DIR))
-      : undefined,
+    listBackups = configuredSource(),
     shouldRun,
     limits = {
       minBytes: config.BACKUP_MIN_BYTES,
@@ -192,7 +294,7 @@ export async function runBackupVerify(
         result = assessBackups(await listBackups(), now, limits);
       } catch {
         // The error object is deliberately dropped: an fs error message
-        // quotes the path it failed on.
+        // quotes the path it failed on, and an S3 one the bucket.
         result = { ok: false, reason: REASONS.UNREADABLE };
       }
     }
@@ -228,10 +330,10 @@ export function backupVerifyTick(now = new Date()) {
 /**
  * Whether this process should schedule the check at all. Production
  * always does, configured or not (see the header); development does only
- * when a directory was given.
+ * when a source (a directory or a bucket) was given.
  */
 export function shouldScheduleBackupVerify() {
-  return config.isProduction || Boolean(config.BACKUP_DIR);
+  return config.isProduction || Boolean(config.BACKUP_DIR || config.BACKUP_S3_BUCKET);
 }
 
 /**

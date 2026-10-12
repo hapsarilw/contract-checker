@@ -307,6 +307,12 @@ export const subprocessors = {
                 "[REGION]",
               ],
               [
+                "Amazon Web Services (Amazon S3)",
+                "Keeps our nightly database backups, encrypted before they leave our systems, and destroys each within 30 days",
+                "All stored data, encrypted; Amazon cannot read it",
+                "[REGION: Singapore (ap-southeast-1) recommended]",
+              ],
+              [
                 "[CACHE PROVIDER: NOT YET CHOSEN]",
                 "Counts requests for rate limits",
                 "Account ids and network addresses, briefly",

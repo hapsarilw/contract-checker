@@ -104,6 +104,26 @@ services:
         sync: false
       - key: MEMORY_LIMIT_BYTES
         value: "536870912"
+      # Step 75: the weekly backup check lists the bucket the backup cron job
+      # below writes to (the owner's decisions of 2026-10-12: S3, 30 days, age).
+      # This key may ONLY list it: ops/backup/policy-lister.json. Not the
+      # writer's key, which the API never needs.
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: BACKUP_S3_REGION
+        sync: false
+      - key: BACKUP_S3_ACCESS_KEY_ID
+        sync: false
+      - key: BACKUP_S3_SECRET_ACCESS_KEY
+        sync: false
+      # The smallest a valid backup can be is a dump of an EMPTY database:
+      # 18,550 bytes encrypted, measured by ops/backup/drill.sh on 2026-10-12.
+      # The floor sits just under it, so a new, nearly empty database passes
+      # and a zero-byte or junk object does not. (The 1 MiB default would page
+      # on a fresh staging database.) A truncated dump never gets this far:
+      # backup.sh reads every dump back before uploading it.
+      - key: BACKUP_MIN_BYTES
+        value: "16384"
       - key: LOG_LEVEL
         value: info
       # Staging only: step 68's alert drills. config.js refuses it anywhere
@@ -149,6 +169,39 @@ services:
       - key: REMOTE_WRITE_USERNAME
         sync: false
       - key: REMOTE_WRITE_PASSWORD
+        sync: false
+
+  # Step 75: the nightly backup (ops/backup/backup.sh): pg_dump, encrypted
+  # with the owner's age PUBLIC key, uploaded to S3; the bucket's lifecycle
+  # rule (ops/backup/lifecycle.json) deletes each within 30 days, PRD §12.4's
+  # published window. 19:00 UTC is
+  # 02:00 in Jakarta, the quietest hour. A failed run is Render's to show;
+  # a missing or implausible dump is backup-verify's to page on, within 36 h.
+  - type: cron
+    name: clausecheck-backup-staging
+    runtime: docker
+    region: singapore
+    plan: starter
+    schedule: "0 19 * * *"
+    dockerfilePath: ops/backup/Dockerfile
+    dockerContext: ops/backup
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: clausecheck-db-staging
+          property: connectionString
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: BACKUP_S3_REGION
+        sync: false
+      # The WRITER key: s3:PutObject on the bucket and nothing else
+      # (ops/backup/policy-writer.json). It can neither list nor read back.
+      - key: BACKUP_S3_ACCESS_KEY_ID
+        sync: false
+      - key: BACKUP_S3_SECRET_ACCESS_KEY
+        sync: false
+      # The owner's age PUBLIC key (age1...). The private key is never here.
+      - key: BACKUP_AGE_RECIPIENT
         sync: false
 
 databases:

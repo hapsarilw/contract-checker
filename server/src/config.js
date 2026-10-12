@@ -194,6 +194,16 @@ const envSchema = z
     // job runs anyway and FAILS, loudly, because a backup nobody can find
     // is exactly what it exists to catch. See jobs/backupVerify.js.
     BACKUP_DIR: z.string().min(1).optional(),
+    // Step 75: OR an S3 bucket, where ops/backup's nightly job puts an
+    // encrypted pg_dump (the owner's decisions of 2026-10-12: S3, 30 days,
+    // age). The API only LISTS it: its key is read-only. ENDPOINT is for a
+    // non-AWS S3 (MinIO in the tests); unset means AWS itself.
+    BACKUP_S3_BUCKET: z.string().min(1).optional(),
+    BACKUP_S3_REGION: z.string().min(1).optional(),
+    BACKUP_S3_PREFIX: z.string().default(""),
+    BACKUP_S3_ENDPOINT: z.string().url().optional(),
+    BACKUP_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+    BACKUP_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     // The floor below which a backup is implausible. Deliberately a floor
     // and not a target: the real guard against a truncated dump is the
     // comparison with the previous backup, which needs no tuning.
@@ -334,6 +344,32 @@ const envSchema = z
             code: "custom",
             path: [name],
             message: 'required with EMAIL_PROVIDER="resend"',
+          });
+        }
+      }
+    }
+
+    // Step 75: one backup source, and a bucket with everything it needs to
+    // be listed. Half a configuration would boot and then fail the weekly
+    // check as "unreadable", a page that names nothing.
+    if (env.BACKUP_DIR && env.BACKUP_S3_BUCKET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["BACKUP_S3_BUCKET"],
+        message: "set BACKUP_DIR or BACKUP_S3_BUCKET, not both",
+      });
+    }
+    if (env.BACKUP_S3_BUCKET) {
+      for (const name of /** @type {const} */ ([
+        "BACKUP_S3_REGION",
+        "BACKUP_S3_ACCESS_KEY_ID",
+        "BACKUP_S3_SECRET_ACCESS_KEY",
+      ])) {
+        if (!env[name]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [name],
+            message: "required with BACKUP_S3_BUCKET",
           });
         }
       }

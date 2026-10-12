@@ -42,7 +42,17 @@ const SECRETS = [
   "METRICS_TOKEN",
   "SENTRY_DSN",
   "ALERT_DRILL_TOKEN",
+  "BACKUP_S3_ACCESS_KEY_ID",
+  "BACKUP_S3_SECRET_ACCESS_KEY",
 ];
+
+/** What ops/backup/backup.sh refuses to run without, read from the script itself. */
+const BACKUP_SCRIPT_NEEDS = (() => {
+  const script = readFileSync(join(ROOT, "ops", "backup", "backup.sh"), "utf8");
+  const match = /for name in ([^;]+); do/.exec(script);
+  if (!match) throw new Error("backup.sh no longer lists what it needs");
+  return match[1].split(/[\s\\]+/).filter(Boolean);
+})();
 
 describe.each(["staging", "production"])("ops/render/%s.render.yaml", (env) => {
   const bp = blueprint(env);
@@ -88,6 +98,39 @@ describe.each(["staging", "production"])("ops/render/%s.render.yaml", (env) => {
     expect(kv.maxmemoryPolicy).toBe("noeviction");
     expect(vars.DATABASE_URL.fromDatabase.name).toBe(bp.databases[0].name);
     expect(vars.REDIS_URL.fromService.name).toBe(kv.name);
+  });
+
+  it("runs the nightly backup (step 75): the backup image, daily, beside its database", () => {
+    const cron = service(bp, "cron");
+    expect(cron.name).toBe(`clausecheck-backup-${env}`);
+    expect(cron.runtime).toBe("docker");
+    expect(cron.dockerfilePath).toBe("ops/backup/Dockerfile");
+    // Daily: backup-verify pages at 36 h, so one missed run is noticed.
+    expect(cron.schedule).toMatch(/^\d{1,2} \d{1,2} \* \* \*$/);
+    expect(cron.region).toBe(bp.databases[0].region);
+  });
+
+  it("gives backup.sh everything it refuses to run without, and no secret in the file", () => {
+    const cronVars = envOf(service(bp, "cron"));
+    expect(BACKUP_SCRIPT_NEEDS).toContain("BACKUP_AGE_RECIPIENT");
+    expect(BACKUP_SCRIPT_NEEDS.filter((key) => !(key in cronVars))).toEqual([]);
+    expect(cronVars.DATABASE_URL.fromDatabase.name).toBe(bp.databases[0].name);
+    for (const key of BACKUP_SCRIPT_NEEDS.filter((k) => k !== "DATABASE_URL")) {
+      expect(cronVars[key], key).not.toHaveProperty("value");
+      expect(cronVars[key].sync, key).toBe(false);
+    }
+  });
+
+  it("lets the API list the bucket, with a floor measured from an empty database's dump", () => {
+    for (const key of [
+      "BACKUP_S3_BUCKET",
+      "BACKUP_S3_REGION",
+      "BACKUP_S3_ACCESS_KEY_ID",
+      "BACKUP_S3_SECRET_ACCESS_KEY",
+    ]) {
+      expect(vars[key]?.sync, key).toBe(false);
+    }
+    expect(vars.BACKUP_MIN_BYTES.value).toMatch(/^[1-9]\d*$/);
   });
 
   it("names every resource for its own environment, so the two can never share one", () => {

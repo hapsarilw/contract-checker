@@ -42,6 +42,9 @@ SRS §12.5's rotation schedule, for **every secret the system holds** (step 74).
 | PagerDuty routing key, digest SMTP password | the alerting backend's Alertmanager configuration only, loaded by `server/scripts/render-alertmanager.js` (step 75) | annually | Pages the on-call; sends the digest |
 | `SMOKE_ACCOUNT_PASSWORD` | GitHub environment secrets | annually | Signs in as the synthetic smoke account |
 | `PROMETHEUS_TOKEN` | GitHub environment secrets | annually | Reads metrics for the deploy watch |
+| Backup **writer** key: `BACKUP_S3_ACCESS_KEY_ID` and `BACKUP_S3_SECRET_ACCESS_KEY` on the backup cron job | the cron job's platform secrets, per environment (step 75) | annually | Adds objects to the backup bucket; cannot list, read or delete |
+| Backup **lister** key: `BACKUP_S3_ACCESS_KEY_ID` and `BACKUP_S3_SECRET_ACCESS_KEY` on the API | the API's platform secrets, per environment (step 75) | annually | Lists the backup bucket's names and sizes; cannot read or write |
+| Backup **age private key** | the owner's password manager and one offline copy; never on a server | **never rotate in place**: a new key pair applies to new backups only, and the old private key must be kept until the last backup made with it has expired (30 days) | Decrypts every backup. Lost, the backups are unreadable; leaked, so is everything in them |
 | `ANTHROPIC_BENCHMARK_KEY` | GitHub environment secrets (`benchmark`, `benchmark-pr`) | annually | The benchmark's own provider key, with its own spend limit |
 
 **Any suspected exposure is a Severity 1: rotate first, investigate second.** The schedule is a floor, not a wait. If personal data may have been exposed with the secret, UU PDP Article 46 and GDPR Article 33 start a **72-hour** clock for telling the people affected and the authority (`docs/legal/verification.md`).
