@@ -537,6 +537,23 @@ describe("benchmark.yml: the one workflow with a provider key (step 72)", () => 
     expect(JSON.stringify(job.env)).not.toMatch(/secrets\./);
   });
 
+  it("a missing key fails with what to set and where, before the benchmark starts", () => {
+    const step = job.steps.find((/** @type {any} */ s) =>
+      /scripts\/benchmark\.js/.test(s.run ?? ""),
+    );
+    const script = step.run.replace(/\$\{\{[^}]*\}\}/g, "benchmark");
+    const run = spawnSync("bash", ["-c", script], {
+      encoding: "utf8",
+      // eslint-disable-next-line no-restricted-syntax -- the shell needs PATH to find its builtins' helpers; nothing of the app's
+      env: { PATH: process.env.PATH, ANTHROPIC_API_KEY: "" },
+    });
+    expect(run.status).toBe(1);
+    expect(run.stdout).toContain("::error title=ANTHROPIC_BENCHMARK_KEY is not set::");
+    expect(run.stdout).toContain("'benchmark' environment");
+    // It stops there: the benchmark itself never ran.
+    expect(run.stderr).not.toContain("refusing to boot");
+  });
+
   it("measures the real model, not the mock", () => {
     expect(job.env.LLM_PROVIDER).toBe("anthropic");
   });

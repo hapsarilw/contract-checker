@@ -124,7 +124,15 @@ jobs:
       - name: Benchmark (three repeats, gated on the worst)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_BENCHMARK_KEY }}
-        run: node scripts/benchmark.js --history-out benchmark-row.jsonl
+        # A missing key would otherwise surface as config.js's "ANTHROPIC_API_KEY:
+        # expected string, received undefined", which names neither the secret
+        # nor where it goes (the first run after the push did exactly that).
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::error title=ANTHROPIC_BENCHMARK_KEY is not set::Add it as an environment secret of the '${{ github.event_name == 'pull_request' && 'benchmark-pr' || 'benchmark' }}' environment (Settings > Environments). It is the benchmark's own Anthropic key, with its own spend limit: never the development, staging or production key. docs/panduan-pemilik.md, step G."
+            exit 1
+          fi
+          node scripts/benchmark.js --history-out benchmark-row.jsonl
       - name: History row for a person to commit
         if: always()
         run: |

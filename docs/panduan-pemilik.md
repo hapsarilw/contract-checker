@@ -208,7 +208,24 @@ Untuk langkah K (legal): AWS kini menjadi **subprocessor** yang menyimpan backup
 | variable | `PROMETHEUS_URL`, secret `PROMETHEUS_TOKEN` | opsional (langkah I) |
 | variable | `E2E_MAILBOX` | belum ada; lihat catatan TR-24 di [staging-setup.md](staging-setup.md) |
 
-Kunci Anthropic **tidak** pernah masuk GitHub. Dua environment tambahan untuk benchmark (`benchmark`, `benchmark-pr` dengan `ANTHROPIC_BENCHMARK_KEY` milik sendiri) dijelaskan di [deployment.md](deployment.md) §9.
+Kunci Anthropic untuk staging dan produksi **tidak** pernah masuk GitHub. Satu-satunya pengecualian adalah kunci khusus benchmark, yang memang dipakai GitHub Actions untuk mengukur akurasi.
+
+**Environment benchmark.** Tanpa langkah ini, workflow *Benchmark* gagal dengan pesan `ANTHROPIC_BENCHMARK_KEY is not set`.
+
+1. **Buat kunci keempat di Anthropic Console**, khusus benchmark, misalnya bernama `clausecheck-benchmark`.
+   - Pasang batas belanja sendiri, misalnya USD 5 per bulan. Satu run sekitar USD 0,29.
+   - Kunci ini bukan kunci dev, staging, atau produksi.
+2. **Buat environment `benchmark`** di GitHub: *Settings* → *Environments* → *New environment*.
+   - *Deployment branches and tags*: pilih *Selected branches*, lalu tambahkan `main`.
+   - *Environment secrets* → *Add secret*: nama `ANTHROPIC_BENCHMARK_KEY`, nilai = kunci dari langkah 1.
+3. **Buat environment `benchmark-pr`.**
+   - *Required reviewers*: centang, lalu tambahkan diri Anda. Setiap pull request baru akan menunggu persetujuan Anda sebelum memakai kunci.
+   - Tambahkan secret `ANTHROPIC_BENCHMARK_KEY` yang sama.
+4. **Jalankan ulang.** *Actions* → *Benchmark* → *Run workflow* (atau *Re-run jobs* pada run yang gagal).
+   - Hasilnya ada di *Summary* run tersebut: satu baris JSON.
+   - Baris itu Anda tambahkan sendiri ke `scripts/benchmark-history.jsonl`, karena CI tidak pernah membuat commit.
+
+Detailnya ada di [deployment.md](deployment.md) §9.
 
 ## H. Deploy pertama ke staging
 
