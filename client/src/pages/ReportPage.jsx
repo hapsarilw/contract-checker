@@ -7,6 +7,7 @@ import Banner from "../components/Banner.jsx";
 import Button from "../components/Button.jsx";
 import DeleteDocumentDialog from "../components/DeleteDocumentDialog.jsx";
 import FindingCard from "./FindingCard.jsx";
+import AnalyzingPanel from "./AnalyzingPanel.jsx";
 import "./ReportPage.css";
 
 /** HIGH first, matching the server's own sort (serializers.js's SEVERITY_RANK). */
@@ -109,6 +110,11 @@ function ReportPageForDocument({ id }) {
   const [filter, setFilter] = useState(
     /** @type {"all" | "HIGH" | "MEDIUM" | "LOW"} */ ("all"),
   );
+  // "Check this contract" on a document with no completed report: the
+  // analyzing screen replaces the page while true, and `loadCount` makes
+  // the effect below fetch the finished report afterwards.
+  const [checking, setChecking] = useState(false);
+  const [loadCount, setLoadCount] = useState(0);
 
   // `cancelled` guards against setting state from a request this
   // component has since been unmounted for (a fast id change while the
@@ -137,7 +143,7 @@ function ReportPageForDocument({ id }) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, loadCount]);
 
   function closeDeleteDialog() {
     setDeleteState({ open: false, deleting: false, error: null });
@@ -191,24 +197,58 @@ function ReportPageForDocument({ id }) {
 
   const { document, analysis } = state;
 
-  // A document can exist here with no COMPLETED analysis — visited
-  // directly by id before step 33's upload flow ever ran analyze, or
-  // after an analyze attempt that failed and the user never retried.
-  // Real polish for this (a "resume where you left off" action) is
-  // step 38/39's job, once history links into this route; this is only
-  // the guard that keeps that case from reading `analysis.findings` on
-  // a null or non-COMPLETED analysis and crashing.
+  // The same analyzing screen the upload flow uses, on this document.
+  // On success the page loads again from the server rather than trusting
+  // the analyze response's shape here: GET /documents/:id is what every
+  // other visit to this report reads.
+  if (checking) {
+    return (
+      <AnalyzingPanel
+        documentId={document.id}
+        meta={{ filename: document.filename, wordCount: document.wordCount }}
+        onComplete={() => {
+          setChecking(false);
+          setState({ status: "loading", document: null, analysis: null, error: null });
+          setLoadCount((n) => n + 1);
+        }}
+        onBackToUpload={() => navigate("/")}
+      />
+    );
+  }
+
+  // A document with no COMPLETED analysis: never checked, a check that
+  // failed (LLM_TIMEOUT, LLM_UNAVAILABLE, a stale-analysis reap…), or one
+  // still running. The document is saved either way, so the way forward
+  // is to check THIS document, never to upload it again. History links
+  // every "Not checked yet" row here, which is why this screen offers the
+  // check itself instead of only a way back to the upload form.
   if (!analysis || analysis.status !== "COMPLETED") {
+    const name = document.filename ?? "Pasted text";
+    const copy =
+      analysis?.status === "PENDING"
+        ? {
+            title: "This contract is being checked.",
+            body: `A check on ${name} is already running. It usually finishes in about 30 seconds; reload this page to see the report.`,
+          }
+        : analysis?.status === "FAILED"
+          ? {
+              title: "The last check on this contract didn’t finish.",
+              body: `${name} is saved, so there’s nothing to upload again. Check it again to get the report.`,
+            }
+          : {
+              title: "This document hasn’t been checked yet.",
+              body: `${name} is saved. Check it now to get the report.`,
+            };
     return (
       <div className="cc-report">
         <main id="main" tabIndex={-1}>
-          <h1 className="cc-report__error-title">
-            This document hasn’t been checked yet.
-          </h1>
-          <p className="cc-report__loading">
-            {document.filename ?? "Pasted text"} doesn’t have a completed analysis to
-            show.
-          </p>
+          <h1 className="cc-report__error-title">{copy.title}</h1>
+          <p className="cc-report__loading">{copy.body}</p>
+          {analysis?.status === "PENDING" ? null : (
+            <div className="cc-report__recheck">
+              <Button onClick={() => setChecking(true)}>Check this contract</Button>
+            </div>
+          )}
           <Link to="/" className="cc-report__back-link">
             Back to upload
           </Link>

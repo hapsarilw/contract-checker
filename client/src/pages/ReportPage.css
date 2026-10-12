@@ -56,6 +56,12 @@
   font-weight: 600;
 }
 
+/* "Check this contract" on a document with no completed report: the
+   primary action, so it sits before the way back to upload. */
+.cc-report__recheck {
+  margin: var(--cc-space-5) 0 var(--cc-space-4);
+}
+
 /* ---- Masthead ------------------------------------------------------ */
 
 .cc-report__masthead {

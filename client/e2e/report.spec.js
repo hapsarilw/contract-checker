@@ -812,3 +812,54 @@ test.describe("delete (BUILD-PLAN step 37, FR-7.6)", () => {
     expect(results.violations).toEqual([]);
   });
 });
+
+test.describe("a document with no completed report can be checked from its report page", () => {
+  test("a FAILED check is checked again in place, ends on the report, and the page is axe clean", async ({
+    page,
+  }) => {
+    let analyzed = false;
+    let analyzeCalls = 0;
+    await page.route("**/api/v1/documents/doc1", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          analyzed
+            ? analysisPayload()
+            : {
+                document: DOCUMENT,
+                analysis: {
+                  ...analysisPayload().analysis,
+                  status: "FAILED",
+                  overallRisk: null,
+                  summary: null,
+                  findings: [],
+                },
+              },
+        ),
+      }),
+    );
+    await page.route("**/api/v1/documents/doc1/analyze", (route) => {
+      analyzeCalls += 1;
+      analyzed = true;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ analysis: analysisPayload().analysis }),
+      });
+    });
+
+    await page.goto("/documents/doc1");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "The last check on this contract didn’t finish.",
+    );
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(results.violations).toEqual([]);
+
+    await page.getByRole("button", { name: "Check this contract" }).click();
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("High");
+    await expect(page).toHaveURL(/\/documents\/doc1$/);
+    expect(analyzeCalls).toBe(1);
+  });
+});

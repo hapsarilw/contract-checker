@@ -125,6 +125,112 @@ describe("ReportPage (BUILD-PLAN step 35, PRD §7 / FR-7.5 / §7.15)", () => {
     expect(screen.getByText(/hasn.t been checked yet/i)).toBeInTheDocument();
   });
 
+  describe("checking a document that has no completed report", () => {
+    /**
+     * GET /documents/doc1 answers with `analyses` in turn (the last one
+     * repeats); POST .../analyze answers with `analyze`.
+     *
+     * @param {{ analyses: Array<object | null>, analyze: () => Promise<unknown> }} options
+     */
+    function mockServer({ analyses, analyze }) {
+      let gets = 0;
+      vi.mocked(apiFetch).mockImplementation((path, init) => {
+        if (path === "/api/v1/documents/doc1/analyze" && init?.method === "POST") {
+          return analyze();
+        }
+        if (path === "/api/v1/documents/doc1" && !init) {
+          const analysis = analyses[Math.min(gets, analyses.length - 1)];
+          gets += 1;
+          return Promise.resolve({ document: DOCUMENT, analysis });
+        }
+        return Promise.reject(new Error(`unexpected request: ${path}`));
+      });
+    }
+
+    async function settle() {
+      await act(async () => {
+        for (let i = 0; i < 6; i += 1) await Promise.resolve();
+      });
+    }
+
+    it("runs analyze on THIS document and then shows its report, without a new upload", async () => {
+      mockServer({
+        analyses: [null, analysisWith(THREE_FINDINGS)],
+        analyze: () => Promise.resolve({ analysis: analysisWith(THREE_FINDINGS) }),
+      });
+      renderReport();
+      await settle();
+
+      fireEvent.click(screen.getByRole("button", { name: "Check this contract" }));
+      await settle();
+
+      expect(apiFetch).toHaveBeenCalledWith("/api/v1/documents/doc1/analyze", {
+        method: "POST",
+      });
+      // Analyze, never a second upload.
+      expect(apiFetch).not.toHaveBeenCalledWith("/api/v1/documents", expect.anything());
+      // The finished report, read back from GET /documents/:id.
+      expect(screen.getByRole("heading", { level: 1 })).toHaveAttribute(
+        "aria-label",
+        "Overall risk: High",
+      );
+      expect(screen.queryByText(/hasn.t been checked yet/i)).not.toBeInTheDocument();
+    });
+
+    it("says a FAILED check didn't finish, and offers to check again", async () => {
+      mockServer({
+        analyses: [{ ...analysisWith([]), status: "FAILED", overallRisk: null }],
+        analyze: () => new Promise(() => {}),
+      });
+      renderReport();
+      await settle();
+
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        /last check on this contract didn.t finish/i,
+      );
+      expect(screen.getByText(/msa\.pdf is saved/)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Check this contract" }),
+      ).toBeInTheDocument();
+    });
+
+    it("offers no second check while one is still PENDING", async () => {
+      mockServer({
+        analyses: [{ ...analysisWith([]), status: "PENDING", overallRisk: null }],
+        analyze: () => new Promise(() => {}),
+      });
+      renderReport();
+      await settle();
+
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        /being checked/i,
+      );
+      expect(
+        screen.queryByRole("button", { name: "Check this contract" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows the analyze error on this document when the check fails", async () => {
+      mockServer({
+        analyses: [null],
+        analyze: () =>
+          Promise.reject(
+            new ApiError("LLM_TIMEOUT", "The analysis took too long.", "req_9", 504),
+          ),
+      });
+      renderReport();
+      await settle();
+
+      fireEvent.click(screen.getByRole("button", { name: "Check this contract" }));
+      await settle();
+
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        /took longer than expected/i,
+      );
+      expect(screen.getByText("LLM_TIMEOUT · 504")).toBeInTheDocument();
+    });
+  });
+
   it("renders the risk header from the server's overallRisk, one h1, never modelRisk", async () => {
     vi.mocked(apiFetch).mockResolvedValue({
       document: DOCUMENT,
