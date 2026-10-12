@@ -4,12 +4,12 @@ BUILD-PLAN step 73 (OPS-10): SRS §10.6's TR-21 to TR-23, §10.7's TR-24, NFR-1.
 
 **Status, 2026-09-29: all four pass on the local rehearsal stack, and none has run in staging, because there is no staging** ([deployment.md](deployment.md)). One real defect was found and fixed on the way: the upload flood killed both instances. Everything below says where it ran. "Local" never means "staging".
 
-**Corrected 2026-10-05 (step 75): TR-22's result does not mean what this file said.** The mock provider retained the full text of every document it was asked about, so the soak measured the API plus a leak of its own test double. TR-21, TR-23 and TR-24 are unaffected (details under TR-22).
+**Corrected 2026-10-05 (step 75): TR-22's result does not mean what this file said.** The mock provider retained the full text of every document it was asked about, so the soak measured the API plus a leak of its own test double. TR-21, TR-23 and TR-24 are unaffected (details under TR-22). **Re-run with the fix on 2026-10-11/12: TR-22 passes**, with the memory trend at less than half the allowance.
 
 | Done when (BUILD-PLAN step 73) | Local rehearsal, 2026-09-29 | Staging |
 |---|---|---|
 | TR-21 holds p95 under 45 s with no instance over 80% memory | **Pass**: p95 25.1 s, worst instance 35.2% | not run |
-| TR-22 shows flat memory over 2 hours | **Not established; re-run owed.** The 2026-09-29 run passed by 0.7% (12.71 MB/h against 12.8), but on 2026-10-05 its memory trend turned out to include a leak in the test harness itself: the mock provider kept every document it was sent (see TR-22, "Correction"). Fixed; the soak has not been re-run. | not run |
+| TR-22 shows flat memory over 2 hours | **Pass, on the re-run of 2026-10-11/12**: api1 5.32 MB/h and api2 3.44 MB/h against 12.8 allowed; 1,440 of 1,440 completed. The 2026-09-29 run's pass (12.71 MB/h) was withdrawn: its test double was leaking (see TR-22, "Correction" and "Re-run") | not run |
 | TR-23 returns 503 rather than OOM-ing | **Pass, after a fix**: see "The upload flood" | not run |
 | TR-24 completes the full journey with axe assertions on every screen | **Pass**: 7 screens, 30.0 s | not run: needs a readable staging inbox ([deployment.md](deployment.md) §9) |
 | Results committed with dates and configuration | this file | |
@@ -85,7 +85,33 @@ What stands and what does not:
 - **TR-21 is unaffected.** Its 10 minutes held at most about 6 MB of retained documents per instance, and its worst instance was at 35.2% of the limit, against 80%.
 - **TR-23 and TR-24 are unaffected.** Neither runs long enough for it to matter.
 - **Fixed:** the mock keeps only its last 50 calls (`MAX_RECORDED_CALLS`; 1.3 MB after the same 720 calls), with a test.
-- **Owed:** the soak, re-run with the fix (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`). It was not re-run on 2026-10-05 because the machine was on battery at 18%. A laptop that sleeps during a soak stops its clocks, which the step-75 drill showed the same day. `run-local.sh` now holds the machine awake (`caffeinate`) for the length of a run, but it cannot do that for two hours on a battery that has one.
+- **Owed:** the soak, re-run with the fix (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`). It was not re-run at first on 2026-10-05 because the machine was on battery at 18%. A laptop that sleeps during a soak stops its clocks, which the step-75 drill showed the same day. `run-local.sh` now holds the machine awake (`caffeinate`) for the length of a run, but it cannot do that for two hours on a battery that has one. A run later that day, on mains power, completed, but a restart cleared its results directory before the verdict was read (phase-1.5-dod.md §4).
+
+### Re-run, 2026-10-11 22:14 to 2026-10-12 00:14 UTC: pass
+
+The same scenario on the same stack, with the mock's fix (`MAX_RECORDED_CALLS`), on mains power, the machine held awake. Commit `2a4414a`. 5 analyses in flight, 110 accounts, a 3,919-word document; the mock answers in a fixed 25 s.
+
+| Gate | Result |
+|---|---|
+| Ran for 120 minutes | 120.2 minutes sampled, 662 samples per instance |
+| Flat memory: RSS trend after the 10-minute warm-up under 12.8 MB/h (5% of the limit over two hours) | **api1 5.32 MB/h, api2 3.44 MB/h** |
+| Stable connection count | Postgres connections 7 to 11, trend -0.00 per hour |
+| Zero 500s or dropped connections | **0 of 1,440**; p50 25.03 s, p95 25.04 s, max 25.11 s |
+| No instance above 80% of its memory limit | worst **30.3%** (155 MB, api1), against 39.3% on 2026-09-29 |
+| No pool exhaustion | peak 2 in use, 0 waiting |
+
+The same windows as the 2026-09-29 table above (MB/h, computed from the run's samples, in 10^6 bytes):
+
+| RSS trend | minutes 10 to 60 | 60 to 120 | last 30 |
+|---|---|---|---|
+| api1 | 10.4 | 4.0 | 4.4 |
+| api2 | 8.8 | 3.8 | 5.0 |
+
+What it shows, and what it does not:
+
+- **With the test double's leak gone, the trend is less than half the allowance.** It falls after the first hour and does not climb again. The peak was 46 MB lower than on 2026-09-29.
+- **It does not prove the API never leaks.** A last-30-minute trend of 4 to 5 MB/h is small but not zero. Two hours cannot tell a slow leak from a heap still settling. The staging soak should run longer, and `memory_high` remains the backstop.
+- The provider is the mock, so this measures the API's own memory and overhead, not the real model.
 
 ## TR-23: 50 simultaneous 5 MB uploads, and the defect it found
 
@@ -146,3 +172,4 @@ In staging, see [ops/README.md](../ops/README.md), "Load, soak and end-to-end". 
 | 2026-09-29 | local | TR-23 run 4 (no swap, extraction semaphore) | pass: 297 MB peak, never at the limit |
 | 2026-09-29 | local | the final run: TR-23, TR-24, TR-21, TR-22 | **all four pass**: TR-23 297/276 MB peak and never at the limit; TR-24 7 screens clean, 30.0 s; TR-21 p95 25.1 s and 480/480; TR-22 1,440/1,440, memory trend 12.71 MB/h against 12.8 allowed and falling (05:59 to 08:10 UTC) |
 | 2026-10-05 | analysis, not a run | TR-22's memory trend re-read | **TR-22 withdrawn**: the mock provider retained every document (17.3 MB per 720 calls). Fixed (`MAX_RECORDED_CALLS`); the soak is owed again |
+| 2026-10-11/12 | local | TR-22 re-run with the fix, on mains power (22:14 to 00:14 UTC, `2a4414a`) | **TR-22 passes**: 1,440/1,440, 0 errors; memory trend api1 5.32 and api2 3.44 MB/h against 12.8 allowed; worst instance 30.3% |

@@ -9,7 +9,7 @@ BUILD-PLAN step 75, the Phase 1.5 gate. PRD §9 lists seven items and PRD §15 t
 | 1 | An external tester recovers a forgotten password and deletes their account unaided; verified afterwards, in the tables, that no rows remain | **Not done.** It needs an external tester on a deployed environment. The direct check is built and tested, and building it found a defect, now fixed | §1 |
 | 2 | A restore from backup into a scratch database succeeds, its elapsed time recorded against the RTO | **Met locally: 18.6 s against the 4-hour RTO**, 695 MB, 2026-10-05. The managed provider's own restore is owed to staging | §2 |
 | 3 | A simulated provider outage (529 for five minutes) gives a stated degraded-mode error, no data loss, nothing stuck PENDING, and ONE alert | **Met locally, after fixes, 2026-10-05.** As first configured it paged twice. After the fixes every gate passed on busy traffic (**one page**, the provider's, 3.3 minutes in; 129 of 129 failed analyses got the stated 503; recovery in 10 s) and on quiet traffic, where the breaker never trips (**one page**, 4.6 minutes in). Staging is owed | §3 |
-| 4 | A load test at the target concurrency holds p95 within the SLO without exhausting memory | **Met locally: p95 25.1 s against 45 s at 20 in flight; worst instance 35.2% of 512 MB**, 2026-09-29. Staging is owed, on the real provider | §4 |
+| 4 | A load test at the target concurrency holds p95 within the SLO without exhausting memory | **Met locally: p95 25.1 s against 45 s at 20 in flight; worst instance 35.2% of 512 MB**, 2026-09-29. The two-hour soak, re-run after the mock's leak was fixed, passes (2026-10-11/12: memory trend under half the allowance). Staging is owed, on the real provider | §4 |
 | 5 | Every Appendix C alert has fired, deliberately, **in staging**, and reached its destination | **Not done.** All nineteen fired locally into a real Alertmanager on 2026-09-28. Not in staging (there is none), and not to a real pager (none is chosen). Step 75 also found that drill's "one incident, one notification" result was wrong | §5 |
 | 6 | Privacy policy, terms and subprocessor list live and linked from the footer and the upload screen | **Not done.** Built and linked, but not live (nothing is deployed), and still drafts that say so, with placeholders only the owner and counsel can fill | §6 |
 | 7 | The accessibility audit's blocking defects closed, and the report committed | **Not done.** The report is committed; 3 of 3 defects found are fixed. The screen-reader pass, which SRS §7.15 makes mandatory, has not been done, so the audit is not closed | §7 |
@@ -321,7 +321,12 @@ Three caveats:
 - **The leak does affect TR-22, the two-hour soak.** Its "flat memory" reading is withdrawn ([load-test-results.md](load-test-results.md)).
   - The soak was re-run with the fix, on mains power, on 2026-10-05 from 14:23 to 16:24 UTC. It completed, with 1,185 analyses and none failed by the last line read.
   - **Its result was then lost:** the machine restarted overnight, and the results directory under `/private/tmp` was cleared before the verdict was read.
-  - It is owed again. Drill and soak results now go to `.drill-evidence/` in the working tree, which survives a restart and is excluded from git.
+  - Drill and soak results now go to `.drill-evidence/` in the working tree, which survives a restart and is excluded from git.
+  - **Re-run on 2026-10-11 22:14 to 2026-10-12 00:14 UTC, on mains power: TR-22 passes.**
+    - 1,440 of 1,440 completed, with 0 errors.
+    - Memory trend after warm-up: api1 5.32 MB/h and api2 3.44 MB/h, against 12.8 allowed.
+    - Worst instance 30.3% of its limit; Postgres connections 7 to 11; pool never waited.
+    - Two hours cannot tell a slow leak from a heap still settling, so the staging soak should run longer ([load-test-results.md](load-test-results.md), TR-22 "Re-run").
 - **Staging is owed**, on the real provider.
 
 ## 5. Every alert fired, in staging
@@ -426,8 +431,7 @@ The owner answered the open decisions, stopped the old development server, and a
 
 **Engineering:**
 
-1. **TR-22's soak, again** (`SOAK_MINUTES=120 ops/load/run-local.sh tr22`). The second run completed and its result was lost to a restart (§4).
-2. **A backup source the weekly check can read on Render.** Until one exists, `backup_verify_failed` will page every week, truthfully ([staging-setup.md](staging-setup.md)).
-3. **A mailbox TR-24 can read in staging**, and **CSP violation reports**.
-4. **The provider, database and restore drills, repeated in staging.**
-5. **What a Redis outage tells the person checking a contract.** `SERVER_BUSY` says "at capacity" and "wait a few seconds" for as long as Redis is down (§3, the Redis drill). A truthful message and a longer `Retry-After` for the limiter's own failure, perhaps the degraded banner, need a decision on FR-5.6's wording first.
+1. **A backup source the weekly check can read on Render.** Until one exists, `backup_verify_failed` will page every week, truthfully ([staging-setup.md](staging-setup.md)).
+2. **A mailbox TR-24 can read in staging**, and **CSP violation reports**.
+3. **The provider, database and restore drills, repeated in staging.**
+4. **What a Redis outage tells the person checking a contract.** `SERVER_BUSY` says "at capacity" and "wait a few seconds" for as long as Redis is down (§3, the Redis drill). A truthful message and a longer `Retry-After` for the limiter's own failure, perhaps the degraded banner, need a decision on FR-5.6's wording first.
