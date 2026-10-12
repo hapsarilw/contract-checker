@@ -59,6 +59,25 @@ import { AppError } from "./AppError.js";
  * @typedef {import("express-rate-limit").ClientRateLimitInfo} ClientRateLimitInfo
  */
 
+/**
+ * What a fail-CLOSED refusal says (step 75; the owner's decision of
+ * 2026-10-12). Until then it said SERVER_BUSY's own text, "The server is at
+ * capacity right now... try again in a few seconds", with Retry-After 5:
+ * untrue on both counts. The server was idle and Redis was down, and the
+ * Redis outage drill showed it repeated every five seconds for five
+ * minutes. The code stays SERVER_BUSY (FR-5.6 names it); the message says
+ * what is actually true, and the wait is long enough for Redis to come back.
+ *
+ * Here rather than in rateLimits.js so the outage drill can state the
+ * expected answer without importing a module that connects to Redis.
+ */
+export const STORE_UNAVAILABLE_RETRY_AFTER_SECONDS = 60;
+export const STORE_UNAVAILABLE_MESSAGE =
+  "This is unavailable for a moment, because a service it depends on isn't answering. Nothing has been lost. Try again in about a minute.";
+/** The analyze limiter's: checking is what stops, and saved work is what still works. */
+export const ANALYZE_UNAVAILABLE_MESSAGE =
+  "Checking a contract is unavailable for a moment, because a service it depends on isn't answering. Your contract is saved and your saved reports still open. Try again in about a minute.";
+
 export class FailurePolicyStore {
   /** @type {Store} */
   #inner;
@@ -68,6 +87,8 @@ export class FailurePolicyStore {
   #onFailure;
   /** @type {number} */
   #windowMs = 60_000;
+  /** @type {string} */
+  #unavailableMessage;
   /** @type {Record<string, unknown> | undefined} */
   #options;
   /**
@@ -84,10 +105,17 @@ export class FailurePolicyStore {
    *   store: Store,
    *   policy: FailurePolicy,
    *   onFailure?: (err: unknown, policy: FailurePolicy) => void,
+   *   unavailableMessage?: string,
    * }} options
    */
-  constructor({ store, policy, onFailure }) {
+  constructor({
+    store,
+    policy,
+    onFailure,
+    unavailableMessage = STORE_UNAVAILABLE_MESSAGE,
+  }) {
     this.#inner = store;
+    this.#unavailableMessage = unavailableMessage;
     this.#policy = policy;
     this.#onFailure = onFailure ?? (() => {});
   }
@@ -139,6 +167,8 @@ export class FailurePolicyStore {
       this.#onFailure(err, this.#policy);
       if (this.#policy === "closed") {
         throw new AppError("SERVER_BUSY", {
+          message: this.#unavailableMessage,
+          retryAfter: STORE_UNAVAILABLE_RETRY_AFTER_SECONDS,
           details: { reason: "rate-limit store unavailable" },
         });
       }

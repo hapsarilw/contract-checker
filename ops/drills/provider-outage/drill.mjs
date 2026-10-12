@@ -51,6 +51,10 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs, promisify } from "node:util";
 import { ERROR_CODES } from "../../../server/src/lib/errorCodes.js";
+import {
+  ANALYZE_UNAVAILABLE_MESSAGE,
+  STORE_UNAVAILABLE_RETRY_AFTER_SECONDS,
+} from "../../../server/src/lib/failurePolicyStore.js";
 import { clientAddressFor } from "../../load/load.mjs";
 
 const run = promisify(execFile);
@@ -108,10 +112,12 @@ export const FAULTS = Object.freeze({
   }),
   redis: Object.freeze({
     label: "Redis",
-    // FR-5.6: the analyze limiter fails CLOSED. SRS §4.2's code for it.
+    // FR-5.6: the analyze limiter fails CLOSED. SRS §4.2's code for it,
+    // with what it says when the cause is its store (step 75), not the
+    // "at capacity, a few seconds" the first Redis drill recorded.
     code: "SERVER_BUSY",
-    statedMessage: ERROR_CODES.SERVER_BUSY.message,
-    retryAfter: String(ERROR_CODES.SERVER_BUSY.retryAfter),
+    statedMessage: ANALYZE_UNAVAILABLE_MESSAGE,
+    retryAfter: String(STORE_UNAVAILABLE_RETRY_AFTER_SECONDS),
     // FR-5.6: every other limiter fails OPEN, and reads need only Postgres.
     readsRefused: false,
     // api_5xx_rate (a 5xx that is not a failed analysis) and

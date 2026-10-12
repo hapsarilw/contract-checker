@@ -93,10 +93,18 @@ describe("the step-64 specifics", () => {
     },
   );
 
-  it("SERVER_BUSY on analyze does offer a retry: it clears in seconds", () => {
+  it("SERVER_BUSY on analyze does offer a retry: it clears when Redis does", () => {
     expect(resolveAnalyzeError({ code: "SERVER_BUSY", message: "x" }).action).toBe(
       "retry",
     );
+  });
+
+  it("SERVER_BUSY on analyze states the server's reason, never 'too many checks' (step 75)", () => {
+    const message =
+      "Checking a contract is unavailable for a moment, because a service it depends on isn't answering. Your contract is saved and your saved reports still open. Try again in about a minute.";
+    const copy = resolveAnalyzeError({ code: "SERVER_BUSY", message });
+    expect(copy.body).toBe(message);
+    expect(`${copy.title} ${copy.body}`).not.toMatch(/busy|too many|few seconds/i);
   });
 
   it("STORAGE_QUOTA_EXCEEDED points at deletion (FR-2.13) and its button goes to the contracts", () => {

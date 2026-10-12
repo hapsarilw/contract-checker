@@ -6,6 +6,7 @@ import { countWords } from "../../src/services/extraction.js";
 import { SESSION_COOKIE_NAME, signSessionToken } from "../../src/services/auth.js";
 import { createDocument, createUser } from "./factories.js";
 import { createLimiter } from "../../src/middleware/rateLimits.js";
+import { ANALYZE_UNAVAILABLE_MESSAGE } from "../../src/lib/failurePolicyStore.js";
 import { errorHandler } from "../../src/middleware/errorHandler.js";
 import { getRedis } from "../../src/lib/redis.js";
 
@@ -240,6 +241,10 @@ describe("FR-5.6 — when Redis is unavailable", () => {
       expect(res.status).not.toBe(429);
       expect(res.headers["retry-after"]).toBeDefined();
       expect(res.body.error.requestId).toEqual(expect.any(String));
+      // Step 75: why, and what still works, and a minute rather than five
+      // seconds: Redis does not come back in five seconds.
+      expect(res.body.error.message).toBe(ANALYZE_UNAVAILABLE_MESSAGE);
+      expect(res.headers["retry-after"]).toBe("60");
     });
   });
 

@@ -255,7 +255,7 @@ Normalization is a pure function in `services/extraction.js` with its own unit t
 
 **FR-5.5** Quota and spend state shall be inspectable by an operator without a database query — via the metrics endpoint and a dashboard panel (§6.6).
 
-**FR-5.6** Where Redis is unavailable, limiters shall **fail closed for analysis** (returning 503 `SERVER_BUSY`) and **fail open for read paths**. An unmetered analyze path is a financial risk; an unmetered history page is not.
+**FR-5.6** Where Redis is unavailable, limiters shall **fail closed for analysis** (returning 503 `SERVER_BUSY`) and **fail open for read paths**. An unmetered analyze path is a financial risk; an unmetered history page is not. A fail-closed refusal states its cause rather than `SERVER_BUSY`'s capacity message: that a service it depends on is not answering, that nothing is lost (for analysis: that saved reports still open), with `Retry-After` of 60 seconds, the time it takes a dependency to come back rather than a burst of load to pass.
 
 ## 4. API specification
 

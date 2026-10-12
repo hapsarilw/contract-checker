@@ -12,6 +12,7 @@ import {
   transitions,
 } from "../../../ops/drills/provider-outage/drill.mjs";
 import { ERROR_CODES } from "../../src/lib/errorCodes.js";
+import { ANALYZE_UNAVAILABLE_MESSAGE } from "../../src/lib/failurePolicyStore.js";
 
 /**
  * ops/drills/provider-outage/drill.mjs's verdicts (BUILD-PLAN step 75, PRD
@@ -499,7 +500,7 @@ describe("the Redis fault (step 75): FR-5.6's degraded mode, Redis stopped", () 
         : {
             ...a,
             code: "SERVER_BUSY",
-            retryAfter: "5",
+            retryAfter: "60",
             message: FAULTS.redis.statedMessage,
           },
     );
@@ -520,8 +521,11 @@ describe("the Redis fault (step 75): FR-5.6's degraded mode, Redis stopped", () 
 
   it("states FR-5.6's code, from errorCodes.js", () => {
     expect(FAULTS.redis.code).toBe("SERVER_BUSY");
-    expect(FAULTS.redis.statedMessage).toBe(ERROR_CODES.SERVER_BUSY.message);
-    expect(FAULTS.redis.retryAfter).toBe(String(ERROR_CODES.SERVER_BUSY.retryAfter));
+    // Not SERVER_BUSY's own "at capacity, a few seconds" (step 75): what the
+    // analyze limiter says when its store is down, and a minute's wait.
+    expect(FAULTS.redis.statedMessage).toBe(ANALYZE_UNAVAILABLE_MESSAGE);
+    expect(FAULTS.redis.statedMessage).not.toBe(ERROR_CODES.SERVER_BUSY.message);
+    expect(FAULTS.redis.retryAfter).toBe("60");
     expect(FAULTS.redis.readsRefused).toBe(false);
   });
 

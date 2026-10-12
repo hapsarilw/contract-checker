@@ -2,7 +2,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { rateLimit } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import { AppError } from "../lib/AppError.js";
-import { FailurePolicyStore } from "../lib/failurePolicyStore.js";
+import {
+  ANALYZE_UNAVAILABLE_MESSAGE,
+  FailurePolicyStore,
+} from "../lib/failurePolicyStore.js";
 import { getRedis } from "../lib/redis.js";
 import { isAllowlisted, parseIpAllowlist } from "../lib/ipAllowlist.js";
 import config from "../config.js";
@@ -106,6 +109,7 @@ const stores = [];
  *   buildMessage: (retryTime: string) => string,
  *   keyGenerator?: (req: import("express").Request) => string,
  *   skip?: (req: import("express").Request) => boolean,
+ *   unavailableMessage?: string,
  * }} options
  */
 export function createLimiter({
@@ -116,6 +120,7 @@ export function createLimiter({
   buildMessage,
   keyGenerator,
   skip,
+  unavailableMessage,
 }) {
   // Each limiter gets its own prefix so the three buckets cannot collide
   // in one Redis database — without it, an IP's 100-request general count
@@ -133,6 +138,7 @@ export function createLimiter({
         ),
     }),
     policy: failurePolicy,
+    ...(unavailableMessage ? { unavailableMessage } : {}),
     onFailure: (err, policy) => {
       logger.error(
         {
@@ -255,8 +261,10 @@ export const analyzeLimiter = createLimiter({
   // FR-5.6, the case it exists for: an unmetered analyze path is a
   // financial risk. Every call spends provider tokens, and FR-5.2 counts
   // failures too, so an outage that removed the ceiling would be billed
-  // for. 503 SERVER_BUSY, not 429 — the client did nothing wrong.
+  // for. 503 SERVER_BUSY, not 429 — the client did nothing wrong. Since
+  // step 75 it says why, and that saved work still opens.
   failurePolicy: "closed",
+  unavailableMessage: ANALYZE_UNAVAILABLE_MESSAGE,
   // A `user:` prefix, not the bare id. Since step 44 the three limiters
   // share one Redis database and are separated by key prefix, so this
   // second marker is belt and braces — but it is what makes a key read

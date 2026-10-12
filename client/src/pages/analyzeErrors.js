@@ -114,10 +114,15 @@ const DYNAMIC = {
     primary: "Try again",
     action: "retry",
   }),
-  SERVER_BUSY: () => ({
+  // On the analyze route SERVER_BUSY has one cause: the analyze limiter
+  // failing CLOSED because its store (Redis) is down (FR-5.6). Until step 75
+  // this card said "too many checks are running at once... a few seconds",
+  // which was never true of it. The server's message is the body now: it
+  // says why, and that saved reports still open (failurePolicyStore.js).
+  SERVER_BUSY: (apiError) => ({
     code: "SERVER_BUSY · 503",
-    title: "We’re very busy right now.",
-    body: "Too many checks are running at once, so this one didn’t start. Nothing was lost. Wait a few seconds and try again.",
+    title: "Checking a contract is paused for a moment.",
+    body: apiError.message,
     primary: "Try again",
     action: "retry",
   }),

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { RedisStore } from "rate-limit-redis";
-import { FailurePolicyStore } from "../../src/lib/failurePolicyStore.js";
+import {
+  ANALYZE_UNAVAILABLE_MESSAGE,
+  FailurePolicyStore,
+  STORE_UNAVAILABLE_MESSAGE,
+  STORE_UNAVAILABLE_RETRY_AFTER_SECONDS,
+} from "../../src/lib/failurePolicyStore.js";
 import { AppError } from "../../src/lib/AppError.js";
 import { reconnectDelayMs } from "../../src/lib/redis.js";
 
@@ -86,6 +91,29 @@ describe("FailurePolicyStore — fail CLOSED (the analyze path)", () => {
     const store = new FailurePolicyStore({ store: brokenStore(), policy: "closed" });
     const err = await store.increment("user:a").catch((e) => e);
     expect(err.retryAfter).toBeGreaterThan(0);
+  });
+
+  it("says what is true, not SERVER_BUSY's 'at capacity, a few seconds' (step 75)", async () => {
+    // The first Redis outage drill heard "at capacity" every five seconds
+    // for five minutes from a server that was idle.
+    const store = new FailurePolicyStore({ store: brokenStore(), policy: "closed" });
+    const err = await store.increment("user:a").catch((e) => e);
+    expect(err.code).toBe("SERVER_BUSY");
+    expect(err.message).toBe(STORE_UNAVAILABLE_MESSAGE);
+    expect(err.message).not.toMatch(/capacity|few seconds/);
+    expect(err.retryAfter).toBe(STORE_UNAVAILABLE_RETRY_AFTER_SECONDS);
+    expect(STORE_UNAVAILABLE_RETRY_AFTER_SECONDS).toBe(60);
+  });
+
+  it("states a limiter's own message when it has one", async () => {
+    const store = new FailurePolicyStore({
+      store: brokenStore(),
+      policy: "closed",
+      unavailableMessage: ANALYZE_UNAVAILABLE_MESSAGE,
+    });
+    const err = await store.increment("user:a").catch((e) => e);
+    expect(err.message).toBe(ANALYZE_UNAVAILABLE_MESSAGE);
+    expect(err.message).toMatch(/saved reports still open/);
   });
 
   it("reports the failure with the policy that produced it", async () => {

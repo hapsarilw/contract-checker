@@ -283,7 +283,7 @@ What it showed beyond the gates:
 
 - **`readiness_failing{dependency="redis"}` worked against a real Prometheus.** It was pending from 0.5 minutes and firing from 2.5 to 5.3 minutes.
 - **But the pager never named Redis while it mattered.** Alertmanager sends a group's updates every `group_interval`. The first page (1.9 minutes) carried only `api_5xx_rate`; by the next update (6.9 minutes) `readiness_failing` had already resolved. The on-call learns the cause from the `api_5xx_rate` runbook, which maps `SERVER_BUSY` to Redis and says to check `/api/ready`. Its line on the database was out of date (a `500`) and now says `DATABASE_UNAVAILABLE`.
-- **The user is told something untrue for the whole outage.** `SERVER_BUSY`'s server message says the server "is at capacity", and the analyze screen says "too many checks are running at once… wait a few seconds". `Retry-After: 5` was repeated for five minutes. FR-5.6 names the code, so changing what it says is a product decision; it is owed, below.
+- **The user is told something untrue for the whole outage.** `SERVER_BUSY`'s server message says the server "is at capacity", and the analyze screen says "too many checks are running at once… wait a few seconds". `Retry-After: 5` was repeated for five minutes. FR-5.6 names the code, so changing what it says was a product decision. **Decided and fixed on 2026-10-12:** the code stays `SERVER_BUSY`; when the cause is the limiter's store, the message says so ("Checking a contract is unavailable for a moment, because a service it depends on isn't answering. Your contract is saved and your saved reports still open. Try again in about a minute."), `Retry-After` is 60, and the analyze screen shows that message instead of "too many checks". The other fail-closed limiters (verification and reset emails, CSP reports) say the same in general terms. The drill's Redis profile expects the new answer; the drill itself has not been re-run with it.
 
 ### Backups on Render, made and checked (built 2026-10-12)
 
@@ -465,4 +465,3 @@ The owner answered the open decisions, stopped the old development server, and a
 
 1. **A mailbox TR-24 can read in staging.**
 2. **The provider, database and restore drills, repeated in staging.**
-3. **What a Redis outage tells the person checking a contract.** `SERVER_BUSY` says "at capacity" and "wait a few seconds" for as long as Redis is down (§3, the Redis drill). A truthful message and a longer `Retry-After` for the limiter's own failure, perhaps the degraded banner, need a decision on FR-5.6's wording first.
