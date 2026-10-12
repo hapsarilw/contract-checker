@@ -421,7 +421,7 @@ What each stage should record here when it happens:
 
 The README now quotes measured numbers, with their sample sizes and their sources:
 
-- **Cost.** **USD 0.0192 per analysis** over the 32 real-provider analyses on the shipping configuration (47 after the 2026-10-06 benchmark run; still USD 0.0192). It ranges from USD 0.0107 for a short clean contract to USD 0.0480 near the length cap, where measured input tokens ran to almost twice SRS §5.4's estimate.
+- **Cost.** **USD 0.0192 per analysis** over the 32 real-provider analyses on the shipping configuration (47 after the 2026-10-06 benchmark run, still USD 0.0192; 62 after the first CI run on 2026-10-12, USD 0.0194). It ranges from USD 0.0107 for a short clean contract to USD 0.0480 near the length cap, where measured input tokens ran to almost twice SRS §5.4's estimate.
 - **Failure rate.** **0 of 29** analyses through the API path failed. That is consistent with a true rate up to about 10%, which the README says.
 - **Hallucination-catch rate.** **1 of 137** reported findings was discarded by the verifier.
 
