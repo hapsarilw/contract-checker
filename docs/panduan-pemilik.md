@@ -238,7 +238,6 @@ Ikuti skrip di [accessibility-audit.md](accessibility-audit.md) §5: NVDA + Fire
 Ini bukan tugas Anda, tetapi perlu Anda ketahui:
 
 - sumber backup untuk `backup-verify` di Render;
-- kotak surat yang bisa dibaca TR-24 di staging;
-- endpoint laporan pelanggaran CSP.
+- kotak surat yang bisa dibaca TR-24 di staging.
 
 Detailnya ada di [staging-setup.md](staging-setup.md), bagian "Known gaps".

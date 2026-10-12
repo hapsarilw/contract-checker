@@ -285,6 +285,19 @@ What it showed beyond the gates:
 - **But the pager never named Redis while it mattered.** Alertmanager sends a group's updates every `group_interval`. The first page (1.9 minutes) carried only `api_5xx_rate`; by the next update (6.9 minutes) `readiness_failing` had already resolved. The on-call learns the cause from the `api_5xx_rate` runbook, which maps `SERVER_BUSY` to Redis and says to check `/api/ready`. Its line on the database was out of date (a `500`) and now says `DATABASE_UNAVAILABLE`.
 - **The user is told something untrue for the whole outage.** `SERVER_BUSY`'s server message says the server "is at capacity", and the analyze screen says "too many checks are running at once… wait a few seconds". `Retry-After: 5` was repeated for five minutes. FR-5.6 names the code, so changing what it says is a product decision; it is owed, below.
 
+### CSP violation reports (built 2026-10-12)
+
+FR-7.9 asks for violations to "report to an endpoint during rollout"; there was none, so the policy enforced but nobody would have heard about what it blocked.
+
+- **`POST /api/csp-report`** accepts both formats browsers send: `report-uri`'s `application/csp-report` and the Reporting API's `application/reports+json`.
+  - It keeps the directive, the blocked resource, the page and the code location. URLs lose their query and fragment, because `/reset-password` and `/verify-email` carry tokens there. `data:` and `blob:` keep only their scheme.
+  - It never keeps the code sample, the referrer, the original policy or the user agent.
+  - Each violation is a warning log line and `csp_violation_total{directive}`; an unknown directive is `other`, so the label cannot be grown by whoever posts.
+  - Limits: 16 KB a body, 20 violations a body, 60 reports per address per 15 minutes (fails closed: a lost report costs nothing, an unmetered log writer does).
+  - It is mounted before the CSRF guard, which would refuse a report's content type. That is safe for this route alone: it reads no session and changes nothing but a counter and a log line. A test holds the exemption to this route.
+- **The static host's policy names it with `report-uri` only.** Measured with headless Chromium against a local receiver: `report-uri` alone delivered the report at once; `report-uri` plus `report-to` with a `Reporting-Endpoints` header delivered nothing in 70 s, because a browser that understands `report-to` ignores `report-uri`. Adding the newer mechanism would have lost the reports.
+- **Verified.** 24 unit tests on the reduction (tokens, addresses, samples and referrers never kept); 8 integration tests through the real app (both formats, the counter, the log without the token, the CSRF exemption scoped to this route, 413, 400, the 61st report refused); the OpenAPI contract; and an end-to-end test in which the built client, under the shipped policy, has an inline script refused and the browser posts the report to the endpoint.
+
 ### The first screen during a database outage (fixed 2026-10-12)
 
 The database drill's reads were API calls. A person opening the app saw something the drill did not measure: `GET /auth/me` answered the stated 503, and the client read any failed check as "not signed in".
@@ -432,6 +445,6 @@ The owner answered the open decisions, stopped the old development server, and a
 **Engineering:**
 
 1. **A backup source the weekly check can read on Render.** Until one exists, `backup_verify_failed` will page every week, truthfully ([staging-setup.md](staging-setup.md)).
-2. **A mailbox TR-24 can read in staging**, and **CSP violation reports**.
+2. **A mailbox TR-24 can read in staging.**
 3. **The provider, database and restore drills, repeated in staging.**
 4. **What a Redis outage tells the person checking a contract.** `SERVER_BUSY` says "at capacity" and "wait a few seconds" for as long as Redis is down (§3, the Redis drill). A truthful message and a longer `Retry-After` for the limiter's own failure, perhaps the degraded banner, need a decision on FR-5.6's wording first.

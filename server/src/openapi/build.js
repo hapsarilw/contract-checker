@@ -422,6 +422,23 @@ const ROUTES = [
     successDescription: "The running build's git SHA and build timestamp (FR-4.8).",
   },
   {
+    method: "post",
+    path: "/api/csp-report",
+    summary: "Content-Security-Policy violation reports (FR-7.9)",
+    tag: "Operations",
+    // Posted by the browser itself, from the static host's policy
+    // (report-uri and report-to), with no session. Not CSRF-guarded: see
+    // routes/cspReport.js.
+    auth: false,
+    successStatus: 204,
+    successDescription:
+      "Accepted, whatever it contained. Either format: application/csp-report or application/reports+json. URLs are kept without query or fragment; code samples are discarded.",
+    extraResponses: {
+      413: "The body is over 16 KB.",
+      429: "More than 60 reports from this address in 15 minutes.",
+    },
+  },
+  {
     method: "get",
     path: "/metrics",
     summary: "Prometheus metrics (SRS §6.6), for a scraper",

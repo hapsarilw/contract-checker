@@ -1,5 +1,8 @@
 import { DEFAULT_API_BASE_URL } from "../src/api/baseUrl.js";
 
+/** The API route that receives violation reports (server/src/routes/cspReport.js). */
+export const CSP_REPORT_PATH = "/api/csp-report";
+
 /**
  * The static host's response headers for the built client (BUILD-PLAN step
  * 75, docs/staging-setup.md), as Netlify's `_headers` file. Generated at
@@ -16,8 +19,19 @@ import { DEFAULT_API_BASE_URL } from "../src/api/baseUrl.js";
  * is PRD D11's "no third-party script on a page that can render a report",
  * enforced rather than promised.
  *
- * NOT YET: FR-7.9's "violations report to an endpoint during rollout". The
- * API has no report endpoint; docs/staging-setup.md lists it as owed.
+ * REPORTS (FR-7.9: "violations report to an endpoint during rollout"): to
+ * the API's POST /api/csp-report, through `report-uri` ALONE. Measured on
+ * 2026-10-12 with headless Chromium against a local receiver: report-uri
+ * alone delivered the report at once; report-uri plus `report-to` and a
+ * Reporting-Endpoints header delivered NOTHING in 70 s, because a browser
+ * that understands report-to ignores report-uri and then batched or
+ * dropped the Reporting API's upload. Adding the newer mechanism would
+ * have lost the reports the older one delivers. Chrome, Firefox and
+ * Safari all honour report-uri. (The endpoint accepts the Reporting API's
+ * format as well, should the policy ever move.) The endpoint keeps only
+ * the directive and URLs without their query (server/src/lib/
+ * cspReports.js), since /reset-password and /verify-email carry tokens.
+ * The policy is ENFORCED, not report-only: reports say what it blocked.
  *
  * @param {string | undefined} apiBaseUrl
  */
@@ -26,6 +40,7 @@ export function staticHostHeaders(apiBaseUrl) {
   // value means relative URLs, which is the page's own origin, 'self'.
   const base = apiBaseUrl ?? DEFAULT_API_BASE_URL;
   const api = base === "" ? null : new URL(base).origin;
+  const reportUrl = `${api ?? ""}${CSP_REPORT_PATH}`;
   const csp = [
     "default-src 'self'",
     "script-src 'self'",
@@ -37,6 +52,7 @@ export function staticHostHeaders(apiBaseUrl) {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    `report-uri ${reportUrl}`,
   ].join("; ");
   return [
     "/*",

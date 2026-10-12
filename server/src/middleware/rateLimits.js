@@ -281,6 +281,26 @@ export const analyzeLimiter = createLimiter({
  * that verification pauses during a Redis outage; sign-in and everything
  * else keep working.
  */
+/**
+ * FR-7.9's report endpoint (step 75). Unauthenticated by nature (a browser
+ * posts reports without the session), and each accepted report is a log
+ * line, so the limit is what keeps it from being a way to write to the
+ * logs at will. A page in a violation loop sends many; sixty in fifteen
+ * minutes from one address is more than enough to see it.
+ *
+ * Fails CLOSED: a report dropped during a Redis outage costs nothing (the
+ * browser does not retry, and the violation will be reported again), while
+ * an unmetered log writer during one is the abuse this limit exists for.
+ */
+export const cspReportLimiter = createLimiter({
+  windowMs: 15 * MINUTE_MS,
+  limit: 60,
+  prefix: "rl:csp:",
+  failurePolicy: "closed",
+  buildMessage: (retryTime) =>
+    `Too many policy reports from this address. Try again in about ${retryTime}.`,
+});
+
 export const resendVerificationUserLimiter = createLimiter({
   windowMs: HOUR_MS,
   limit: 3,

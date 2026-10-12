@@ -11,6 +11,7 @@ import { csrfGuard } from "./middleware/csrf.js";
 import { generalLimiter } from "./middleware/rateLimits.js";
 import { AppError } from "./lib/AppError.js";
 import opsRouter from "./routes/ops.js";
+import cspReportRouter from "./routes/cspReport.js";
 import authRouter from "./routes/auth.js";
 import documentsRouter from "./routes/documents.js";
 import accountRouter from "./routes/account.js";
@@ -97,6 +98,13 @@ app.use(
 );
 
 app.use(cookieParser());
+
+/**
+ * FR-7.9's violation reports (step 75). Before csrfGuard, which would
+ * refuse a browser's report for its Content-Type: routes/cspReport.js says
+ * why that is safe for this route and no other.
+ */
+app.use("/api/csp-report", cspReportRouter);
 
 /**
  * FR-1.12(c) — mounted globally rather than per-route, on purpose. A

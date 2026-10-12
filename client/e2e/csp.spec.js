@@ -121,7 +121,47 @@ test("the policy itself is FR-7.9's: no inline script, no eval, no third-party o
   expect(policy).not.toMatch(/unsafe-inline|unsafe-eval/);
   expect(policy).toContain("frame-ancestors 'none'");
   expect(policy).toContain("object-src 'none'");
-  // Every origin named is the app's own or the API's.
-  const origins = policy.match(/https?:\/\/[^\s;]+/g) ?? [];
-  expect(origins.length).toBeLessThanOrEqual(1);
+  // Every origin named is the API's: connect-src, and the report endpoint.
+  const origins = new Set(
+    (policy.match(/https?:\/\/[^\s;]+/g) ?? []).map((url) => new URL(url).origin),
+  );
+  expect(origins.size).toBeLessThanOrEqual(1);
+  // FR-7.9: violations report to the API (step 75).
+  expect(policy).toMatch(/report-uri \S*\/api\/csp-report(;|$)/);
+  // Not report-to: in Chromium it silences report-uri (staticHostHeaders.js).
+  expect(policy).not.toContain("report-to");
+});
+
+test("a violation reaches the API's report endpoint (FR-7.9, step 75)", async ({
+  page,
+  context,
+}) => {
+  await mockApi(page, { signedIn: false });
+  /** @type {{ contentType: string, body: string }[]} */
+  const reports = [];
+  await context.route("**/api/csp-report", (route) => {
+    const request = route.request();
+    reports.push({
+      contentType: request.headers()["content-type"] ?? "",
+      body: request.postData() ?? "",
+    });
+    return route.fulfill({ status: 204 });
+  });
+  await underPolicy(page);
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+
+  // An inline script: the one thing script-src 'self' exists to refuse.
+  await page.evaluate(() => {
+    const script = document.createElement("script");
+    script.textContent = "window.__inlineRan = true";
+    document.body.append(script);
+  });
+  expect(
+    await page.evaluate(() => /** @type {any} */ (window).__inlineRan),
+  ).toBeUndefined();
+
+  await expect.poll(() => reports.length, { timeout: 10_000 }).toBeGreaterThan(0);
+  expect(reports[0].contentType).toBe("application/csp-report");
+  expect(reports[0].body).toContain("script-src");
 });

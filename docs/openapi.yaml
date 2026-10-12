@@ -491,6 +491,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/csp-report:
+    post:
+      summary: Content-Security-Policy violation reports (FR-7.9)
+      tags:
+        - Operations
+      responses:
+        "204":
+          description: "Accepted, whatever it contained. Either format:
+            application/csp-report or application/reports+json. URLs are kept
+            without query or fragment; code samples are discarded."
+        "413":
+          description: The body is over 16 KB.
+        "429":
+          description: More than 60 reports from this address in 15 minutes.
+        default:
+          description: An error. `error.code` is one of ERROR_CODES
+            (server/src/lib/errorCodes.js); see ErrorResponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /metrics:
     get:
       summary: Prometheus metrics (SRS §6.6), for a scraper

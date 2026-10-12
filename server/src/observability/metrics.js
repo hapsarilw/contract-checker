@@ -462,6 +462,23 @@ export async function metricsHandler(req, res) {
 }
 
 /**
+ * FR-7.9's violation reports (step 75), by directive, from
+ * routes/cspReport.js. The label is one of lib/cspReports.js's known
+ * directives or "other", never what the client sent, so a poster cannot
+ * grow the series without bound. Not alerted on: during rollout a report is
+ * something to read, and most will be browser extensions, not the app.
+ */
+export const cspViolationTotal = once(
+  "csp_violation_total",
+  () =>
+    new Counter({
+      name: "csp_violation_total",
+      help: "Content-Security-Policy violations browsers reported (FR-7.9), by effective directive.",
+      labelNames: ["directive"],
+    }),
+);
+
+/**
  * The metrics Appendix C's alert rules read that §6.6's table does not
  * name. ops/alerts/alerts.yml may only reference these and SPEC_METRICS
  * (plus prom-client's process metrics); tests/unit/alertCatalogue.test.js
