@@ -37,10 +37,10 @@ describe("FR-3.15 — idempotent document creation", () => {
     const key = "retry-after-timeout-1";
 
     const first = await create(cookie, { key });
-    expect(first.status).toBe(201);
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
 
     const second = await create(cookie, { key });
-    expect(second.status).toBe(201);
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
     expect(second.body).toEqual(first.body);
 
     expect(await prisma.document.count({ where: { userId: user.id } })).toBe(1);
@@ -55,11 +55,11 @@ describe("FR-3.15 — idempotent document creation", () => {
     const key = "retry-with-different-text";
 
     const first = await create(cookie, { key, text: wordsOfLength(250) });
-    expect(first.status).toBe(201);
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
     expect(first.body.document.wordCount).toBe(250);
 
     const second = await create(cookie, { key, text: wordsOfLength(999) });
-    expect(second.status).toBe(201);
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
     expect(second.body).toEqual(first.body);
     expect(second.body.document.wordCount).toBe(250);
   });
@@ -72,7 +72,7 @@ describe("FR-3.15 — idempotent document creation", () => {
     const key = "retry-with-garbage-body";
 
     const first = await create(cookie, { key });
-    expect(first.status).toBe(201);
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
 
     const second = await request(testServer())
       .post("/api/v1/documents")
@@ -81,7 +81,7 @@ describe("FR-3.15 — idempotent document creation", () => {
       .set("Idempotency-Key", key)
       .send({ notText: "this would be VALIDATION_ERROR on its own" });
 
-    expect(second.status).toBe(201);
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
     expect(second.body).toEqual(first.body);
   });
 
@@ -93,8 +93,8 @@ describe("FR-3.15 — idempotent document creation", () => {
     const aliceRes = await create(alice.cookie, { key });
     const bobRes = await create(bob.cookie, { key });
 
-    expect(aliceRes.status).toBe(201);
-    expect(bobRes.status).toBe(201);
+    expect(aliceRes.status, JSON.stringify(aliceRes.body)).toBe(201);
+    expect(bobRes.status, JSON.stringify(bobRes.body)).toBe(201);
     expect(bobRes.body.document.id).not.toBe(aliceRes.body.document.id);
 
     expect(await prisma.document.count({ where: { userId: alice.user.id } })).toBe(1);
@@ -106,7 +106,7 @@ describe("FR-3.15 — idempotent document creation", () => {
     const key = "expiring-key";
 
     const first = await create(cookie, { key });
-    expect(first.status).toBe(201);
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
 
     // Shrinks the 24-hour TTL storeIdempotentResponse just set, rather
     // than waiting a day, on the exact key the route itself computes
@@ -116,7 +116,7 @@ describe("FR-3.15 — idempotent document creation", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const second = await create(cookie, { key });
-    expect(second.status).toBe(201);
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
     expect(second.body.document.id).not.toBe(first.body.document.id);
 
     expect(await prisma.document.count({ where: { userId: user.id } })).toBe(2);
@@ -128,8 +128,8 @@ describe("FR-3.15 — idempotent document creation", () => {
     const first = await create(cookie);
     const second = await create(cookie);
 
-    expect(first.status).toBe(201);
-    expect(second.status).toBe(201);
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
     expect(second.body.document.id).not.toBe(first.body.document.id);
     expect(await prisma.document.count({ where: { userId: user.id } })).toBe(2);
   });
@@ -140,8 +140,8 @@ describe("FR-3.15 — idempotent document creation", () => {
     const first = await create(cookie, { key: "" });
     const second = await create(cookie, { key: "" });
 
-    expect(first.status).toBe(201);
-    expect(second.status).toBe(201);
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
     expect(second.body.document.id).not.toBe(first.body.document.id);
     expect(await prisma.document.count({ where: { userId: user.id } })).toBe(2);
   });
@@ -153,8 +153,8 @@ describe("FR-3.15 — idempotent document creation", () => {
     const first = await create(cookie, { key: tooLong });
     const second = await create(cookie, { key: tooLong });
 
-    expect(first.status).toBe(201);
-    expect(second.status).toBe(201);
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
     expect(second.body.document.id).not.toBe(first.body.document.id);
     expect(await prisma.document.count({ where: { userId: user.id } })).toBe(2);
   });
