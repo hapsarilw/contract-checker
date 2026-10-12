@@ -65,8 +65,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -97,8 +97,8 @@ jobs:
       run:
         working-directory: client
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -124,8 +124,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -164,8 +164,8 @@ jobs:
       run:
         working-directory: client
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -185,7 +185,7 @@ jobs:
         run: npm run perf:lcp
       - name: Keep the LCP figures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lcp-report
           path: client/.perf-build/lcp-report.json
@@ -205,8 +205,8 @@ jobs:
       run:
         working-directory: client
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -219,7 +219,7 @@ jobs:
         run: npm run e2e
       - name: Keep the Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: client/playwright-report
@@ -232,7 +232,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build timestamp
         id: ts
         run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
@@ -251,7 +251,7 @@ jobs:
       # decision), and this file never pushes an image anywhere.
       - name: Save image for the scan job
         run: docker save clausecheck-server:${{ github.sha }} -o /tmp/clausecheck-server.tar
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: docker-image
           path: /tmp/clausecheck-server.tar
@@ -270,8 +270,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
       - name: server — install (frozen lockfile)
@@ -293,7 +293,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: docker-image
           path: /tmp
@@ -320,7 +320,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # gitleaks, pinned. .gitleaks.toml (repo root) extends its default
@@ -344,7 +344,7 @@ jobs:
       # scratch copy and requires it to be caught, so a gitleaks upgrade (or
       # an edit to .gitleaks.toml) that quietly blinds the scan fails here.
       # Node built-ins only: no install needed.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
       - name: The config still catches a planted key
@@ -371,11 +371,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The previous image is built from history (git archive).
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -409,8 +409,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -432,8 +432,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm

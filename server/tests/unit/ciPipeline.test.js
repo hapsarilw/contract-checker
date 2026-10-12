@@ -505,6 +505,48 @@ describe("deploy.yml: SRS §8's procedure, and its secrets kept apart (step 71)"
   });
 });
 
+describe("no workflow uses an action major that runs on Node 20 (step 75)", () => {
+  // GitHub deprecated Node 20 for actions and forces them onto Node 24; the
+  // first benchmark run in CI warned about checkout, setup-node and
+  // upload-artifact at v4. These are the first majors whose runtime is
+  // node24 (each one's release notes, read 2026-10-12).
+  const FIRST_NODE24_MAJOR = {
+    "actions/checkout": 5,
+    "actions/setup-node": 5,
+    "actions/upload-artifact": 6,
+    "actions/download-artifact": 7,
+  };
+  const dir = join(ROOT, ".github", "workflows");
+  const uses = readdirSync(dir)
+    .filter((f) => f.endsWith(".yml"))
+    .flatMap((f) =>
+      [
+        ...readFileSync(join(dir, f), "utf8").matchAll(
+          /uses: (actions\/[a-z-]+)@v(\d+)/g,
+        ),
+      ].map((m) => ({ file: f, action: m[1], major: Number(m[2]) })),
+    );
+
+  it("finds the actions it is checking", () => {
+    expect(uses.length).toBeGreaterThan(20);
+  });
+
+  it("every one is at or above its first Node 24 major", () => {
+    const old = uses.filter(
+      (u) =>
+        u.action in FIRST_NODE24_MAJOR &&
+        u.major <
+          FIRST_NODE24_MAJOR[/** @type {keyof typeof FIRST_NODE24_MAJOR} */ (u.action)],
+    );
+    expect(old.map((u) => `${u.file}: ${u.action}@v${u.major}`)).toEqual([]);
+  });
+
+  it("upload and download artifact share the v4+ backend, so a v7 upload is readable by a v8 download", () => {
+    const majors = uses.filter((u) => /-artifact$/.test(u.action)).map((u) => u.major);
+    expect(Math.min(...majors)).toBeGreaterThanOrEqual(4);
+  });
+});
+
 describe("benchmark.yml: the one workflow with a provider key (step 72)", () => {
   const text = read(".github", "workflows", "benchmark.yml");
   const workflow = parse(text);

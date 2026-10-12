@@ -84,7 +84,7 @@ jobs:
     steps:
       - id: sha
         run: echo "value=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ steps.sha.outputs.value }}
       - name: Build timestamp
@@ -109,10 +109,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.image.outputs.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.image.outputs.sha }}
       - name: Roll the API onto the new image
@@ -156,10 +156,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.image.outputs.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -192,10 +192,10 @@ jobs:
       SMOKE_ACCOUNT_PASSWORD: ${{ secrets.SMOKE_ACCOUNT_PASSWORD }}
       SYNTHETIC_CHECK_TOKEN: ${{ secrets.SYNTHETIC_CHECK_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.image.outputs.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -250,10 +250,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.image.outputs.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -274,7 +274,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.image.outputs.sha }}
       - name: Roll the API onto the new image (rolling, 90 s drain)
@@ -283,7 +283,7 @@ jobs:
           PLATFORM_TOKEN: ${{ secrets.PLATFORM_TOKEN }}
           RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
         run: scripts/deploy/platform.sh deploy-api production "$IMAGE:${{ needs.image.outputs.sha }}"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
       - name: Smoke
@@ -302,10 +302,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.image.outputs.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
@@ -332,10 +332,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.image.outputs.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
       # A failure here does not undo anything by itself: rolling back is a
@@ -363,8 +363,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
       # NO migration step, on purpose. Migrations only ever move forward;
@@ -405,10 +405,10 @@ jobs:
     steps:
       # The client build is a pure function of its commit and VITE_API_BASE_URL,
       # so "the previous build" is that commit, built again.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.rollback_to }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: server/.nvmrc
           cache: npm
