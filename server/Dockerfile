@@ -31,6 +31,10 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 COPY package.json package-lock.json ./
+# package.json's postinstall runs this (step 75: Prisma 7 no longer
+# generates on install). With no schema copied yet it only says it skipped;
+# the explicit `prisma generate` below does the work once the schema is in.
+COPY scripts/generate-prisma-client.js ./scripts/generate-prisma-client.js
 # Frozen lockfile (BUILD-PLAN's own words) — `npm ci`, never `npm install`,
 # which would happily resolve drift instead of failing on it.
 RUN npm ci

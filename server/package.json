@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "node --watch --env-file=.env src/index.js",
     "start": "node src/index.js",
+    "postinstall": "node scripts/generate-prisma-client.js",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",

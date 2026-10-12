@@ -1,6 +1,8 @@
 import { spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -446,6 +448,38 @@ describe("deploy.yml: SRS §8's procedure, and its secrets kept apart (step 71)"
         );
       }
     });
+  });
+
+  it("a clean `npm ci` generates the Prisma client (Prisma 7 no longer does)", () => {
+    // Step 75: the benchmark workflow failed on a clean runner with "does not
+    // provide an export named 'PrismaClient'", and so would every CI job that
+    // imports the app. Locally, node_modules held an old generated client.
+    const pkg = JSON.parse(readFileSync(join(ROOT, "server", "package.json"), "utf8"));
+    expect(pkg.scripts.postinstall).toBe("node scripts/generate-prisma-client.js");
+    // The Dockerfile runs `npm ci` before copying the source, so the script
+    // must already be in the build context at that point.
+    const dockerfile = readFileSync(join(ROOT, "server", "Dockerfile"), "utf8");
+    const copied = dockerfile.indexOf("COPY scripts/generate-prisma-client.js");
+    expect(copied).toBeGreaterThan(-1);
+    expect(copied).toBeLessThan(dockerfile.indexOf("RUN npm ci"));
+  });
+
+  it("the client generator skips, and succeeds, where there is no schema yet (the Dockerfile's npm ci)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "generate-client-"));
+    mkdirSync(join(dir, "scripts"));
+    copyFileSync(
+      join(ROOT, "server", "scripts", "generate-prisma-client.js"),
+      join(dir, "scripts", "generate-prisma-client.js"),
+    );
+    const run = spawnSync(
+      process.execPath,
+      [join(dir, "scripts", "generate-prisma-client.js")],
+      {
+        encoding: "utf8",
+      },
+    );
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("skipped");
   });
 
   it("the runtime image ships the operator CLI the runbooks run on the platform, and no other script", () => {
