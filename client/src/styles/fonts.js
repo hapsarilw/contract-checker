@@ -13,21 +13,26 @@
  * THREE FAMILIES, THREE JOBS, and the split is the point of the type
  * system rather than an inherited accident:
  *
- *   Geist Sans  — the product's voice. Every heading, label, control and
- *                 paragraph the APP writes. Replaced Source Sans 3, and
- *                 also took over display duty from Literata: when the
- *                 interface set its own headings in a book serif, the
- *                 tool sounded like the document it was supposed to be
- *                 examining.
- *   Literata    — the DOCUMENT's voice, and nothing else. Verbatim
- *                 contract excerpts, and the one risk word those
- *                 excerpts add up to. Kept (not dropped) because that
- *                 distinction is worth a whole typeface: serif on screen
- *                 here means "these are the contract's words, not ours".
- *   Geist Mono  — machine facts. Filenames, word counts, dates.
- *                 Replaced Source Code Pro, so the mono and the sans are
- *                 now siblings with matching proportions instead of two
- *                 unrelated designs.
+ *   Host Grotesk — the product's voice. Every heading, label, control and
+ *                  paragraph the APP writes. Replaced Geist Sans in the
+ *                  redesign after step 75: Geist is the face a generated
+ *                  Next.js page ships with by default, so the product read
+ *                  as one of those before a word of it was read. Host
+ *                  Grotesk has a point of view at display sizes (the
+ *                  squared shoulders, the open "a") and stays quiet at 14 px.
+ *                  It is also the lighter file: 20 KB for latin against
+ *                  Geist's 29 KB, which FR-7.13's LCP budget welcomes.
+ *   Literata     — the DOCUMENT's voice, and nothing else. Verbatim
+ *                  contract excerpts, and the one risk word those
+ *                  excerpts add up to. Kept (not dropped) because that
+ *                  distinction is worth a whole typeface: serif on screen
+ *                  here means "these are the contract's words, not ours".
+ *   Geist Mono   — codes, and only codes: an error code, a request id.
+ *                  It used to set filenames, word counts and dates too;
+ *                  a mono face on every small piece of metadata is a
+ *                  costume of "technical", and those are set in the sans
+ *                  with tabular figures now. It loads only on a screen
+ *                  that shows a code.
  *
  * VARIABLE FONTS, ONE FILE PER FAMILY (BUILD-PLAN step 66). This used to
  * import each weight as its own static file: four for Geist Sans, two
@@ -41,7 +46,7 @@
  * every weight in one file: Geist's latin file is 29 KB for weights
  * 100-900, where the four static weights were 138 KB between them.
  *
- * Every weight the stylesheets ask for (400, 500, 600, 700) is now an
+ * Every weight the stylesheets ask for (400 to 800) is now an
  * exact instance of the variable axis rather than a separate download,
  * so a new weight costs nothing and cannot silently add a request.
  *
@@ -49,24 +54,23 @@
  * downloads only the subsets whose characters are on the page, which for
  * English copy is `latin` alone.
  *
- * SUBSETS: the variable Geist ships latin-ext, which the static Geist Sans
- * never did, so the gap this comment used to record (a Central European
- * character in sans text falling back to system-ui for that glyph) is
- * closed.
+ * SUBSETS: Host Grotesk ships latin-ext, as the variable Geist did, so a
+ * Central European character in sans text renders in the face rather
+ * than falling back to system-ui for that glyph.
  *
  * NO ITALIC: nothing in the stylesheets or the markup sets italic, so no
  * italic face is imported. If one is ever needed, it is one more import
  * of `wght-italic.css`, not a synthesized slant.
  *
- * Family names are the variable packages' own ("Geist Variable" and so
- * on); tokens.css names them.
+ * Family names are the variable packages' own ("Host Grotesk Variable"
+ * and so on); tokens.css names them.
  */
 
 /* The product's voice. */
-import "@fontsource-variable/geist/wght.css";
+import "@fontsource-variable/host-grotesk/wght.css";
 
 /* The document's voice. */
 import "@fontsource-variable/literata/wght.css";
 
-/* Machine facts. */
+/* Codes. */
 import "@fontsource-variable/geist-mono/wght.css";

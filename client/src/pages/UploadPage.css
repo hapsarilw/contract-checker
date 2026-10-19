@@ -1,85 +1,186 @@
 /**
- * The upload screen.
+ * The upload screen: the product's front door.
  *
- * Three things changed beyond the palette. The hero's supporting
- * paragraph was 45 words over four lines, which pushed the control the
- * screen exists for below the comfortable fold; it is one sentence now,
- * and the detail it used to carry lives in the facts list at the bottom,
- * which is where someone looks when they want it. The three equal
- * columns under the card are gone: three interchangeable boxes in a row
- * is the most recognisable generated-layout shape there is, and the same
- * content reads better as a term/description list. And the dropzone is
- * an actual surface that responds to a dragged file rather than a dashed
- * rectangle.
+ * THE COMPOSITION. The screen opens on a full-bleed COVER BAND in the
+ * brand blue (tokens.css, "Cover bands"): the headline in white on the
+ * left, the one-sentence promise at its foot on the right, and a large
+ * ghost of the flag mark in the band's corner. The ONE sheet that holds
+ * the whole task is laid over the band's lower edge and casts a long
+ * shadow onto both surfaces: the drop target on the left, and on the
+ * right a sunken rail with the three things a cautious person wants to
+ * know before handing a contract over, read during the decision rather
+ * than after it.
  *
- * The jurisdiction selector between the tab content and the footer is
- * still deliberately NOT present — BUILD-PLAN decision D-A, option A1.
+ * HOW THE BAND IS DRAWN. The hero's own box is painted with a real
+ * background colour (so axe, which cannot see border-images or
+ * pseudo-elements, measures the white type against the blue it is really
+ * on), and a border-image with a 100vmax outset extends that colour to
+ * both edges of the window. Outset border-image is ink overflow, not
+ * scrollable overflow, so the band can never make the page scroll
+ * sideways at 320px (SRS §7.15).
+ *
+ * The drop target opens on the flagged-contract illustration, the
+ * product's mechanism in one picture: what goes in here comes back
+ * flagged. When a file is dragged over it the contract lifts toward the
+ * pointer, which is motion answering an action, not decoration.
  */
 
 .cc-upload-page {
   max-width: var(--cc-container);
   margin: 0 auto;
-  padding: var(--cc-space-9) var(--cc-space-6) var(--cc-space-10);
+  padding: 0 var(--cc-gutter) var(--cc-space-11);
 }
 
-/* Two columns, baseline-aligned at the bottom: the headline takes the
-   left, its supporting sentence sits at the foot of the right. A single
-   centred or single-column hero left roughly half this viewport carrying
-   nothing, which is the same dead-space problem the sign-in screen had. */
+/* ---- The cover band ----------------------------------------------------- */
+
 .cc-upload-page__hero {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-  gap: var(--cc-space-7);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--cc-space-7) var(--cc-space-10);
   align-items: end;
-  margin-bottom: var(--cc-space-8);
-  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
+  padding: var(--cc-space-11) 0 calc(var(--cc-band-overlap) + var(--cc-space-9));
+  background-color: var(--cc-brand);
+  border-image-source: linear-gradient(var(--cc-brand), var(--cc-brand));
+  border-image-slice: 0 fill;
+  border-image-width: 0;
+  /* Up behind the frosted header as well (its measured height, which
+     AppHeader publishes), so the glass is tinted by the band. */
+  border-image-outset: var(--cc-app-header-height, 0px) 100vmax 0;
+  color: #ffffff;
+  /* Clips the ghost flag below to the hero's own box, so it can never
+     widen the page. Overflow clips only an element's contents, never its
+     own border-image, so the full-bleed band is untouched. */
+  overflow: hidden;
+  overflow: clip;
 }
 
-/* TWO SIZES INSIDE ONE HEADING, on purpose. The sentence is 13 words; at
-   one display size it wrapped to six lines, and a hero headline past two
-   lines is a font-size mistake rather than a copy-length one. The first
-   clause is the statement and gets the display size; the second is the
-   promise and drops two steps, which also stops the two halves competing
-   for the same emphasis. */
+/* The flag mark again, at the scale of the band: a ghost in the corner,
+   the same polygon as every flag in the app. Behind the type, inside the
+   hero's own box (so it cannot widen the page), and decorative. */
+.cc-upload-page__hero::after {
+  --cc-flag-tip: 110px;
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: 1%;
+  top: 30%;
+  width: 44%;
+  height: 54%;
+  clip-path: var(--cc-flag-shape);
+  background: rgba(255, 255, 255, 0.09);
+  pointer-events: none;
+}
+
+/* TWO SIZES INSIDE ONE HEADING, on purpose. The statement gets the
+   display size; the promise is a full sentence of its own and drops to
+   a reading size. It is not one accented word in a headline: it is the
+   second line of a two-line thought, set as such. White on the brand is
+   7.27:1; --cc-brand-pale is 5.67:1. */
 .cc-upload-page__title {
   margin: 0;
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-display);
+  font-size: clamp(var(--cc-text-4xl), 5.6vw, 4.5rem);
   line-height: var(--cc-leading-tight);
-  font-weight: 600;
+  font-weight: 800;
   letter-spacing: var(--cc-tracking-tighter);
-  color: var(--cc-ink);
+  color: #ffffff;
 }
 
 .cc-upload-page__title-accent {
   display: block;
-  margin-top: var(--cc-space-3);
+  margin-top: var(--cc-space-4);
   font-size: var(--cc-text-2xl);
   line-height: var(--cc-leading-snug);
   letter-spacing: var(--cc-tracking-tight);
-  font-weight: 500;
-  color: var(--cc-ink-muted);
-  max-width: 26ch;
+  font-weight: 450;
+  color: var(--cc-brand-pale);
+  max-width: 30ch;
 }
 
+/* The promise, on a pane of glass laid over the band's ghost flag (the
+   flag's edge shows through it, blurred), led by a small white flag: the
+   header's mark, pointing at the one sentence that says what the product
+   does. White on this glass is 5.68:1 with the plain band behind it. */
 .cc-upload-page__intro {
-  margin: 0 0 var(--cc-space-1);
+  position: relative;
+  margin: 0;
+  padding: var(--cc-space-5) var(--cc-space-6) var(--cc-space-5)
+    calc(var(--cc-space-6) + 38px);
+  border-radius: var(--cc-radius);
+  background: var(--cc-glass-sheen-soft), var(--cc-glass-on-brand);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+  backdrop-filter: var(--cc-glass-filter);
+  box-shadow:
+    var(--cc-glass-edge-on-color),
+    0 24px 48px -28px rgba(9, 15, 70, 0.55);
   font-size: var(--cc-text-lg);
   line-height: var(--cc-leading-normal);
-  color: var(--cc-ink-secondary);
-  max-width: 34ch;
-  padding-left: var(--cc-space-5);
-  border-left: var(--cc-border-width-accent) solid var(--cc-brand);
+  color: #ffffff;
+  max-width: 36ch;
 }
 
+.cc-upload-page__intro::before {
+  --cc-flag-tip: 6px;
+  content: "";
+  position: absolute;
+  /* Centred on the first line (17px type, 1.6 leading). */
+  top: calc(var(--cc-space-5) + 0.48em);
+  left: var(--cc-space-6);
+  width: 24px;
+  height: 12px;
+  background: #ffffff;
+  clip-path: var(--cc-flag-shape);
+}
+
+/* The task climbs back over the band's lower edge. */
+.cc-upload-page > main {
+  position: relative;
+  margin-top: calc(var(--cc-band-overlap) * -1);
+}
+
+/* Standing notices (degraded mode, unverified email) sit above the sheet
+   and take no space at all when none renders. */
+.cc-upload-page__notices:not(:empty) {
+  display: grid;
+  gap: var(--cc-space-3);
+  margin-bottom: var(--cc-space-4);
+}
+
+/* ---- The sheet ------------------------------------------------------- */
+
 .cc-upload-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
-  overflow: hidden;
+  border-radius: var(--cc-radius-lg);
+  box-shadow: var(--cc-shadow-sheet);
   animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
-  animation-delay: 60ms;
+  animation-delay: 70ms;
+}
+
+/* On a wide screen the sheet is frosted glass: where it climbs over the
+   band, the blue shows through its top edge, blurred, with a lit rim.
+   On a phone it stays solid paper; a blurred surface this large costs
+   more scrolling smoothness than a small screen can spare. */
+@media (min-width: 768px) {
+  .cc-upload-card {
+    background: var(--cc-glass-sheen), var(--cc-glass);
+    -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+    backdrop-filter: var(--cc-glass-filter);
+    box-shadow: var(--cc-glass-edge), var(--cc-shadow-sheet);
+  }
+
+  .cc-upload-card__facts {
+    background: rgba(246, 247, 250, 0.55);
+  }
+}
+
+/* The Tabs component's own wrapper: the task half of the sheet. */
+.cc-upload-card > div:first-child {
+  min-width: 0;
+  padding: var(--cc-space-7);
 }
 
 .cc-upload-card__panel {
@@ -93,63 +194,101 @@
 .cc-upload-card__error-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-2);
+  gap: var(--cc-space-3);
   margin-top: var(--cc-space-4);
 }
 
+/* A code: the mono face's one job. 7.09:1 on the danger tint. */
 .cc-upload-card__error-code {
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
-  /* --cc-ink-secondary clears 6.62:1 against the danger banner's tint,
-     which is the pairing axe caught the prototype failing at 3.02:1. */
   color: var(--cc-ink-secondary);
   margin-top: var(--cc-space-3);
 }
 
-/* ---- Dropzone -------------------------------------------------------
-   A target, so it reads as one: its own surface, a dashed edge that
-   meets WCAG 1.4.11's 3:1 for a control boundary, and a lift on hover so
-   a pointer user can tell it is live before they drop a file on it. */
+/* ---- Drop target -------------------------------------------------------
+   A target, so it reads as one: its own sunken surface and a dashed edge
+   that meets WCAG 1.4.11's 3:1 for a control boundary (3.61:1). */
 
 .cc-dropzone {
-  border: 2px dashed var(--cc-rule-input);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  border: 1.5px dashed var(--cc-rule-input);
   border-radius: var(--cc-radius);
-  background: var(--cc-surface-page);
-  padding: var(--cc-space-9) var(--cc-space-6);
+  background: var(--cc-surface-sunken);
+  padding: var(--cc-space-8) var(--cc-space-6);
   text-align: center;
   transition:
     border-color var(--cc-duration) var(--cc-ease-out),
-    background-color var(--cc-duration) var(--cc-ease-out),
-    transform var(--cc-duration) var(--cc-ease-out);
+    background-color var(--cc-duration) var(--cc-ease-out);
+}
+
+.cc-dropzone::before {
+  content: "";
+  display: block;
+  width: 196px;
+  aspect-ratio: 320 / 280;
+  margin-bottom: var(--cc-space-5);
+  background: var(--cc-illustration-flagged) center / contain no-repeat;
+  transform-origin: 50% 80%;
+  transition: transform var(--cc-duration-slow) var(--cc-ease-spring);
 }
 
 .cc-dropzone:hover {
-  border-color: var(--cc-ink-muted);
+  border-color: var(--cc-ink-secondary);
 }
 
-/* The armed state. Scale rather than a colour flash: the zone grows
-   very slightly toward the file being dragged onto it, which reads as
-   "this will catch it" without a new colour entering the palette. */
+/* The armed state: the edge goes solid brand, the surface takes the
+   brand wash, and the contract lifts toward the file being dragged. */
 .cc-dropzone--dragging {
   border-color: var(--cc-brand);
   border-style: solid;
   background: var(--cc-brand-wash);
-  transform: scale(1.008);
 }
 
-.cc-dropzone__eyebrow {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  color: var(--cc-ink-muted);
+.cc-dropzone--dragging::before,
+.cc-dropzone:hover::before {
+  transform: translate3d(0, -6px, 0) rotate(-2.5deg) scale(1.03);
+}
+
+/* A file chosen: the target turns to the brand (a solid edge, the
+   tinted surface), and the picture steps down to make room for the
+   file's own name. */
+.cc-dropzone:has(.cc-dropzone__selected) {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--cc-brand) 45%, transparent);
+  background: var(--cc-brand-tint);
+}
+
+.cc-dropzone:has(.cc-dropzone__selected)::before {
+  width: 128px;
   margin-bottom: var(--cc-space-4);
-  letter-spacing: var(--cc-tracking-wider);
-  text-transform: uppercase;
+}
+
+/* The format note, as a small chip rather than a tracked-out mono label
+   in capitals. */
+.cc-dropzone__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 var(--cc-space-3);
+  margin-bottom: var(--cc-space-4);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius-pill);
+  background: var(--cc-surface-card);
+  font-size: var(--cc-text-xs);
+  font-weight: 600;
+  color: var(--cc-ink-secondary);
 }
 
 .cc-dropzone__title {
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-2xl);
-  font-weight: 600;
+  font-size: var(--cc-text-3xl);
+  line-height: var(--cc-leading-heading);
+  font-weight: 800;
   color: var(--cc-ink);
   margin-bottom: var(--cc-space-2);
   letter-spacing: var(--cc-tracking-tight);
@@ -160,28 +299,59 @@
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
   margin-bottom: var(--cc-space-6);
+  font-variant-numeric: tabular-nums;
 }
 
 .cc-dropzone__selected {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--cc-space-2);
+  gap: var(--cc-space-1);
+  max-width: 100%;
 }
 
+/* "Ready to check": white on the brand, a small flag of its own. */
+.cc-dropzone__selected .cc-dropzone__eyebrow {
+  --cc-flag-tip: 9px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 calc(var(--cc-space-3) + var(--cc-flag-tip)) 0 var(--cc-space-3);
+  clip-path: var(--cc-flag-shape);
+  background: var(--cc-brand);
+  color: #ffffff;
+}
+
+/* The file's own name, in the sans at heading size, led by a drawn file
+   icon: the filename is the most important fact on the screen now. */
 .cc-dropzone__filename {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-lg);
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cc-space-2);
+  max-width: 100%;
+  font-size: var(--cc-text-2xl);
+  font-weight: 700;
+  letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
+.cc-dropzone__filename::before {
+  content: "";
+  flex: none;
+  width: 24px;
+  height: 24px;
+  background: var(--cc-brand);
+  -webkit-mask: var(--cc-icon-file) center / contain no-repeat;
+  mask: var(--cc-icon-file) center / contain no-repeat;
+}
+
+/* 6.19:1 on the brand tint the selected target takes. */
 .cc-dropzone__filesize {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  color: var(--cc-ink-secondary);
-  margin-bottom: var(--cc-space-4);
+  font-size: var(--cc-text-sm);
+  font-weight: 600;
+  color: var(--cc-brand);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: var(--cc-space-5);
 }
 
 .cc-dropzone__actions {
@@ -192,24 +362,57 @@
   align-items: center;
 }
 
-/* ---- Paste tab ------------------------------------------------------ */
+/* ---- Paste tab: a legal pad ----------------------------------------------
+   The pasted contract is written onto ruled paper: a faint rule under
+   every line of text and a margin line down the left, the pad a contract
+   gets marked up on. The rules are drawn at the textarea's own line
+   height and scroll with the text (`background-attachment: local`), so
+   every line of the contract sits on one. */
+
+.cc-upload-card .cc-field__control--multiline {
+  --cc-pad-line: 30px;
+  --cc-pad-top: 22px;
+  min-height: 330px;
+  padding: var(--cc-pad-top) var(--cc-space-6) var(--cc-pad-top) 68px;
+  line-height: var(--cc-pad-line);
+  background-color: var(--cc-surface-card);
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 47px,
+      color-mix(in srgb, var(--cc-brand) 28%, transparent) 47px 48px,
+      transparent 48px 51px,
+      color-mix(in srgb, var(--cc-brand) 18%, transparent) 51px 52px,
+      transparent 52px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 calc(var(--cc-pad-line) - 1px),
+      #dfe4f2 calc(var(--cc-pad-line) - 1px) var(--cc-pad-line)
+    );
+  background-position:
+    0 0,
+    0 var(--cc-pad-top);
+  background-attachment: local;
+}
 
 .cc-paste-panel__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-4);
+  gap: var(--cc-space-3) var(--cc-space-5);
   align-items: center;
-  margin-top: var(--cc-space-4);
+  margin-top: var(--cc-space-5);
 }
 
+/* Counts, in the sans with tabular figures (they change as you type, so
+   the digits must not jitter), not the mono face. */
 .cc-paste-panel__count {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  color: var(--cc-ink-secondary);
+  font-size: var(--cc-text-sm);
+  color: var(--cc-ink-muted);
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- Analyzing placeholder ------------------------------------------ */
+/* ---- Analyzing placeholder (legacy hook, kept styled) ---------------- */
 
 .cc-upload-analyzing {
   padding: var(--cc-space-9) var(--cc-space-6);
@@ -219,7 +422,7 @@
 .cc-upload-analyzing__title {
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-2xl);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--cc-ink);
   margin-bottom: var(--cc-space-2);
 }
@@ -231,93 +434,167 @@
   margin: 0 auto;
 }
 
-/* ---- The facts list --------------------------------------------------
-   Was three equal columns; now a term/description list, two columns on
-   desktop, with one hairline above the group rather than a rule drawn
-   under every row. A reader scanning for one of these three answers
-   finds it by its term, not by counting boxes. */
+/* ---- The facts rail --------------------------------------------------
+   A term/description list in a sunken well along the sheet's right edge.
+   Each answer is found by its term, led by a drawn icon: a shield for
+   what happens to the file, the report for what comes back, an info
+   mark for what this is not. */
 
 .cc-upload-card__facts {
   margin: 0;
-  padding: var(--cc-space-6);
-  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
-  background: var(--cc-surface-page);
-  display: grid;
-  gap: var(--cc-space-5);
+  padding: var(--cc-space-7) var(--cc-space-6);
+  border-left: var(--cc-border-width) solid var(--cc-rule-soft);
+  border-radius: 0 var(--cc-radius-lg) var(--cc-radius-lg) 0;
+  background: var(--cc-surface-sunken);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .cc-upload-card__fact {
-  display: grid;
-  grid-template-columns: 15rem 1fr;
-  gap: var(--cc-space-5);
-  align-items: baseline;
+  padding: var(--cc-space-5) 0;
+  border-top: var(--cc-border-width) solid var(--cc-rule);
+}
+
+.cc-upload-card__fact:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.cc-upload-card__fact:last-child {
+  padding-bottom: 0;
 }
 
 .cc-upload-card__fact-term {
+  display: flex;
+  align-items: center;
+  gap: var(--cc-space-3);
+  margin-bottom: var(--cc-space-2);
   font-size: var(--cc-text-md);
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: var(--cc-tracking-snug);
   color: var(--cc-ink);
-  letter-spacing: var(--cc-tracking-wide);
+}
+
+.cc-upload-card__fact-term::before {
+  content: "";
+  flex: none;
+  width: 20px;
+  height: 20px;
+  background: var(--cc-brand);
+  -webkit-mask: var(--cc-icon-shield) center / contain no-repeat;
+  mask: var(--cc-icon-shield) center / contain no-repeat;
+}
+
+.cc-upload-card__fact:nth-child(2) .cc-upload-card__fact-term::before {
+  -webkit-mask-image: var(--cc-icon-report);
+  mask-image: var(--cc-icon-report);
+}
+
+.cc-upload-card__fact:nth-child(3) .cc-upload-card__fact-term::before {
+  -webkit-mask-image: var(--cc-icon-info);
+  mask-image: var(--cc-icon-info);
 }
 
 .cc-upload-card__fact-body {
   margin: 0;
-  font-size: var(--cc-text-md);
+  padding-left: calc(20px + var(--cc-space-3));
+  font-size: var(--cc-text-base);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  max-width: var(--cc-measure);
 }
 
-/* ---- Mobile ----------------------------------------------------------
-   Explicit, per section: the hero drops two type steps, and the facts
-   list stacks its term over its body rather than trying to hold a
-   two-column grid at 390px. */
-@media (max-width: 767px) {
-  .cc-upload-page {
-    padding: var(--cc-space-7) var(--cc-space-4) var(--cc-space-9);
-  }
-
+/* ---- Tablet: the rail moves under the task --------------------------- */
+@media (max-width: 960px) {
   .cc-upload-page__hero {
-    grid-template-columns: 1fr;
-    gap: var(--cc-space-5);
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
+    gap: var(--cc-space-5);
   }
 
-  .cc-upload-page__title {
-    font-size: var(--cc-text-3xl);
+  .cc-upload-page__hero::after {
+    display: none;
   }
 
+  .cc-upload-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cc-upload-card__facts {
+    border-left: 0;
+    border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+    border-radius: 0 0 var(--cc-radius-lg) var(--cc-radius-lg);
+  }
+}
+
+/* ---- Phone ------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .cc-upload-page__hero {
+    padding: var(--cc-space-8) 0 calc(var(--cc-band-overlap) + var(--cc-space-7));
+  }
   .cc-upload-page__title-accent {
     font-size: var(--cc-text-xl);
     max-width: none;
   }
 
   .cc-upload-page__intro {
+    padding: var(--cc-space-4) var(--cc-space-4) var(--cc-space-4)
+      calc(var(--cc-space-4) + 36px);
     font-size: var(--cc-text-md);
     max-width: none;
-    padding-left: var(--cc-space-4);
   }
 
-  .cc-upload-card__panel,
+  .cc-upload-page__intro::before {
+    top: calc(var(--cc-space-4) + 0.5em);
+    left: var(--cc-space-4);
+  }
+
+  .cc-upload-card {
+    border-radius: var(--cc-radius);
+  }
+
+  .cc-upload-card > div:first-child,
+  .cc-upload-card__panel {
+    padding: var(--cc-space-4);
+  }
+
   .cc-upload-card__facts {
-    padding: var(--cc-space-5) var(--cc-space-4);
+    padding: var(--cc-space-6) var(--cc-space-4);
+    border-radius: 0 0 var(--cc-radius) var(--cc-radius);
   }
 
   .cc-dropzone {
-    padding: var(--cc-space-7) var(--cc-space-4);
+    min-height: 0;
+    padding: var(--cc-space-6) var(--cc-space-4);
   }
 
-  .cc-upload-card__fact {
-    grid-template-columns: 1fr;
-    gap: var(--cc-space-1);
+  .cc-dropzone::before {
+    width: 140px;
   }
-}
 
-/* Standing notices (degraded mode, unverified email) sit above the card
-   and take no space at all when none renders: an empty block with a
-   margin would leave a gap for every verified user on a healthy day. */
-.cc-upload-page__notices:not(:empty) {
-  display: grid;
-  gap: var(--cc-space-3);
-  margin-bottom: var(--cc-space-5);
+  .cc-dropzone__title {
+    font-size: var(--cc-text-2xl);
+  }
+
+  .cc-dropzone__filename {
+    font-size: var(--cc-text-xl);
+  }
+
+  .cc-upload-card .cc-field__control--multiline {
+    padding-left: 60px;
+    background-image:
+      linear-gradient(
+        to right,
+        transparent 39px,
+        color-mix(in srgb, var(--cc-brand) 28%, transparent) 39px 40px,
+        transparent 40px 43px,
+        color-mix(in srgb, var(--cc-brand) 18%, transparent) 43px 44px,
+        transparent 44px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0 calc(var(--cc-pad-line) - 1px),
+        #dfe4f2 calc(var(--cc-pad-line) - 1px) var(--cc-pad-line)
+      );
+  }
 }

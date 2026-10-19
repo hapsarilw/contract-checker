@@ -119,12 +119,12 @@ function main() {
   // budget. The plugin already fails the build if it cannot find the font;
   // this catches the plugin itself being removed.
   if (
-    !/<link rel="preload" href="\/assets\/geist-latin-wght-normal-[\w-]+\.woff2" as="font"/.test(
+    !/<link rel="preload" href="\/assets\/host-grotesk-latin-wght-normal-[\w-]+\.woff2" as="font"/.test(
       html,
     )
   ) {
     console.error(
-      "FR-7.13: dist/index.html does not preload the body font (geist-latin-wght-normal). " +
+      "FR-7.13: dist/index.html does not preload the body font (host-grotesk-latin-wght-normal). " +
         "The LCP budget depends on it; see vite.config.js.",
     );
     process.exitCode = 1;

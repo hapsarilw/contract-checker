@@ -1,47 +1,117 @@
 /**
- * BUILD-PLAN step 35 — the top of the prototype's "3. REPORT" screen
- * (docs/design/ClauseCheck.html), matched layout-for-layout through the
- * severity filter control bar. See ReportPage.jsx for what stops there
- * and why.
- */
-
-/**
- * The report. This is the screen the product exists for, and the one the
- * redesign had the most to take OUT of rather than add to.
+ * The report. The screen the product exists for.
  *
- * It carried twelve uppercase mono eyebrow labels at four findings (one
- * per risk block, two section titles, one order note, and two inside
- * every finding card). That rhythm is the single most recognisable
- * generated-page signature there is, and here it also buried the actual
- * headings under a layer of decoration. One eyebrow survives: OVERALL
- * RISK, which labels a word that would otherwise read as a bare adjective
- * floating on a page. Everything else became what it already was
- * semantically, a sentence-case heading.
+ * THE COVER SHEET. The masthead is one white sheet laid out on a grid:
+ * the document's details across the top; on the left, the VERDICT, drawn
+ * as the system's signature flag in the full severity colour, stuck on
+ * from past the sheet's left edge and pointing at the summary it sums
+ * up; the summary and the locked disclaimer to its right; the severity
+ * and category breakdown along the foot. The masthead's two wrapper
+ * rows (`__top`, `__breakdown`) are `display: contents`, so their
+ * children sit on the sheet's one grid without a markup change; neither
+ * wrapper has a role or focus, so nothing a screen reader or keyboard
+ * meets is affected.
  *
- * The severity breakdown lost its progress bars. A filled background
- * track with a partial fill is a dashboard comparison widget, and this is
- * a reading surface; the count and the severity mark say the same thing
- * in less space and without inventing a scale the data does not have.
+ * The verdict is the one loud thing on the page, on purpose: spend the
+ * boldness in one place. Everything after it is a reading surface.
+ *
+ * THE FINDINGS are separate sheets now, not rows of one continuous
+ * card: each is a thing a reader acts on independently (copy the ask,
+ * open a term), and each carries its own severity flag (see
+ * FindingCard.css).
  */
 
 .cc-report {
+  position: relative;
   max-width: var(--cc-container);
   margin: 0 auto;
-  padding: var(--cc-space-6) var(--cc-space-6) var(--cc-space-10);
+  padding: var(--cc-space-6) var(--cc-gutter) var(--cc-space-11);
 }
 
-/* A standalone link, not one inside a sentence, so it gets the full
-   24 px target (SRS §7.15; it measured 22 px tall at the step-65 audit). */
+/**
+ * THE COVER BAND, in the verdict's own tint: a report that came back High
+ * opens on brick-pink, Medium on ochre-cream, Low on slate-grey. The
+ * reader knows the answer from the colour of the room before reading
+ * the word. The band runs behind the back link and the top of the cover
+ * sheet, which floats over its lower edge.
+ *
+ * Drawn on a pseudo-element of the page (only once a report has loaded:
+ * the loading and error screens open on the plain desk), its colour
+ * carried full-bleed by a border-image outset, which is ink overflow and
+ * cannot make the page scroll sideways. The text over it (the back link)
+ * clears 4.5:1 on every tint and on the desk alike, so it does not matter
+ * that axe measures it against the desk.
+ */
+.cc-report:has(.cc-report__masthead) {
+  --cc-report-band: var(--cc-severity-low-tint);
+}
+.cc-report:has(.cc-report__risk--high) {
+  --cc-report-band: var(--cc-severity-high-tint);
+}
+.cc-report:has(.cc-report__risk--medium) {
+  --cc-report-band: var(--cc-severity-medium-tint);
+}
+
+.cc-report:has(.cc-report__masthead)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  /* From behind the frosted header down. */
+  top: calc(var(--cc-app-header-height, 0px) * -1);
+  left: 0;
+  right: 0;
+  height: calc(300px + var(--cc-app-header-height, 0px));
+  background-color: var(--cc-report-band);
+  border-image-source: linear-gradient(var(--cc-report-band), var(--cc-report-band));
+  border-image-slice: 0 fill;
+  border-image-width: 0;
+  border-image-outset: 0 100vmax;
+  pointer-events: none;
+}
+
+/* A standalone link, not one inside a sentence, so it gets a full target
+   (SRS §7.15) and a drawn chevron rather than an arrow character in its
+   text. */
 .cc-report__back-link {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  margin-bottom: var(--cc-space-4);
-  font-size: var(--cc-text-md);
-  font-weight: 500;
-  color: var(--cc-brand);
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
+  gap: var(--cc-space-1);
+  min-height: 32px;
+  margin: 0 0 var(--cc-space-5) calc(var(--cc-space-2) * -1);
+  padding: 0 var(--cc-space-3) 0 var(--cc-space-1);
+  border-radius: var(--cc-radius-pill);
+  font-size: var(--cc-text-base);
+  font-weight: 600;
+  color: var(--cc-ink-secondary);
+  text-decoration: none;
+  transition:
+    color var(--cc-duration-fast) var(--cc-ease-out),
+    background-color var(--cc-duration-fast) var(--cc-ease-out);
+}
+
+.cc-report__back-link::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  -webkit-mask: var(--cc-icon-chevron-left) center / contain no-repeat;
+  mask: var(--cc-icon-chevron-left) center / contain no-repeat;
+  transition: transform var(--cc-duration-fast) var(--cc-ease-out);
+}
+
+.cc-report__back-link:hover {
+  color: var(--cc-ink);
+  background: color-mix(in srgb, var(--cc-ink) 5%, transparent);
+}
+
+.cc-report__back-link:hover::before {
+  transform: translateX(-2px);
+}
+
+/* On the not-checked and error screens the back link follows the text,
+   so it needs space above rather than below. */
+main .cc-report__back-link {
+  margin-top: var(--cc-space-5);
 }
 
 .cc-report__loading,
@@ -50,205 +120,242 @@
   color: var(--cc-ink);
 }
 
+.cc-report__loading {
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--cc-text-lg);
+  line-height: var(--cc-leading-normal);
+  color: var(--cc-ink-secondary);
+}
+
 .cc-report__error-title {
-  margin: 0 0 var(--cc-space-5);
-  font-size: var(--cc-text-3xl);
-  font-weight: 600;
+  margin: var(--cc-space-7) 0 var(--cc-space-4);
+  max-width: 24ch;
+  font-size: var(--cc-text-4xl);
+  line-height: var(--cc-leading-tight);
+  font-weight: 750;
+  letter-spacing: var(--cc-tracking-tighter);
 }
 
 /* "Check this contract" on a document with no completed report: the
    primary action, so it sits before the way back to upload. */
 .cc-report__recheck {
-  margin: var(--cc-space-5) 0 var(--cc-space-4);
+  margin: var(--cc-space-6) 0 0;
 }
 
-/* ---- Masthead ------------------------------------------------------ */
+/* ---- The cover sheet ----------------------------------------------- */
 
 .cc-report__masthead {
-  position: relative;
+  display: grid;
+  grid-template-columns: minmax(250px, 0.75fr) minmax(0, 1.5fr);
+  grid-template-areas:
+    "meta meta"
+    "risk summary"
+    "risk disclaimer"
+    "sev cat";
   background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
-  overflow: hidden;
+  border-radius: var(--cc-radius-lg);
+  /* Floats over the band's edge: a shadow, not a border. */
+  box-shadow: var(--cc-shadow-sheet);
   animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
 }
 
-/* The accent hairline, inside the radius rather than fighting it. */
-.cc-report__masthead::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: var(--cc-border-width-accent);
-  background: var(--cc-brand);
+/* On a wide screen the cover sheet is frosted glass: the verdict's tint
+   shows through its top, blurred, where it lies over the band, under a
+   lit rim. Muted ink on it is 5.58:1 or better over any tint. On a phone
+   it stays solid paper (see UploadPage.css for why). */
+@media (min-width: 768px) {
+  .cc-report__masthead {
+    background: var(--cc-glass-sheen), var(--cc-glass);
+    -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+    backdrop-filter: var(--cc-glass-filter);
+    box-shadow: var(--cc-glass-edge), var(--cc-shadow-sheet);
+  }
 }
 
+.cc-report__top,
+.cc-report__breakdown {
+  display: contents;
+}
+
+/* The document's details. One string from the page (name, word count,
+   date), set in the sans with tabular figures and led by a drawn file
+   icon, rather than as a mono strip. */
 .cc-report__meta {
+  grid-area: meta;
   display: flex;
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
+  align-items: center;
+  gap: var(--cc-space-2);
+  min-width: 0;
+  padding: var(--cc-space-4) var(--cc-space-7);
+  border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
+  font-size: var(--cc-text-sm);
+  font-weight: 500;
   color: var(--cc-ink-secondary);
   font-variant-numeric: tabular-nums;
-  padding: var(--cc-space-5) var(--cc-space-9);
-  border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
-  background: var(--cc-surface-muted);
+  overflow-wrap: anywhere;
 }
 
-.cc-report__top {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 30px 52px;
-  align-items: flex-start;
-  padding: var(--cc-space-10) var(--cc-space-9) 32px;
+.cc-report__meta::before {
+  content: "";
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: var(--cc-ink-muted);
+  -webkit-mask: var(--cc-icon-file) center / contain no-repeat;
+  mask: var(--cc-icon-file) center / contain no-repeat;
 }
 
+/**
+ * THE VERDICT FLAG. The full severity colour, white type, the flag's
+ * point aimed at the summary. It starts a little past the sheet's left
+ * edge, the way a real flag is stuck on from behind the page. White on
+ * each severity colour: 7.07:1, 6.37:1, 7.57:1.
+ */
 .cc-report__risk {
-  flex: 0 0 auto;
-  min-width: 180px;
-  border-left: 5px solid var(--cc-severity-low);
-  padding-left: var(--cc-space-8);
+  --cc-flag-tip: 44px;
+  grid-area: risk;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  margin: var(--cc-space-6) 0 var(--cc-space-6) -14px;
+  padding: var(--cc-space-7) calc(var(--cc-flag-tip) + var(--cc-space-6))
+    var(--cc-space-7) calc(var(--cc-space-7) + 14px);
+  clip-path: var(--cc-flag-shape);
+  background: var(--cc-severity-low);
+  color: #ffffff;
+  animation: cc-flag-in var(--cc-duration-slow) var(--cc-ease) 120ms backwards;
 }
 .cc-report__risk--high {
-  border-left-color: var(--cc-severity-high);
+  background: var(--cc-severity-high);
 }
 .cc-report__risk--medium {
-  border-left-color: var(--cc-severity-medium);
+  background: var(--cc-severity-medium);
 }
 .cc-report__risk--low {
-  border-left-color: var(--cc-severity-low);
+  background: var(--cc-severity-low);
 }
 
+/* The one label left on this screen: it names a word that would
+   otherwise read as a bare adjective. Sentence case, not tracked caps. */
 .cc-report__risk-eyebrow {
-  margin: 0 0 var(--cc-space-4);
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  font-weight: 500;
-  color: var(--cc-ink-on-muted);
-  letter-spacing: var(--cc-tracking-wider);
-  text-transform: uppercase;
+  margin: 0 0 var(--cc-space-3);
+  font-size: var(--cc-text-base);
+  font-weight: 600;
+  color: #ffffff;
 }
 
+/* The risk word is set in the serif: it is the one word the contract's
+   own clauses add up to, so it speaks in the document's voice. */
 .cc-report__risk-value {
   margin: 0;
   font-family: var(--cc-font-serif);
   font-size: var(--cc-text-display-lg);
   font-weight: 600;
-  letter-spacing: var(--cc-tracking-tighter);
+  letter-spacing: -0.03em;
   line-height: var(--cc-leading-none);
-  color: var(--cc-severity-low);
-}
-.cc-report__risk--high .cc-report__risk-value {
-  color: var(--cc-severity-high);
-}
-.cc-report__risk--medium .cc-report__risk-value {
-  color: var(--cc-severity-medium);
-}
-.cc-report__risk--low .cc-report__risk-value {
-  color: var(--cc-severity-low);
+  color: #ffffff;
 }
 
 .cc-report__risk-sub {
   display: flex;
-  align-items: baseline;
-  gap: var(--cc-space-5);
-  margin-top: var(--cc-space-6);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cc-space-2) var(--cc-space-4);
+  margin-top: var(--cc-space-5);
 }
 
 .cc-report__risk-mark {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-sm);
-  letter-spacing: 0.16em;
-  color: inherit;
-}
-.cc-report__risk--high .cc-report__risk-mark {
-  color: var(--cc-severity-high);
-}
-.cc-report__risk--medium .cc-report__risk-mark {
-  color: var(--cc-severity-medium);
-}
-.cc-report__risk--low .cc-report__risk-mark {
-  color: var(--cc-severity-low);
+  font-size: var(--cc-text-xs);
+  letter-spacing: 0.2em;
+  color: #ffffff;
 }
 
 .cc-report__risk-count {
-  font-size: var(--cc-text-sm);
-  color: var(--cc-ink-secondary);
+  font-size: var(--cc-text-base);
+  font-weight: 600;
+  color: #ffffff;
   font-variant-numeric: tabular-nums;
 }
 
-/* NFR-4.1's locked disclaimer — body text, not fine print: the same size
-   and weight as the summary paragraph beside it in the masthead, not a
-   smaller/quieter treatment that would read as a footnote. */
-.cc-report__disclaimer {
+/* Sans, not serif: the summary is the app's own reading of the contract. */
+.cc-report__summary {
+  grid-area: summary;
+  align-self: end;
+  min-width: 0;
   margin: 0;
-  padding: var(--cc-space-5) var(--cc-space-6);
+  padding: var(--cc-space-8) var(--cc-space-8) var(--cc-space-4) var(--cc-space-7);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-2xl);
+  font-weight: 450;
+  line-height: var(--cc-leading-snug);
+  letter-spacing: var(--cc-tracking-snug);
+  color: var(--cc-ink);
+  max-width: 42ch;
+}
+
+/* NFR-4.1's locked disclaimer: body text, not fine print. The reading
+   size, under the summary it qualifies. */
+.cc-report__disclaimer {
+  grid-area: disclaimer;
+  align-self: start;
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--cc-space-8) var(--cc-space-8) var(--cc-space-7);
   font-size: var(--cc-text-md);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
   max-width: 76ch;
-}
-
-/* Sans, not serif. The summary is the app's own reading of the contract;
-   the serif on this screen is reserved for the contract's words and for
-   the single risk verdict they add up to. */
-.cc-report__summary {
-  flex: 1 1 330px;
-  min-width: 0;
-  margin: 0;
-  font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-xl);
-  line-height: var(--cc-leading-snug);
-  color: var(--cc-ink);
-  max-width: 46ch;
 }
 
 /* ---- Severity and category breakdown -------------------------------- */
 
-.cc-report__breakdown {
-  display: flex;
-  flex-wrap: wrap;
+.cc-report__breakdown-col {
+  grid-area: sev;
+  min-width: 0;
+  padding: var(--cc-space-6) var(--cc-space-7);
   border-top: var(--cc-border-width) solid var(--cc-rule-soft);
 }
 
-.cc-report__breakdown-col {
-  flex: 1 1 260px;
-  min-width: 0;
-  padding: var(--cc-space-6);
-}
 .cc-report__breakdown-col--where {
+  grid-area: cat;
   border-left: var(--cc-border-width) solid var(--cc-rule-soft);
 }
 
-/* A real heading, not an eyebrow: sentence case, sans, at a size that
-   sits under the h1 rather than beside the body text. */
 .cc-report__breakdown-title {
   margin: 0 0 var(--cc-space-4);
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-md);
-  font-weight: 600;
+  font-size: var(--cc-text-base);
+  font-weight: 650;
   color: var(--cc-ink);
-  letter-spacing: var(--cc-tracking-wide);
+  letter-spacing: var(--cc-tracking-snug);
 }
 
+/* The three counts side by side: a reader takes in "2 high, 1 medium,
+   1 low" in one look rather than reading down a list. */
 .cc-report__sev-rows {
   display: flex;
-  flex-direction: column;
-  gap: var(--cc-space-5);
+  flex-wrap: wrap;
+  gap: var(--cc-space-3) var(--cc-space-7);
 }
 
 .cc-report__sev-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    "count label"
+    "count mark";
   align-items: center;
-  gap: var(--cc-space-5);
+  column-gap: var(--cc-space-3);
 }
 
 .cc-report__sev-mark {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-base);
-  letter-spacing: 0.16em;
-  width: 3.4ch;
-  flex: none;
+  grid-area: mark;
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  line-height: 1.4;
 }
 .cc-report__sev-mark--high {
   color: var(--cc-severity-high);
@@ -261,18 +368,22 @@
 }
 
 .cc-report__sev-count {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-2xl);
-  font-weight: 500;
+  grid-area: count;
+  font-size: var(--cc-text-4xl);
+  font-weight: 700;
+  letter-spacing: var(--cc-tracking-tight);
   font-variant-numeric: tabular-nums;
   color: var(--cc-ink);
   line-height: 1;
-  min-width: 1.5ch;
-  text-align: right;
+  min-width: 1ch;
 }
 
 .cc-report__sev-row-label {
-  font-size: var(--cc-text-md);
+  grid-area: label;
+  align-self: end;
+  font-size: var(--cc-text-base);
+  font-weight: 500;
+  line-height: 1.2;
   color: var(--cc-ink-secondary);
 }
 
@@ -283,11 +394,15 @@
 }
 
 .cc-report__cat-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 var(--cc-space-3);
   font-size: var(--cc-text-base);
-  padding: var(--cc-space-1) var(--cc-space-3);
+  font-weight: 500;
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius-sm);
-  background: var(--cc-surface-card);
+  border-radius: var(--cc-radius-pill);
+  background: var(--cc-surface-sunken);
   color: var(--cc-ink-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -295,7 +410,7 @@
 /* ---- Findings header + severity filter ------------------------------ */
 
 .cc-report__findings-head {
-  margin-top: var(--cc-space-9);
+  margin-top: var(--cc-space-10);
   display: flex;
   flex-wrap: wrap;
   gap: var(--cc-space-5) var(--cc-space-9);
@@ -303,12 +418,12 @@
 }
 
 .cc-report__findings-title {
-  margin: 0 0 var(--cc-space-1);
+  margin: 0 0 var(--cc-space-2);
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-3xl);
+  font-size: 2.5rem;
   line-height: var(--cc-leading-tight);
-  font-weight: 600;
-  letter-spacing: var(--cc-tracking-tight);
+  font-weight: 800;
+  letter-spacing: var(--cc-tracking-tighter);
   color: var(--cc-ink);
 }
 
@@ -318,84 +433,114 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The filter is a segmented control, the same drawing as the upload
+   screen's tabs: one track, the active choice raised out of it. */
 .cc-report__filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-2);
+  gap: 2px;
   margin-left: auto;
+  padding: 4px;
+  border-radius: var(--cc-radius-pill);
+  background: var(--cc-surface-muted);
+  box-shadow: var(--cc-glass-groove);
 }
 
 .cc-report__filter {
-  min-height: 24px;
+  min-height: 34px;
+  padding: 0 var(--cc-space-4);
   font-size: var(--cc-text-base);
   font-weight: 500;
-  padding: var(--cc-space-2) var(--cc-space-4);
   cursor: pointer;
-  border: var(--cc-border-width) solid var(--cc-rule-input);
-  border-radius: var(--cc-radius-control);
-  background: var(--cc-surface-card);
-  color: var(--cc-ink-secondary);
+  border: 0;
+  border-radius: var(--cc-radius-pill);
+  background: transparent;
+  /* 7.00:1 on the track. */
+  color: var(--cc-ink-on-muted);
   font-variant-numeric: tabular-nums;
   transition:
     background-color var(--cc-duration-fast) var(--cc-ease-out),
-    border-color var(--cc-duration-fast) var(--cc-ease-out),
+    box-shadow var(--cc-duration-fast) var(--cc-ease-out),
     color var(--cc-duration-fast) var(--cc-ease-out);
 }
 
 .cc-report__filter:hover:not(.cc-report__filter--active) {
-  border-color: var(--cc-ink-muted);
   color: var(--cc-ink);
+  background: color-mix(in srgb, var(--cc-surface-card) 55%, transparent);
 }
 
 .cc-report__filter--active {
-  border-color: var(--cc-brand);
-  background: var(--cc-brand);
-  color: #ffffff;
+  background: var(--cc-surface-card);
+  color: var(--cc-ink);
+  font-weight: 650;
+  box-shadow: var(--cc-glass-bead);
+  animation: cc-bead-in 520ms var(--cc-ease-spring) backwards;
 }
 
 .cc-report__filter:focus-visible {
   outline: var(--cc-border-width-focus) solid var(--cc-brand);
-  outline-offset: 2px;
+  outline-offset: 1px;
+  border-radius: var(--cc-radius-pill);
 }
 
-/* ---- Findings list (step 36) --------------------------------------- */
-
-/* One continuous sheet: each card's own border-top is the divider, and
-   the first one doubles as the sheet's top edge. */
+/* ---- Findings list ----------------------------------------------------
+   Separate sheets with air between them. No overflow clipping anywhere
+   on this list: a glossary definition opened in the last finding must
+   be free to hang below its sheet. */
 .cc-report__findings {
   list-style: none;
-  margin: var(--cc-space-4) 0 0;
+  margin: var(--cc-space-5) 0 0;
   padding: 0;
-  background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
-  overflow: hidden;
+  display: grid;
+  gap: var(--cc-space-4);
 }
 
-/* The first card's own top border would double the sheet's edge. */
-.cc-report__findings > li:first-child .cc-finding {
-  border-top: 0;
+.cc-report__findings > li {
+  min-width: 0;
 }
 
-/* ---- Zero findings (step 36) --------------------------------------- */
+/* ---- Zero findings ------------------------------------------------- */
 
 .cc-report__clean {
+  position: relative;
   margin-top: var(--cc-space-9);
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-left: 3px solid var(--cc-success);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
-  padding: var(--cc-space-7);
+  border-radius: var(--cc-radius-lg);
+  padding: var(--cc-space-8) var(--cc-space-8) var(--cc-space-8)
+    calc(var(--cc-space-8) + 56px);
+}
+
+/* A drawn check in a success-tinted disc opens the result. */
+.cc-report__clean::before {
+  content: "";
+  position: absolute;
+  left: var(--cc-space-8);
+  top: var(--cc-space-8);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--cc-success-tint);
+}
+
+.cc-report__clean::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--cc-space-8) + 10px);
+  top: calc(var(--cc-space-8) + 10px);
+  width: 20px;
+  height: 20px;
+  background: var(--cc-success);
+  -webkit-mask: var(--cc-icon-check) center / contain no-repeat;
+  mask: var(--cc-icon-check) center / contain no-repeat;
 }
 
 .cc-report__clean-title {
   margin: 0 0 var(--cc-space-3);
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-3xl);
-  line-height: var(--cc-leading-tight);
-  font-weight: 600;
+  line-height: var(--cc-leading-heading);
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
   max-width: 26ch;
@@ -413,41 +558,46 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cc-space-3) var(--cc-space-7);
-  max-width: 660px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--cc-space-3) var(--cc-space-6);
+  max-width: 720px;
 }
 
 .cc-report__checked-item {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--cc-space-3);
-  flex: 1 1 176px;
   font-size: var(--cc-text-md);
+  font-weight: 500;
   color: var(--cc-ink);
 }
 
+/* The glyph stays (aria-hidden); a drawn check replaces it on screen. */
 .cc-report__checked-mark {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  color: var(--cc-success);
+  flex: none;
+  width: 18px;
+  height: 18px;
+  font-size: 0;
+  background: var(--cc-success);
+  -webkit-mask: var(--cc-icon-check) center / contain no-repeat;
+  mask: var(--cc-icon-check) center / contain no-repeat;
 }
 
-/* ---- Missing protections (step 37) ---------------------------------- */
+/* ---- Missing protections ------------------------------------------- */
 
 .cc-report__section-title {
-  margin: 0 0 var(--cc-space-1);
+  margin: 0 0 var(--cc-space-2);
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-3xl);
+  font-size: 2.5rem;
   line-height: var(--cc-leading-tight);
-  font-weight: 600;
-  letter-spacing: var(--cc-tracking-tight);
+  font-weight: 800;
+  letter-spacing: var(--cc-tracking-tighter);
   color: var(--cc-ink);
 }
 
 .cc-report__section-sub {
-  margin: 0 0 var(--cc-space-4);
+  margin: 0 0 var(--cc-space-5);
   font-size: var(--cc-text-md);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
@@ -455,22 +605,21 @@
 }
 
 .cc-report__missing {
-  margin-top: var(--cc-space-9);
+  margin-top: var(--cc-space-10);
 }
 
 .cc-report__missing-list {
   list-style: none;
-  margin: var(--cc-space-4) 0 0;
+  margin: 0;
   padding: 0;
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
   border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
-  overflow: hidden;
 }
 
 .cc-report__missing-item {
   display: flex;
+  align-items: flex-start;
   gap: var(--cc-space-4);
   padding: var(--cc-space-5) var(--cc-space-6);
   border-top: var(--cc-border-width) solid var(--cc-rule-soft);
@@ -480,54 +629,224 @@
   border-top: 0;
 }
 
+/* Something to ADD to the contract: a drawn plus in a brand-tinted disc.
+   The "+" glyph stays in the DOM, aria-hidden, at zero size. */
 .cc-report__missing-mark {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-sm);
-  color: var(--cc-brand);
+  position: relative;
   flex: none;
-  line-height: var(--cc-leading-normal);
+  width: 28px;
+  height: 28px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: var(--cc-brand-tint);
+  font-size: 0;
+  color: transparent;
+}
+
+.cc-report__missing-mark::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  background: var(--cc-brand);
+  -webkit-mask: var(--cc-icon-plus) center / contain no-repeat;
+  mask: var(--cc-icon-plus) center / contain no-repeat;
 }
 
 .cc-report__missing-text {
   font-size: var(--cc-text-md);
+  font-weight: 500;
   line-height: var(--cc-leading-normal);
-  color: var(--cc-ink-secondary);
+  color: var(--cc-ink);
   max-width: var(--cc-measure);
   overflow-wrap: anywhere;
 }
 
-/* ---- "Done with this contract?" + delete (step 37, FR-7.6) --------- */
+/* ---- "Done with this contract?" + delete (FR-7.6) ------------------- */
 
 .cc-report__done {
-  margin-top: var(--cc-space-9);
-  padding-top: var(--cc-space-6);
-  border-top: var(--cc-border-width) solid var(--cc-rule);
-  max-width: 420px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "head action"
+    "body action";
+  align-items: center;
+  column-gap: var(--cc-space-7);
+  margin-top: var(--cc-space-10);
+  padding: var(--cc-space-6) var(--cc-space-7);
+  border: var(--cc-border-width) dashed var(--cc-rule-strong);
+  border-radius: var(--cc-radius);
 }
 
 .cc-report__done-head {
+  grid-area: head;
   margin: 0 0 var(--cc-space-1);
-  font-size: var(--cc-text-md);
-  font-weight: 600;
+  font-size: var(--cc-text-lg);
+  font-weight: 650;
   color: var(--cc-ink);
 }
 
 .cc-report__done-body {
-  margin: 0 0 var(--cc-space-4);
+  grid-area: body;
+  align-self: start;
+  margin: 0;
   font-size: var(--cc-text-md);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
+  max-width: 60ch;
 }
 
 /* An outlined danger trigger rather than Button's solid destructive
-   variant, which is reserved for the dialog's actual confirm action: this
-   button is one step removed from doing anything irreversible. The border
-   is the danger ink at low alpha rather than a one-off hex, so it tracks
-   the token if the danger colour ever moves. */
+   variant, which is reserved for the dialog's actual confirm action:
+   this button is one step removed from doing anything irreversible. */
 .cc-report__delete-trigger.cc-button--secondary {
-  border-color: color-mix(in srgb, var(--cc-danger) 40%, transparent);
+  grid-area: action;
+  border-color: color-mix(in srgb, var(--cc-danger) 45%, transparent);
   color: var(--cc-danger);
 }
 .cc-report__delete-trigger.cc-button--secondary:hover:not(:disabled) {
+  border-color: var(--cc-danger);
   background: var(--cc-severity-high-tint);
+}
+
+/* ---- Tablet ------------------------------------------------------------
+   The verdict flag goes across the top of the sheet, the summary under
+   it, and the breakdown stacks. */
+@media (max-width: 900px) {
+  .cc-report__masthead {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "meta"
+      "risk"
+      "summary"
+      "disclaimer"
+      "sev"
+      "cat";
+  }
+
+  .cc-report__risk {
+    --cc-flag-tip: 32px;
+    justify-self: start;
+    min-width: min(380px, calc(100% + 14px));
+    margin: var(--cc-space-6) 0 0 -14px;
+    padding-top: var(--cc-space-6);
+    padding-bottom: var(--cc-space-6);
+  }
+
+  .cc-report__summary {
+    padding: var(--cc-space-6) var(--cc-space-6) var(--cc-space-3);
+  }
+
+  .cc-report__disclaimer {
+    padding: 0 var(--cc-space-6) var(--cc-space-6);
+  }
+
+  .cc-report__breakdown-col {
+    padding: var(--cc-space-5) var(--cc-space-6);
+  }
+
+  .cc-report__breakdown-col--where {
+    border-left: 0;
+  }
+}
+
+/* ---- Phone ------------------------------------------------------------ */
+@media (max-width: 767px) {
+  .cc-report {
+    padding-top: var(--cc-space-4);
+  }
+
+  .cc-report__masthead {
+    border-radius: var(--cc-radius);
+  }
+
+  .cc-report__meta {
+    padding: var(--cc-space-3) var(--cc-space-4);
+  }
+
+  /* No protrusion on a phone: the gutter is too narrow to stick a flag
+     out into without crowding the screen edge. */
+  .cc-report__risk {
+    --cc-flag-tip: 24px;
+    min-width: 0;
+    max-width: calc(100% - var(--cc-space-6));
+    margin: var(--cc-space-4) 0 0;
+    padding: var(--cc-space-5) calc(var(--cc-flag-tip) + var(--cc-space-6))
+      var(--cc-space-5) var(--cc-space-4);
+    animation-name: cc-rise;
+  }
+
+  .cc-report__risk-value {
+    font-size: 4rem;
+  }
+
+  .cc-report__summary {
+    padding: var(--cc-space-5) var(--cc-space-4) var(--cc-space-3);
+    font-size: var(--cc-text-xl);
+  }
+
+  .cc-report__disclaimer {
+    padding: 0 var(--cc-space-4) var(--cc-space-5);
+  }
+
+  .cc-report__breakdown-col {
+    padding: var(--cc-space-4);
+  }
+
+  .cc-report__sev-count {
+    font-size: var(--cc-text-3xl);
+  }
+
+  .cc-report__findings-head {
+    margin-top: var(--cc-space-8);
+  }
+
+  .cc-report__findings-title,
+  .cc-report__section-title {
+    font-size: var(--cc-text-3xl);
+  }
+
+  .cc-report__filters {
+    margin-left: 0;
+  }
+
+  .cc-report__clean {
+    padding: calc(var(--cc-space-6) + 56px) var(--cc-space-4) var(--cc-space-6);
+  }
+
+  .cc-report__clean::before {
+    left: var(--cc-space-4);
+    top: var(--cc-space-6);
+  }
+
+  .cc-report__clean::after {
+    left: calc(var(--cc-space-4) + 10px);
+    top: calc(var(--cc-space-6) + 10px);
+  }
+
+  .cc-report__clean-title {
+    font-size: var(--cc-text-2xl);
+  }
+
+  .cc-report__missing-item {
+    padding: var(--cc-space-4);
+  }
+
+  .cc-report__done {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "body"
+      "action";
+    row-gap: var(--cc-space-1);
+    padding: var(--cc-space-5) var(--cc-space-4);
+  }
+
+  .cc-report__delete-trigger.cc-button--secondary {
+    justify-self: start;
+    margin-top: var(--cc-space-4);
+  }
+
+  .cc-report__error-title {
+    font-size: var(--cc-text-3xl);
+  }
 }

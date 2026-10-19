@@ -1,3 +1,10 @@
+/**
+ * The legal pages (step 74): privacy, terms, subprocessors. Public, so
+ * no app chrome: a brand link back home, then a single reading column at
+ * a comfortable measure. These are documents to be read, so the type is
+ * set for reading: a 17px body, generous leading, sections that breathe.
+ */
+
 .cc-legal-page {
   min-height: 100dvh;
   display: flex;
@@ -6,106 +13,173 @@
 }
 
 .cc-legal-page__header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   width: 100%;
-  max-width: var(--cc-container);
-  margin: 0 auto;
-  padding: var(--cc-space-5);
+  background: var(--cc-glass-sheen-bar), var(--cc-surface-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+  backdrop-filter: var(--cc-glass-filter);
+  border-bottom: var(--cc-border-width) solid
+    color-mix(in srgb, var(--cc-rule) 70%, transparent);
+  padding: var(--cc-space-4)
+    max(var(--cc-gutter), calc((100% - var(--cc-container)) / 2 + var(--cc-gutter)));
 }
 
 .cc-legal-page__brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--cc-space-2);
-  min-height: 24px;
+  gap: var(--cc-space-3);
+  min-height: 32px;
   color: var(--cc-ink);
-  font-weight: 600;
+  font-size: var(--cc-text-lg);
+  font-weight: 750;
+  letter-spacing: var(--cc-tracking-tight);
   text-decoration: none;
 }
 
+.cc-legal-page__brand:hover {
+  color: var(--cc-ink);
+}
+
+/* The flag mark, as in the app header. */
 .cc-legal-page__brand-mark {
-  width: 14px;
-  height: 14px;
-  border-radius: var(--cc-radius-sm);
+  --cc-flag-tip: 7px;
+  width: 24px;
+  height: 16px;
   background: var(--cc-brand);
+  clip-path: var(--cc-flag-shape);
 }
 
 .cc-legal-page__main {
   flex: 1;
   width: 100%;
-  max-width: var(--cc-measure);
+  max-width: calc(var(--cc-measure) + 2 * var(--cc-gutter));
   margin: 0 auto;
-  padding: var(--cc-space-5) var(--cc-space-5) var(--cc-space-9);
+  padding: var(--cc-space-10) var(--cc-gutter) var(--cc-space-10);
   color: var(--cc-ink);
+  font-size: var(--cc-text-lg);
   line-height: var(--cc-leading-relaxed);
 }
 
 .cc-legal-page__title {
   margin: 0;
-  font-family: var(--cc-font-serif);
-  font-size: var(--cc-text-3xl);
+  font-family: var(--cc-font-sans);
+  font-size: var(--cc-text-4xl);
+  font-weight: 750;
+  letter-spacing: var(--cc-tracking-tighter);
   line-height: var(--cc-leading-tight);
 }
 
 .cc-legal-page__meta {
-  margin: var(--cc-space-2) 0 var(--cc-space-5);
-  color: var(--cc-ink-secondary);
+  margin: var(--cc-space-3) 0 var(--cc-space-6);
+  color: var(--cc-ink-muted);
   font-size: var(--cc-text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .cc-legal-page__draft {
-  margin-bottom: var(--cc-space-6);
+  margin-bottom: var(--cc-space-7);
 }
 
 .cc-legal-page__summary {
-  font-size: var(--cc-text-lg);
+  margin: 0;
+  padding-bottom: var(--cc-space-7);
+  border-bottom: var(--cc-border-width) solid var(--cc-rule);
+  font-size: var(--cc-text-xl);
+  line-height: var(--cc-leading-snug);
   color: var(--cc-ink-secondary);
 }
 
 .cc-legal-page__section {
-  margin-top: var(--cc-space-7);
+  margin-top: var(--cc-space-9);
 }
 
 .cc-legal-page__heading {
   margin: 0 0 var(--cc-space-3);
-  font-size: var(--cc-text-xl);
-  line-height: var(--cc-leading-snug);
+  font-size: var(--cc-text-2xl);
+  line-height: var(--cc-leading-heading);
+  font-weight: 700;
+  letter-spacing: var(--cc-tracking-tight);
+}
+
+.cc-legal-page__text {
+  margin: 0 0 var(--cc-space-4);
+  color: var(--cc-ink-secondary);
 }
 
 .cc-legal-page__list {
+  margin: 0 0 var(--cc-space-4);
   padding-left: var(--cc-space-5);
+  color: var(--cc-ink-secondary);
+}
+
+.cc-legal-page__list li::marker {
+  color: var(--cc-brand);
 }
 
 .cc-legal-page__list li + li {
   margin-top: var(--cc-space-2);
 }
 
-/* Tables scroll inside themselves at 320 px rather than making the page
+/* Tables scroll inside themselves at 320px rather than making the page
    scroll sideways (1.4.10, which the a11y suite measures). */
 .cc-legal-page__table-wrap {
   overflow-x: auto;
-  margin: var(--cc-space-4) 0;
+  margin: var(--cc-space-5) 0;
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius);
 }
 
 .cc-legal-page__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cc-text-sm);
+  font-size: var(--cc-text-base);
+  line-height: var(--cc-leading-normal);
 }
 
 .cc-legal-page__table th,
 .cc-legal-page__table td {
-  padding: var(--cc-space-2) var(--cc-space-3);
+  padding: var(--cc-space-3) var(--cc-space-4);
   border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
   text-align: left;
   vertical-align: top;
 }
 
+.cc-legal-page__table tr:last-child th,
+.cc-legal-page__table tr:last-child td {
+  border-bottom: 0;
+}
+
 .cc-legal-page__table thead th {
-  border-bottom-color: var(--cc-rule-strong);
+  background: var(--cc-surface-sunken);
+  border-bottom-color: var(--cc-rule);
   color: var(--cc-ink-secondary);
-  font-weight: 600;
+  font-size: var(--cc-text-sm);
+  font-weight: 650;
 }
 
 .cc-legal-page__table tbody th {
-  font-weight: 600;
+  font-weight: 650;
+  color: var(--cc-ink);
+}
+
+.cc-legal-page__table td {
+  color: var(--cc-ink-secondary);
+}
+
+@media (max-width: 767px) {
+  .cc-legal-page__main {
+    padding-top: var(--cc-space-7);
+    font-size: var(--cc-text-md);
+  }
+
+  .cc-legal-page__title {
+    font-size: var(--cc-text-3xl);
+  }
+
+  .cc-legal-page__summary {
+    font-size: var(--cc-text-lg);
+  }
 }

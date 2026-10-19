@@ -23,9 +23,10 @@ import { staticHostHeaders } from "./scripts/staticHostHeaders.js";
  * FR-7.13 (BUILD-PLAN step 66): preload the body-text font.
  *
  * Largest Contentful Paint on every screen is a block of body text set in
- * Geist, and without a preload the browser cannot even ask for the font
- * until it has downloaded and parsed the stylesheet and laid out text that
- * uses it. The preload starts the download alongside the HTML instead.
+ * Host Grotesk (Geist before the post-step-75 redesign; Host Grotesk's
+ * latin file is 20 KB against Geist's 29 KB), and without a preload the
+ * browser cannot even ask for the font until it has downloaded and parsed
+ * the stylesheet and laid out text that uses it. The preload starts the download alongside the HTML instead.
  * It is the ONE font preloaded, and only its latin subset: it is used on
  * every page, so the early bytes are never wasted. Literata (the report's
  * excerpts) and Geist Mono are left to load on demand; preloading them on
@@ -42,7 +43,7 @@ import { staticHostHeaders } from "./scripts/staticHostHeaders.js";
  * @returns {import("vite").Plugin}
  */
 function preloadBodyFont() {
-  const PATTERN = /(^|\/)geist-latin-wght-normal-[\w-]+\.woff2$/;
+  const PATTERN = /(^|\/)host-grotesk-latin-wght-normal-[\w-]+\.woff2$/;
   return {
     name: "clausecheck:preload-body-font",
     apply: "build",
@@ -52,7 +53,7 @@ function preloadBodyFont() {
         const file = Object.keys(ctx.bundle ?? {}).find((name) => PATTERN.test(name));
         if (!file) {
           throw new Error(
-            "preload-body-font: no geist-latin-wght-normal woff2 in the bundle; " +
+            "preload-body-font: no host-grotesk-latin-wght-normal woff2 in the bundle; " +
               "the body font changed, so update this plugin (FR-7.13 depends on it).",
           );
         }

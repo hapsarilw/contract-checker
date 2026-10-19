@@ -1,17 +1,25 @@
+/**
+ * "Copy this ask": the one thing a reader takes away from a finding, so
+ * it is a real control with a drawn copy icon, but a tinted one, not a
+ * solid brand button repeated once per finding down the whole report.
+ * Brand ink on the brand tint is 6.19:1.
+ */
+
 .cc-copy-button {
   display: inline-flex;
   align-items: center;
   gap: var(--cc-space-2);
   min-width: 24px;
-  min-height: 24px;
+  min-height: 38px;
+  padding: 0 var(--cc-space-4) 0 var(--cc-space-3);
   font-size: var(--cc-text-base);
-  font-weight: 500;
-  padding: 9px 14px;
+  font-weight: 600;
   cursor: pointer;
-  border: var(--cc-border-width) solid var(--cc-brand);
+  border: var(--cc-border-width) solid
+    color-mix(in srgb, var(--cc-brand) 22%, transparent);
   border-radius: var(--cc-radius-control);
-  background: var(--cc-brand);
-  color: #ffffff;
+  background: var(--cc-brand-tint);
+  color: var(--cc-brand);
   transition:
     transform var(--cc-duration-fast) var(--cc-ease-out),
     background-color var(--cc-duration-fast) var(--cc-ease-out),
@@ -20,23 +28,17 @@
 }
 
 .cc-copy-button:hover:not(:disabled) {
-  background: var(--cc-brand-hover);
+  background: var(--cc-brand);
   border-color: var(--cc-brand-hover);
+  color: #ffffff;
 }
 
 .cc-copy-button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.985);
 }
 
 /* The confirmed state is a colour change, not a layout change: the
-   button must not resize under the cursor that just clicked it.
- *
- * The hover rule above has to be re-stated here rather than left to
- * cascade, and the reason is a bug axe caught: the pointer is still over
- * the button at the moment it flips to confirmed, so the hover rule kept
- * repainting the background brand-blue while the label stayed
- * confirmation-green. That is 1.48:1, on the one control whose entire job
- * is to tell you it worked. */
+   button must not resize under the cursor that just clicked it. */
 .cc-copy-button--copied,
 .cc-copy-button--copied:hover:not(:disabled) {
   background: var(--cc-success-tint);
@@ -44,17 +46,29 @@
   color: var(--cc-success);
 }
 
+/* The glyph stays in the DOM (aria-hidden) at zero size; the drawn icon
+   replaces it on screen and takes the button's text colour. */
 .cc-copy-button__icon {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
+  flex: none;
+  width: 16px;
+  height: 16px;
+  font-size: 0;
+  background: currentColor;
+  -webkit-mask: var(--cc-icon-copy) center / contain no-repeat;
+  mask: var(--cc-icon-copy) center / contain no-repeat;
 }
 
-/* Never display:none while empty — a live region that isn't rendered
+.cc-copy-button--copied .cc-copy-button__icon {
+  -webkit-mask-image: var(--cc-icon-check);
+  mask-image: var(--cc-icon-check);
+}
+
+/* Never display:none while empty: a live region that isn't rendered
    when its content arrives is announced unreliably. An empty block span
    has no height; only the spacing is conditional. */
 .cc-copy-button__note {
   display: block;
-  font-size: var(--cc-text-base);
+  font-size: var(--cc-text-sm);
   line-height: var(--cc-leading-snug);
   color: var(--cc-success);
 }

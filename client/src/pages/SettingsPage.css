@@ -1,67 +1,244 @@
 /**
- * The settings screen: a single readable column of sections, each one a
- * surface of its own so that "change password" and "delete account" are
- * never visually part of the same block.
+ * Settings: password, email, sign out everywhere, export, delete.
+ *
+ * WAS five stacked cards, each with its heading, its paragraph and its
+ * form in one column. NOW one sheet, with a row per section: what it is
+ * and what it does on the left, the controls on the right, hairlines
+ * between. A reader scans the left column for the setting they came for
+ * and only then reads a form. Deleting the account sits apart, after a
+ * gap, in its own sheet with a danger edge.
+ *
+ * Each section's children (heading, description, an optional error
+ * banner, the form or the actions) are placed on its grid by class; when
+ * a banner is present it takes the top of the right column and the form
+ * moves under it (`:has`). Each heading carries a drawn icon tile, so the
+ * five settings can be found by shape as well as by name.
+ *
+ * The page opens on the quiet cover band (tokens.css, "Cover bands"):
+ * the title, and the signed-in account as a chip, with the sheet laid
+ * over the band's lower edge. As on history, the band is carried by the
+ * title and the account line themselves (a real background colour, plus
+ * a border-image outset to the window's edges).
  */
 
 .cc-settings {
-  max-width: var(--cc-container-narrow);
+  max-width: 1040px;
   margin: 0 auto;
-  padding: var(--cc-space-9) var(--cc-space-6) var(--cc-space-10);
+  padding: 0 var(--cc-gutter) var(--cc-space-11);
+}
+
+.cc-settings__title,
+.cc-settings__account {
+  background-color: var(--cc-band-quiet);
+  border-image-source: linear-gradient(var(--cc-band-quiet), var(--cc-band-quiet));
+  border-image-slice: 0 fill;
+  border-image-width: 0;
+  border-image-outset: 0 100vmax;
 }
 
 .cc-settings__title {
-  margin: 0 0 var(--cc-space-2);
+  /* The band runs up behind the frosted header too. */
+  border-image-outset: var(--cc-app-header-height, 0px) 100vmax 0;
+  margin: 0;
+  padding: var(--cc-space-10) 0 var(--cc-space-4);
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-4xl);
+  font-size: 3.25rem;
   line-height: var(--cc-leading-tight);
-  font-weight: 600;
+  font-weight: 800;
   letter-spacing: var(--cc-tracking-tighter);
   color: var(--cc-ink);
 }
 
+/* 6.87:1 on the band. */
 .cc-settings__account {
-  margin: 0 0 var(--cc-space-7);
-  font-size: var(--cc-text-lg);
+  margin: 0;
+  padding-bottom: calc(var(--cc-band-overlap) + var(--cc-space-8));
+  font-size: var(--cc-text-md);
+  line-height: 2;
   color: var(--cc-ink-secondary);
   overflow-wrap: anywhere;
 }
 
-.cc-settings__section {
-  margin-bottom: var(--cc-space-5);
-  padding: var(--cc-space-6);
-  background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+/* The account itself, as a chip with an avatar: a white pill on the band,
+   the brand disc with a drawn person in it. */
+.cc-settings__account strong {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cc-space-2);
+  max-width: 100%;
+  margin-left: var(--cc-space-2);
+  padding: 4px var(--cc-space-4) 4px 4px;
+  border-radius: var(--cc-radius-pill);
+  /* A small pane of glass on the band, with the lit rim. */
+  background: var(--cc-glass-sheen), rgba(255, 255, 255, 0.7);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+  backdrop-filter: var(--cc-glass-filter);
+  box-shadow: var(--cc-glass-edge), var(--cc-shadow-raised);
+  color: var(--cc-ink);
+  font-weight: 650;
+  line-height: 1.4;
+  vertical-align: middle;
 }
 
-/* Set apart from the routine sections above it: more air, and a danger
-   edge, so it reads as a different kind of thing before it is read. */
-.cc-settings__section--danger {
-  margin-top: var(--cc-space-8);
-  border-color: color-mix(in srgb, var(--cc-danger) 30%, var(--cc-rule));
+.cc-settings__account strong::before {
+  content: "";
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--cc-brand);
+}
+
+.cc-settings__account strong::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: #ffffff;
+  -webkit-mask: var(--cc-icon-user) center / contain no-repeat;
+  mask: var(--cc-icon-user) center / contain no-repeat;
+}
+
+/* ---- The sheet of sections ---------------------------------------------
+   The sections are siblings inside <main>; the first gets the sheet's
+   top corners, the last routine one its bottom corners, so the run of
+   four reads as one sheet with dividers. */
+
+.cc-settings__section {
+  display: grid;
+  grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  column-gap: var(--cc-space-9);
+  padding: var(--cc-space-7) var(--cc-space-7);
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-top-width: 0;
+}
+
+/* The sheet's first section climbs back over the band's lower edge. */
+.cc-settings__account + .cc-settings__section {
+  position: relative;
+  margin-top: calc(var(--cc-band-overlap) * -1);
+  border-top-width: var(--cc-border-width);
+  border-radius: var(--cc-radius-lg) var(--cc-radius-lg) 0 0;
+}
+
+/* On a wide screen the section that climbs over the band is frosted
+   glass, the band showing through its top under a lit rim. The others
+   lie on the plain desk, where glass would show nothing, so they stay
+   paper. Solid on a phone. */
+@media (min-width: 768px) {
+  .cc-settings__account + .cc-settings__section {
+    background: var(--cc-glass-sheen), var(--cc-glass);
+    -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+    backdrop-filter: var(--cc-glass-filter);
+    box-shadow: var(--cc-glass-edge);
+  }
+}
+
+/* The last routine section, just before the danger zone, closes the
+   sheet and casts its shadow. */
+.cc-settings__section:has(+ .cc-settings__section--danger) {
+  border-radius: 0 0 var(--cc-radius-lg) var(--cc-radius-lg);
+  box-shadow: 0 28px 56px -28px rgba(21, 27, 48, 0.28);
 }
 
 .cc-settings__heading {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
   margin: 0 0 var(--cc-space-2);
-  font-size: var(--cc-text-2xl);
-  line-height: var(--cc-leading-tight);
-  font-weight: 600;
+  padding-top: calc(44px + var(--cc-space-4));
+  font-size: 1.375rem;
+  line-height: var(--cc-leading-heading);
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
-.cc-settings__section--danger .cc-settings__heading {
-  color: var(--cc-danger);
+/* The icon tile: a brand-tinted square above the heading, with the drawn
+   icon (the ::after) in it. Which icon is set per section, in the order
+   SettingsPage.jsx renders them; a section added later shows the tile
+   with the lock until it is given its own. */
+.cc-settings__heading::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--cc-radius-control);
+  background: var(--cc-brand-tint);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-brand) 16%, transparent);
+}
+
+.cc-settings__heading::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  width: 22px;
+  height: 22px;
+  background: var(--cc-brand);
+  -webkit-mask: var(--cc-icon-lock) center / contain no-repeat;
+  mask: var(--cc-icon-lock) center / contain no-repeat;
+}
+
+.cc-settings__section:nth-of-type(2) .cc-settings__heading::after {
+  -webkit-mask-image: var(--cc-icon-mail);
+  mask-image: var(--cc-icon-mail);
+}
+.cc-settings__section:nth-of-type(3) .cc-settings__heading::after {
+  -webkit-mask-image: var(--cc-icon-logout);
+  mask-image: var(--cc-icon-logout);
+}
+.cc-settings__section:nth-of-type(4) .cc-settings__heading::after {
+  -webkit-mask-image: var(--cc-icon-download);
+  mask-image: var(--cc-icon-download);
+}
+
+/* The danger zone's tile is brick, with the trash can. */
+.cc-settings__section--danger .cc-settings__heading::before {
+  background: var(--cc-severity-high-tint);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-danger) 18%, transparent);
+}
+.cc-settings__section.cc-settings__section--danger .cc-settings__heading::after {
+  background: var(--cc-danger);
+  -webkit-mask-image: var(--cc-icon-trash);
+  mask-image: var(--cc-icon-trash);
 }
 
 .cc-settings__lede {
-  margin: 0 0 var(--cc-space-5);
-  max-width: var(--cc-measure);
-  font-size: var(--cc-text-md);
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+  margin: 0;
+  font-size: var(--cc-text-base);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
+}
+
+/* The controls: everything after the heading and the description. */
+.cc-settings__section > .cc-settings__form,
+.cc-settings__section > .cc-settings__actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+}
+
+.cc-settings__section > .cc-settings__banner {
+  grid-column: 2;
+  grid-row: 1;
+  margin-bottom: var(--cc-space-5);
+}
+
+.cc-settings__section:has(> .cc-settings__banner) > .cc-settings__form,
+.cc-settings__section:has(> .cc-settings__banner) > .cc-settings__actions {
+  grid-row: 2;
 }
 
 .cc-settings__form {
@@ -85,34 +262,105 @@
 .cc-settings__status {
   flex: 1 1 14rem;
   margin: 0;
-  font-size: var(--cc-text-md);
+  font-size: var(--cc-text-base);
   line-height: var(--cc-leading-snug);
   color: var(--cc-ink-secondary);
 }
 
 .cc-settings__status--error {
   color: var(--cc-danger);
-  font-weight: 500;
+  font-weight: 600;
+}
+
+/* ---- Danger zone -------------------------------------------------------- */
+
+.cc-settings__section--danger {
+  margin-top: var(--cc-space-7);
+  border-top-width: var(--cc-border-width);
+  border-color: color-mix(in srgb, var(--cc-danger) 32%, var(--cc-rule));
+  border-radius: var(--cc-radius-lg);
+  box-shadow: 0 28px 56px -32px rgba(122, 35, 25, 0.22);
+}
+
+.cc-settings__section--danger .cc-settings__heading {
+  color: var(--cc-danger);
 }
 
 /* An outlined danger trigger rather than the solid destructive variant,
    which is reserved for the dialog's own confirm button. */
 .cc-settings__delete-trigger.cc-button--secondary {
-  border-color: color-mix(in srgb, var(--cc-danger) 40%, transparent);
+  border-color: color-mix(in srgb, var(--cc-danger) 45%, transparent);
   color: var(--cc-danger);
 }
 .cc-settings__delete-trigger.cc-button--secondary:hover:not(:disabled) {
+  border-color: var(--cc-danger);
   background: var(--cc-severity-high-tint);
+}
+
+/* ---- Tablet and phone: one column per section ----------------------- */
+@media (max-width: 860px) {
+  .cc-settings__section {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .cc-settings__heading,
+  .cc-settings__lede,
+  .cc-settings__section > .cc-settings__banner,
+  .cc-settings__section > .cc-settings__form,
+  .cc-settings__section > .cc-settings__actions,
+  .cc-settings__section:has(> .cc-settings__banner) > .cc-settings__form,
+  .cc-settings__section:has(> .cc-settings__banner) > .cc-settings__actions {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .cc-settings__lede {
+    margin-bottom: var(--cc-space-5);
+  }
+
+  /* The tile moves beside the heading rather than above it. */
+  .cc-settings__heading {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 0 0 calc(44px + var(--cc-space-3));
+    margin-bottom: var(--cc-space-3);
+  }
 }
 
 @media (max-width: 767px) {
   .cc-settings {
-    padding: var(--cc-space-7) var(--cc-space-4) var(--cc-space-9);
+    padding: 0 var(--cc-gutter) var(--cc-space-9);
   }
+
   .cc-settings__title {
-    font-size: var(--cc-text-3xl);
+    padding-top: var(--cc-space-7);
+    font-size: 2.25rem;
   }
+
+  .cc-settings__account {
+    padding-bottom: calc(var(--cc-band-overlap) + var(--cc-space-6));
+  }
+
+  .cc-settings__account strong {
+    margin-left: 0;
+  }
+
   .cc-settings__section {
     padding: var(--cc-space-5) var(--cc-space-4);
+  }
+
+  .cc-settings__account + .cc-settings__section {
+    border-radius: var(--cc-radius) var(--cc-radius) 0 0;
+  }
+
+  .cc-settings__section:has(+ .cc-settings__section--danger),
+  .cc-settings__section--danger {
+    border-radius: 0 0 var(--cc-radius) var(--cc-radius);
+  }
+
+  .cc-settings__section--danger {
+    border-radius: var(--cc-radius);
   }
 }

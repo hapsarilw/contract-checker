@@ -1,28 +1,26 @@
 /**
- * A surface that is lifted off the page. The inner top highlight is what
- * separates "a box with a shadow under it" from "a sheet with an edge":
- * on a light page the eye reads the 1px lit top edge as thickness.
+ * A sheet: white paper lying on the desk. Its edge is a 1px rule and
+ * nothing else; elevation is declared once, and a sheet on the desk does
+ * not float, so it casts no shadow.
  */
+
 .cc-card {
   position: relative;
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
   border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
   padding: var(--cc-space-7);
 }
 
-/**
- * The primary content card's accent. A top stripe would fight the
- * rounded corner, so this is a hairline of brand laid along the top edge
- * inside the radius, via a pseudo-element that is clipped by the card's
- * own border-radius.
- */
+/* The accent: a short brand tab along the top edge rather than a
+   full-width hairline, so it reads as a marker placed on the sheet. */
 .cc-card--accent::before {
   content: "";
   position: absolute;
-  inset: 0 0 auto;
-  height: var(--cc-border-width-accent);
+  top: -1px;
+  left: var(--cc-space-7);
+  width: 40px;
+  height: 3px;
+  border-radius: 0 0 var(--cc-radius-sm) var(--cc-radius-sm);
   background: var(--cc-brand);
-  border-radius: var(--cc-radius) var(--cc-radius) 0 0;
 }

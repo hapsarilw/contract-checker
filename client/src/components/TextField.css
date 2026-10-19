@@ -1,24 +1,31 @@
+/**
+ * Text fields. Label above the control, always; no placeholder-as-label
+ * anywhere in this app.
+ */
+
 .cc-field {
   display: flex;
   flex-direction: column;
   gap: var(--cc-space-2);
 }
 
-/* Label ABOVE the control, always. No placeholder-as-label anywhere in
-   this app. */
 .cc-field__label {
   font-size: var(--cc-text-base);
-  font-weight: 500;
-  letter-spacing: var(--cc-tracking-wide);
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-snug);
   color: var(--cc-ink);
 }
 
 .cc-field__control {
   width: 100%;
+  min-height: 46px;
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-lg);
+  /* 16px, not the 15px body size: iOS zooms the page into any input set
+     smaller than that, which would yank a phone user sideways on focus. */
+  font-size: 1rem;
+  line-height: 1.4;
   padding: 11px 14px;
-  /* --cc-rule-input, not --cc-rule-strong: WCAG 1.4.11 wants 3:1 for the
+  /* --cc-rule-input, not --cc-rule: WCAG 1.4.11 wants 3:1 for the
      boundary of a control, and only this token meets it. */
   border: var(--cc-border-width) solid var(--cc-rule-input);
   border-radius: var(--cc-radius-control);
@@ -30,26 +37,28 @@
 }
 
 .cc-field__control:hover:not(:disabled) {
-  border-color: var(--cc-ink-muted);
+  border-color: var(--cc-ink-secondary);
 }
 
-/* The brand ring on focus is global (:focus-visible). This adds the
-   border colour change so the field reads as active even where the ring
-   is clipped. */
+/* The brand ring on focus is global (:focus-visible). This adds a brand
+   border and a soft brand halo, so the field reads as the active one
+   even where the outline is clipped by a scrolling parent. */
 .cc-field__control:focus {
   border-color: var(--cc-brand);
+  box-shadow: var(--cc-ring-brand);
   outline-offset: 1px;
 }
 
-/* The pasted-contract textarea reads in the serif, at report size: it is
-   already showing the document's words rather than the app's. */
+/* The pasted-contract textarea reads in the serif, at excerpt size: it
+   is already showing the document's words rather than the app's. */
 .cc-field__control--multiline {
-  min-height: 216px;
+  min-height: 280px;
   font-family: var(--cc-font-serif);
   font-size: var(--cc-text-lg);
   line-height: var(--cc-leading-relaxed);
-  padding: 16px;
+  padding: var(--cc-space-5) var(--cc-space-6);
   resize: vertical;
+  background: var(--cc-surface-card);
 }
 
 /* aria-invalid, not a class the JSX has to remember to add and remove in
@@ -58,13 +67,21 @@
   border-color: var(--cc-danger);
 }
 
+.cc-field__control[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cc-danger) 16%, transparent);
+}
+
 .cc-field__hint {
-  font-size: var(--cc-text-base);
+  margin: 0;
+  font-size: var(--cc-text-sm);
+  line-height: var(--cc-leading-snug);
   color: var(--cc-ink-secondary);
 }
 
 .cc-field__error {
-  font-size: var(--cc-text-base);
-  font-weight: 500;
+  margin: 0;
+  font-size: var(--cc-text-sm);
+  line-height: var(--cc-leading-snug);
+  font-weight: 600;
   color: var(--cc-danger);
 }

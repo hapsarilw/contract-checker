@@ -1,143 +1,197 @@
 /**
- * The sign-in / register screen.
+ * The signed-out screens: sign in, register, and the password and
+ * verification flows that share this shell.
  *
- * It used to be one card centred in an otherwise empty field, which read
- * as an unfinished page rather than as a composed one: at 1440px roughly
- * two thirds of the viewport carried nothing at all. It is now a split —
- * an ink panel that says what the product does, and the form beside it.
- * The ink half is the same surface as the app header, so a signed-out
- * visitor is looking at the same material they will see once they are in,
- * not at a separate marketing skin.
+ * WAS a framed card split in two, a near-black half and a form half,
+ * floating in the middle of the desk. NOW the whole viewport is the
+ * split. The left half is a field of signing-pen blue holding the
+ * product's one-line promise and the illustration of what it does (a
+ * contract with its risky clauses flagged); the right half is white,
+ * the form centred in it, the legal footer at its foot.
+ *
+ * The frame element is `display: contents`, so the panel, the form and
+ * the footer (three different parents in the markup) are placed on one
+ * page-level grid without touching the markup. The frame has no role
+ * and no focus, so taking its box away changes nothing a screen reader
+ * or keyboard sees.
  */
 
 .cc-auth-page {
   min-height: 100dvh;
-  display: flex;
-  /* A column since step 74: the frame, then the legal footer under it. */
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--cc-space-7) var(--cc-space-5);
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: var(--cc-surface-card);
 }
 
 .cc-auth-page__frame {
-  width: 100%;
-  max-width: var(--cc-container);
-  display: grid;
-  /* Asymmetric on purpose: the statement gets the wider half, the form
-     gets only the width a form needs. Two equal columns would make the
-     form look like it was padded out to match. */
-  grid-template-columns: 1.15fr 0.85fr;
-  align-items: stretch;
-  gap: 0;
-  border-radius: var(--cc-radius-lg);
-  overflow: hidden;
-  box-shadow: var(--cc-shadow-card-lg);
-  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
+  display: contents;
 }
 
-/* ---- The ink half ---------------------------------------------------- */
+/* ---- The blue half --------------------------------------------------- */
 
 .cc-auth-panel {
-  background: var(--cc-header-bg);
-  color: var(--cc-header-text);
-  padding: var(--cc-space-9) var(--cc-space-8);
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: var(--cc-space-4);
+  gap: var(--cc-space-5);
+  padding: var(--cc-space-9) var(--cc-space-10) 0;
+  /* Drenched: on this one screen the brand IS the surface. White type on
+     it is 7.27:1; --cc-brand-pale is 5.67:1. */
+  background-color: var(--cc-brand);
+  color: #ffffff;
+}
+
+/* The illustration, under the words, bleeding off the panel's right and
+   bottom edges as if the contract had just been slid across the table.
+   In the flow (a flex item that takes whatever height the text leaves),
+   not absolutely placed, so it can never slide under the text on a short
+   laptop screen. Decorative, so a background on a pseudo-element: there
+   is nothing here for a screen reader that the statement does not say. */
+.cc-auth-panel::after {
+  content: "";
+  flex: 1 1 220px;
+  min-height: 220px;
+  max-height: 520px;
+  /* Pulled up under the note's lower edge, so the contract's corner and
+     its flags show through the note's glass, blurred. */
+  margin: -96px calc(var(--cc-space-10) * -1) calc(var(--cc-space-8) * -1) 0;
+  background: var(--cc-illustration-flagged) right bottom / contain no-repeat;
+  pointer-events: none;
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) 120ms backwards;
 }
 
 .cc-auth-panel__brand {
   display: flex;
   align-items: center;
   gap: var(--cc-space-3);
-  margin-bottom: var(--cc-space-5);
+  margin-bottom: var(--cc-space-8);
 }
 
 .cc-auth-panel__statement {
+  position: relative;
+  z-index: 1;
   margin: 0;
-  font-size: var(--cc-text-4xl);
+  font-size: var(--cc-text-display);
   line-height: var(--cc-leading-tight);
   letter-spacing: var(--cc-tracking-tighter);
-  font-weight: 600;
-  color: var(--cc-header-text);
-  max-width: 14ch;
+  font-weight: 750;
+  color: #ffffff;
+  max-width: 11ch;
 }
 
 .cc-auth-panel__body {
+  position: relative;
+  z-index: 1;
   margin: 0;
   font-size: var(--cc-text-lg);
   line-height: var(--cc-leading-normal);
-  color: var(--cc-header-text-muted);
-  max-width: 44ch;
+  color: var(--cc-brand-pale);
+  max-width: 40ch;
 }
 
+/* The privacy note, on a pane of deep-blue glass with a lit rim, laid
+   over the top of the illustration. Deep rather than clear glass,
+   because the white contract passes behind it: with the white sheet
+   directly behind, --cc-brand-pale on this glass is still 5.41:1. */
 .cc-auth-panel__note {
-  margin: var(--cc-space-4) 0 0;
-  padding-top: var(--cc-space-4);
-  border-top: var(--cc-border-width) solid rgba(255, 255, 255, 0.12);
+  position: relative;
+  z-index: 1;
+  margin: var(--cc-space-3) 0 0;
+  padding: var(--cc-space-5) var(--cc-space-6);
+  border-radius: var(--cc-radius);
+  background: var(--cc-glass-deep);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+  backdrop-filter: var(--cc-glass-filter);
+  box-shadow:
+    var(--cc-glass-edge-on-color),
+    0 28px 56px -28px rgba(5, 10, 60, 0.6);
   font-size: var(--cc-text-base);
   line-height: var(--cc-leading-normal);
-  color: var(--cc-header-text-quiet);
-  max-width: 46ch;
+  color: var(--cc-brand-pale);
+  max-width: 40ch;
 }
 
-/* The brand mark and name are shared with the app header's treatment but
-   scoped here because this screen has no header of its own. */
+/* The flag mark, white on the blue field. Shared with the app header's
+   treatment, scoped here because this screen has no header. */
 .cc-auth-page__brand-mark {
+  --cc-flag-tip: 7px;
   display: inline-block;
-  width: 6px;
-  height: 18px;
-  border-radius: var(--cc-radius-sm);
-  background: var(--cc-header-brand-accent);
+  width: 24px;
+  height: 16px;
+  background: #ffffff;
+  clip-path: var(--cc-flag-shape);
 }
 
 .cc-auth-page__brand-name {
   font-size: var(--cc-text-lg);
-  font-weight: 600;
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
-  color: var(--cc-header-text);
+  color: #ffffff;
 }
 
 /* ---- The form half --------------------------------------------------- */
 
 .cc-auth-page__main {
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
   align-items: center;
-  background: var(--cc-surface-card);
+  justify-content: center;
+  padding: var(--cc-space-10) var(--cc-space-9) var(--cc-space-7);
+}
+
+.cc-auth-page__main:focus-visible {
+  outline-offset: -4px;
 }
 
 .cc-auth-card {
-  /* Inside the split the card is no longer a card: the frame around it
-     already provides the edge, the radius and the elevation, so keeping
-     its own would be a box inside a box. */
+  /* Inside the split the card is no longer a card: the half it sits in
+     is already the sheet, so keeping its own edge would be a box inside
+     a box. */
   width: 100%;
+  max-width: 420px;
   border: 0;
   border-radius: 0;
-  box-shadow: none;
   background: transparent;
-  padding: var(--cc-space-8) var(--cc-space-8);
+  padding: 0;
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
 }
 
-/* Card's accent hairline belongs to a free-standing card, not to a panel
-   inside a framed split. */
 .cc-auth-card.cc-card--accent::before {
   display: none;
+}
+
+/* The footer, at the foot of the form half rather than under the whole
+   split. */
+.cc-auth-page > .cc-site-footer {
+  grid-column: 2;
+  grid-row: 2;
+  max-width: none;
+  justify-content: center;
+  text-align: center;
+  padding: var(--cc-space-5) var(--cc-space-7) var(--cc-space-6);
+}
+
+.cc-auth-page > .cc-site-footer .cc-site-footer__links {
+  justify-content: center;
 }
 
 .cc-auth-card__title {
   margin: 0 0 var(--cc-space-2);
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-3xl);
-  line-height: var(--cc-leading-tight);
-  font-weight: 600;
+  line-height: var(--cc-leading-heading);
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
 .cc-auth-card__blurb {
-  margin: 0 0 var(--cc-space-6);
+  margin: 0 0 var(--cc-space-7);
   font-size: var(--cc-text-md);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
@@ -147,12 +201,11 @@
   margin-bottom: var(--cc-space-5);
 }
 
+/* A code, so the mono face: the one place it belongs. 7.09:1 on the
+   danger tint. */
 .cc-auth-card__error-code {
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
-  /* The prototype's own #9A857A cleared only 3.02:1 against the danger
-     banner's tint. --cc-ink-secondary clears 6.62:1 against the same
-     background under this palette. */
   color: var(--cc-ink-secondary);
   margin-top: var(--cc-space-2);
 }
@@ -162,7 +215,7 @@
 }
 
 .cc-auth-card__switch {
-  margin-top: var(--cc-space-6);
+  margin-top: var(--cc-space-7);
   padding-top: var(--cc-space-5);
   border-top: var(--cc-border-width) solid var(--cc-rule-soft);
   font-size: var(--cc-text-md);
@@ -174,64 +227,19 @@
   background: none;
   padding: 0;
   font-size: var(--cc-text-md);
+  font-weight: 600;
   color: var(--cc-brand);
   text-decoration: underline;
-  text-underline-offset: 0.18em;
+  text-underline-offset: 0.22em;
   cursor: pointer;
-  font-weight: 500;
 }
 
-/* ---- Mobile ----------------------------------------------------------
-   Explicit collapse, not an assumption: the split becomes one column,
-   the ink panel sits on top and loses its vertical centring, and the
-   statement drops a step so it cannot eat a small viewport. */
-@media (max-width: 860px) {
-  .cc-auth-page {
-    align-items: flex-start;
-    padding: 0;
-  }
-
-  .cc-auth-page__frame {
-    grid-template-columns: 1fr;
-    max-width: 560px;
-    border-radius: 0;
-    box-shadow: none;
-    min-height: 100dvh;
-  }
-
-  .cc-auth-panel {
-    padding: var(--cc-space-7) var(--cc-space-5) var(--cc-space-6);
-    gap: var(--cc-space-3);
-  }
-
-  .cc-auth-panel__statement {
-    font-size: var(--cc-text-3xl);
-    max-width: none;
-  }
-
-  /* The supporting paragraph is the first thing to go on a phone: the
-     statement and the form are what the screen is for. */
-  .cc-auth-panel__body {
-    display: none;
-  }
-
-  .cc-auth-panel__note {
-    margin-top: var(--cc-space-3);
-    padding-top: var(--cc-space-3);
-  }
-
-  .cc-auth-card {
-    padding: var(--cc-space-7) var(--cc-space-5);
-  }
-}
-
-/* ---- Step 63: the account-lifecycle screens ------------------------------
-   verify-email, forgot-password and reset-password reuse this card, so
-   the few rules they need beyond sign-in's live here with it. */
+/* ---- Account-lifecycle screens (step 63) ------------------------------
+   verify-email, forgot-password and reset-password reuse this card. */
 
 .cc-auth-card__forgot {
-  margin: calc(var(--cc-space-2) * -1) 0 var(--cc-space-5);
-  font-size: var(--cc-text-md);
+  margin: calc(var(--cc-space-2) * -1) 0 var(--cc-space-6);
+  font-size: var(--cc-text-base);
 }
 
 .cc-auth-card__status {
@@ -242,17 +250,32 @@
 }
 
 /* The result of an action, told in the card's own voice rather than in a
-   banner: a confirmation the user is meant to read is not an alert. */
+   banner: a confirmation the user is meant to read is not an alert. A
+   drawn check opens it. */
 .cc-auth-card__result {
+  position: relative;
   margin: 0 0 var(--cc-space-5);
-  padding: var(--cc-space-4) var(--cc-space-5);
+  padding: var(--cc-space-4) var(--cc-space-5) var(--cc-space-4)
+    calc(var(--cc-space-5) + 28px);
   border-radius: var(--cc-radius-control);
   border: var(--cc-border-width) solid
-    color-mix(in srgb, var(--cc-success) 28%, transparent);
+    color-mix(in srgb, var(--cc-success) 26%, transparent);
   background: var(--cc-success-tint);
   color: var(--cc-ink);
   font-size: var(--cc-text-md);
   line-height: var(--cc-leading-normal);
+}
+
+.cc-auth-card__result::before {
+  content: "";
+  position: absolute;
+  left: var(--cc-space-4);
+  top: calc(var(--cc-space-4) + 2px);
+  width: 20px;
+  height: 20px;
+  background: var(--cc-success);
+  -webkit-mask: var(--cc-icon-check) center / contain no-repeat;
+  mask: var(--cc-icon-check) center / contain no-repeat;
 }
 
 .cc-auth-card__result strong {
@@ -274,4 +297,98 @@
   margin: var(--cc-space-5) 0 0;
   font-size: var(--cc-text-md);
   color: var(--cc-ink-secondary);
+}
+
+/* ---- Tablet and phone --------------------------------------------------
+   One column: the blue panel becomes a compact band on top (brand and
+   promise only), the form under it, the footer last. The illustration
+   and the supporting paragraph go first: the statement and the form are
+   what a small screen is for. */
+@media (max-width: 960px) {
+  .cc-auth-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+
+  /* The band: brand across the top, the statement and the note on the
+     left, the flagged contract beside them on the right. */
+  .cc-auth-panel {
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--cc-space-3) var(--cc-space-4);
+    padding: var(--cc-space-6) var(--cc-gutter) var(--cc-space-7);
+  }
+
+  .cc-auth-panel::after {
+    grid-column: 2;
+    grid-row: 2 / span 2;
+    align-self: center;
+    width: 148px;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: 320 / 280;
+    margin: 0 calc(var(--cc-space-2) * -1) 0 0;
+    background-position: center;
+  }
+
+  .cc-auth-panel__brand {
+    grid-column: 1 / -1;
+    margin-bottom: var(--cc-space-4);
+  }
+
+  .cc-auth-panel__statement,
+  .cc-auth-panel__note {
+    grid-column: 1;
+  }
+
+  .cc-auth-panel__statement {
+    font-size: var(--cc-text-3xl);
+    max-width: 12ch;
+  }
+
+  .cc-auth-panel__body {
+    display: none;
+  }
+
+  /* No illustration passes behind the note here, so no glass: a
+     hairline above it, as plain text on the band. */
+  .cc-auth-panel__note {
+    max-width: 34ch;
+    margin-top: 0;
+    padding: var(--cc-space-3) 0 0;
+    border-top: var(--cc-border-width) solid rgba(255, 255, 255, 0.22);
+    border-radius: 0;
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .cc-auth-page__main {
+    grid-column: 1;
+    grid-row: 2;
+    padding: var(--cc-space-8) var(--cc-gutter) var(--cc-space-6);
+  }
+
+  .cc-auth-page > .cc-site-footer {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}
+
+@media (max-width: 480px) {
+  .cc-auth-panel::after {
+    width: 104px;
+    margin-right: calc(var(--cc-space-4) * -1);
+  }
+
+  .cc-auth-panel__statement {
+    font-size: 1.75rem;
+  }
+
+  .cc-auth-panel__note {
+    max-width: none;
+  }
 }

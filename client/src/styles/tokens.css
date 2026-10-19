@@ -1,107 +1,106 @@
 /**
  * Design tokens.
  *
- * WHAT CHANGED AND WHY. Through step 39 these tokens were read out of
- * docs/design/ClauseCheck.html (warm paper, deep green, Literata doing
- * every display job). That system was coherent, but it was also the
- * product's whole voice: a warm editorial comp that read closer to a
- * stationery brand than to a tool you hand a contract to. This revision
- * replaces the visual language. The information architecture, the copy's
- * meaning, and every accessibility guarantee are unchanged; what changed
- * is palette, type roles, depth and motion.
+ * WHAT CHANGED AND WHY. Step 40's "ink and annotation" system (cool grey
+ * paper, a near-black header bar, one muted cobalt, a mono face on every
+ * small label, a tinted card around every block) was coherent, but it
+ * was assembled from the defaults a generated interface reaches for: the
+ * dark top bar, the identical rounded card with the identical soft
+ * shadow, uppercase mono eyebrows, "a · b · c" meta strings. It read as
+ * a template before it read as ClauseCheck. This revision replaces the
+ * visual language again. Information architecture, copy, behaviour and
+ * every accessibility guarantee are unchanged.
  *
- * THE DIRECTION: "ink and annotation". Cool paper, near-black ink, one
- * saturated cobalt accent, and nothing else competing. The metaphor is a
- * legal document that has been read closely and marked up once, not a
- * brand brochure.
+ * THE DIRECTION: "flagged". When a lawyer hands back a contract, the
+ * clauses that need attention carry sign-here flags: coloured adhesive
+ * tabs that stick out past the edge of the page and point at a line.
+ * That is exactly what this product does, so the flag is the one
+ * signature shape in the system: the brand mark, the overall-risk
+ * verdict, the severity of each finding, the risk column in history.
+ * Everything around it stays quiet: white sheets on a cool desk, one
+ * saturated signing-pen blue, crisp hairlines instead of shadows.
  *
- * TWO CONSTRAINTS PICKED THIS PALETTE, not taste:
+ * TWO CONSTRAINTS STILL PICK THE PALETTE, not taste:
  *
- *   1. The severity scale already owns red, amber and a muted cool-dark
- *      (FR-3.9's three levels). A brand colour anywhere near those reads
- *      as a fourth severity. That rules out green (the old brand, which
- *      sat right next to severity-low), amber, and red. Cobalt is the
- *      nearest strong hue that carries no severity meaning here.
- *   2. The report is a READING surface — long verbatim contract
- *      excerpts. That rules out a dark page, whatever it would do for
- *      the screenshot. The page stays light and the contrast budget goes
- *      to the text.
+ *   1. The severity scale owns brick, ochre and slate (FR-3.9's three
+ *      levels), so the brand cannot sit near any of them. The blue of a
+ *      signing pen is the nearest strong hue with no severity meaning,
+ *      and it is also the ink a contract gets signed in.
+ *   2. The report is a READING surface of long verbatim excerpts, so the
+ *      page stays light and the contrast budget goes to the text.
  *
- * EVERY PAIRING BELOW IS COMPUTED, NOT EYEBALLED. 27 foreground/
- * background combinations were checked against the WCAG formula before
- * this file was written; the three severity pairings are additionally
- * pinned by tests/unit/severityBadgeContrast.test.js, which reads THIS
- * file rather than a copy. Ratios quoted in comments are from that
- * check. Two pairings that the previous palette quietly failed are fixed
- * here rather than carried over: the input placeholder (was ~2.8:1) and
- * the input border (WCAG 1.4.11's 3:1 for a control boundary).
+ * EVERY PAIRING BELOW IS COMPUTED, NOT EYEBALLED, with the WCAG formula.
+ * The three severity pairings are additionally pinned by
+ * tests/unit/severityBadgeContrast.test.js, which reads THIS file, and
+ * their hex values are also asserted by e2e/report.spec.js: they are
+ * unchanged from step 40 on purpose.
  */
 
 :root {
   /* ---- Palette — brand ---------------------------------------------
-     Cobalt. 7.80:1 on the card surface and 6.95:1 on the page, so it
-     works as link text without a second "link colour", and white on it
-     clears 8.08:1 for a filled control. brand-hover is the same hue
-     darkened, 11.24:1 against white. */
-  --cc-brand: #1e45b8;
-  --cc-brand-hover: #163389;
-  /* A 10%-alpha wash of the brand, for the one-per-screen accent field
-     (the active tab's backing, the dropzone's armed state). Alpha rather
-     than a mixed hex so it sits correctly over either surface. */
-  --cc-brand-wash: rgba(30, 69, 184, 0.07);
+     Signing-pen blue. 7.27:1 on the sheet and 6.49:1 on the desk, so it
+     works as link text without a second "link colour"; white on it is
+     the same 7.27:1, and 9.90:1 on the hover shade. */
+  --cc-brand: #2540e0;
+  --cc-brand-hover: #1b2fb5;
+  /* A low-alpha wash for armed and open states (the dropzone while a
+     file is dragged over it, an open glossary term). Alpha rather than a
+     mixed hex so it sits correctly over any surface. */
+  --cc-brand-wash: rgba(37, 64, 224, 0.07);
+  /* Solid tint for a selected control's backing. Brand text on it is
+     6.19:1, ink 15.26:1. */
+  --cc-brand-tint: #e8ecff;
+  /* Text on a brand field (the sign-in panel). 5.67:1 on --cc-brand. */
+  --cc-brand-pale: #dce2ff;
 
   /* ---- Palette — surfaces ------------------------------------------
-     Cool, not cream. The page is a shade darker than the card so cards
-     read as lifted without needing a heavy shadow to say so. */
-  --cc-surface-page: #eceef1;
-  --cc-surface-card: #fafbfc;
-  /* Alt/inactive chip background (an unselected filter pill). */
-  --cc-surface-muted: #e3e7eb;
-
-  /* ---- Palette — app header ----------------------------------------
-     The one near-black surface in the app. Contrast against
-     --cc-header-bg: brand name / active nav 17.04:1, inactive nav
-     8.47:1, sign-out 6.06:1, accent mark 7.90:1. */
-  --cc-header-bg: #101317;
-  --cc-header-brand-accent: #8fa6f2;
-  --cc-header-text: #f3f5f7;
-  --cc-header-text-muted: #a7b0b9;
-  --cc-header-text-quiet: #8b949e;
+     The desk and the sheet. The page is a cool grey a step darker than
+     the white sheets laid on it, so a sheet reads as paper on a desk
+     from its edge alone, without a drop shadow to say so. */
+  --cc-surface-page: #f0f2f6;
+  --cc-surface-card: #ffffff;
+  /* Wells inside a sheet: the facts rail, an inactive segment track. */
+  --cc-surface-sunken: #f6f7fa;
+  /* Alt/inactive control backing (a segmented-control track). */
+  --cc-surface-muted: #e6e9ef;
+  /* The sticky header (and the legal pages' header): white glass over a
+     blur of whatever is behind it, a cover band or the page scrolling
+     under. 72% is the floor: the header's quietest text (secondary ink)
+     is 5.22:1 on it even with the brand band directly behind. */
+  --cc-surface-glass: rgba(255, 255, 255, 0.72);
 
   /* ---- Palette — ink ----------------------------------------------
-     17.37:1, 8.26:1 and 5.14:1 on the card surface respectively. */
-  --cc-ink: #14171a;
-  --cc-ink-secondary: #464d55;
-  --cc-ink-muted: #646c75;
-  /* Text on --cc-surface-muted (an inactive pill's label). 6.48:1. */
-  --cc-ink-on-muted: #4a5158;
+     On the sheet: 17.93:1, 8.38:1 and 5.79:1. On the desk: 16.00:1,
+     7.48:1 and 5.17:1. */
+  --cc-ink: #15171c;
+  --cc-ink-secondary: #484e58;
+  --cc-ink-muted: #5f6671;
+  /* Text on --cc-surface-muted (an inactive segment's label). 7.00:1. */
+  --cc-ink-on-muted: #474d57;
 
   /* ---- Palette — rules / borders ------------------------------------ */
-  --cc-rule: #d5dae0;
-  /* Structural edges: card outlines, section divides. Decorative, so it
-     is allowed to be light — nothing depends on seeing it to operate a
-     control. */
-  --cc-rule-strong: #c0c7cf;
-  /* Softer border: dividers inside a card (between list rows). */
-  --cc-rule-soft: #e6e9ed;
-  /* THE BORDER OF AN INTERACTIVE CONTROL, and a separate token for a
-     reason: WCAG 1.4.11 asks 3:1 for the boundary of a form control,
-     which the structural rule above does not meet and does not need to.
-     3.01:1 on the page, 3.37:1 on the card. The old palette used one
-     token for both jobs and so met neither properly. */
-  --cc-rule-input: #828a93;
-  /* 4.51:1 on the card. The old value was around 2.8:1, which is the
-     kind of thing that passes review because placeholders "aren't really
-     text" and then fails a real user in daylight. */
-  --cc-placeholder: #6d757e;
+  /* The edge of a sheet. Decorative: nothing depends on seeing it to
+     operate a control, so it is allowed to be light. */
+  --cc-rule: #dce0e7;
+  --cc-rule-strong: #c6ccd5;
+  /* Dividers inside a sheet, between rows. */
+  --cc-rule-soft: #e9ecf1;
+  /* THE BORDER OF AN INTERACTIVE CONTROL, kept a separate token because
+     WCAG 1.4.11 asks 3:1 for a form control's boundary and the
+     structural rules above neither meet that nor need to. 3.87:1 on the
+     sheet, 3.61:1 on a well, 3.45:1 on the desk. */
+  --cc-rule-input: #7b828e;
+  /* 4.92:1 on the sheet, 4.60:1 in a well. */
+  --cc-placeholder: #6a717c;
 
-  /* ---- Palette — severity marks (FR-3.9's three levels) -------------
-     A temperature ramp, warm to cool: brick, ochre, slate. Deliberately
-     NOT a hue the brand uses, and deliberately not three saturations of
-     one hue — FR-7.5 requires severity to be legible without colour, so
-     the dot count and the label do that work, and colour only has to
-     reinforce it.
-     Text on tint: high 5.98:1, medium 5.50:1, low 6.36:1. */
+  /* ---- Palette — severity (FR-3.9's three levels) -------------------
+     A temperature ramp, warm to cool: brick, ochre, slate. Unchanged
+     from step 40 (see the file header). FR-7.5 requires severity to be
+     legible without colour, so the dot count and the label do that work
+     and colour only reinforces it.
+     Text on tint: high 5.98:1, medium 5.50:1, low 6.36:1. White on the
+     full colour, which is how a severity FLAG is set: 7.07:1, 6.37:1,
+     7.57:1. */
   --cc-severity-high: #a32e22;
   --cc-severity-medium: #7a5a10;
   --cc-severity-low: #425763;
@@ -109,74 +108,79 @@
   --cc-severity-medium-tint: #f5eedc;
   --cc-severity-low-tint: #e7ecef;
 
-  /* ---- Palette — danger (destructive actions, error banners) --------
-     An alias of severity-high, as before: a destructive control and a
-     high-severity finding are the same red in this system. Named apart
-     so a destructive Button doesn't read as a severity indicator in the
-     code that uses it. */
+  /* ---- Palette — danger and success --------------------------------
+     Danger aliases severity-high: a destructive control and a
+     high-severity finding are the same brick in this system, named
+     apart so a destructive Button doesn't read as a severity mark in the
+     code that uses it. 9.81:1 for white on the hover shade. */
   --cc-danger: var(--cc-severity-high);
-  /* Same hue, darkened by the same amount brand darkens on hover.
-     9.81:1 against white; the base danger is 7.07:1. */
   --cc-danger-hover: #7e2319;
-
-  /* CopyButton's confirmed state, and the zero-findings result. Kept as
-     its own pair rather than reusing severity-low: confirmation and "a
-     minor finding" are different ideas that should be free to diverge. */
+  /* CopyButton's confirmed state and the zero-findings result. 7.57:1 on
+     the sheet, 6.41:1 on its tint. */
   --cc-success: #2f5d45;
   --cc-success-tint: #e6eeea;
 
+  /* ---- Cover bands -------------------------------------------------
+     Every working screen opens on a full-bleed band of colour that says
+     what the screen is about, with the screen's main sheet laid over the
+     band's lower edge:
+       upload          the brand itself: the front door, white type on it;
+       report          the verdict's own tint (brick, ochre or slate);
+       history,
+       settings        a quiet brand tint: the account's own pages.
+     Ink on the quiet band: 14.71:1, secondary ink 6.87:1,
+     brand links 5.96:1. Secondary ink on each severity tint: 7.04:1 or
+     better; brand links on them: 6.11:1 or better. */
+  --cc-band-quiet: #e3e8fd;
+  /* How far the main sheet climbs back up over the band's edge. */
+  --cc-band-overlap: 72px;
+
   /* ---- Type — families --------------------------------------------
-     THE ROLES CHANGED, not just the faces. Previously Literata carried
-     every heading, which made the interface itself sound like a
-     document. Now:
-       sans  — the product's voice. Headings, labels, controls, body.
+     Three roles (fonts.js has the full reasoning):
+       sans  — the product's voice: headings, labels, controls, body.
        serif — the DOCUMENT's voice, and only that: verbatim contract
-               excerpts and the single risk word they add up to. When
-               you see the serif, you are reading the contract, not the
-               app. That is the whole justification for keeping a serif
-               here; it is not decoration.
-       mono  — machine facts. Filenames, word counts, dates. */
-  --cc-font-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+               excerpts and the single risk word they add up to.
+       mono  — codes, and only codes. */
+  --cc-font-sans:
+    "Host Grotesk Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   --cc-font-serif: "Literata Variable", Georgia, "Times New Roman", serif;
   --cc-font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   /* ---- Type — scale (rem, 1rem = 16px) -----------------------------
-     Rebuilt on a 1.2 ratio from a 14px base, rather than the previous
-     scale's frequency-counted sample of a hand-tuned comp. The old scale
-     topped out at a display size that sat only 2 steps above a section
-     header, which is why the old screens read flat: nothing was ever
-     decisively bigger than anything else. */
-  --cc-text-xs: 0.6875rem; /* 11px   — mono meta, badges */
-  --cc-text-sm: 0.75rem; /* 12px   — secondary meta */
-  --cc-text-base: 0.8125rem; /* 13px   — captions, dense labels */
-  --cc-text-md: 0.875rem; /* 14px   — default UI text */
-  --cc-text-lg: 1rem; /* 16px   — body paragraphs, emphasised UI */
-  --cc-text-xl: 1.1875rem; /* 19px   — subheads, quoted excerpt body */
-  --cc-text-2xl: 1.4375rem; /* 23px   — card headers */
-  --cc-text-3xl: 1.75rem; /* 28px   — section headers */
-  --cc-text-4xl: 2.25rem; /* 36px   — page titles */
-  --cc-text-display: 3rem; /* 48px   — the upload headline */
-  --cc-text-display-lg: 4.25rem; /* 68px   — the single risk word. One per report. */
+     A 1.2-ish ratio from a 15 px reading size, with the display steps
+     pulled further apart than the text steps. A working screen needs
+     many close text sizes; it needs only two or three decisively large
+     ones, and those should be unmistakably larger. */
+  --cc-text-xs: 0.75rem; /* 12px — counts inside controls, codes */
+  --cc-text-sm: 0.8125rem; /* 13px — secondary meta */
+  --cc-text-base: 0.875rem; /* 14px — labels, dense UI */
+  --cc-text-md: 0.9375rem; /* 15px — default UI and body text */
+  --cc-text-lg: 1.0625rem; /* 17px — lead paragraphs */
+  --cc-text-xl: 1.25rem; /* 20px — subheads, quoted excerpt body */
+  --cc-text-2xl: 1.5rem; /* 24px — sheet headings */
+  --cc-text-3xl: 2rem; /* 32px — section headings */
+  --cc-text-4xl: 2.75rem; /* 44px — page titles */
+  --cc-text-display: 3.75rem; /* 60px — the upload headline */
+  --cc-text-display-lg: 6rem; /* 96px — the single risk word. One per report. */
 
   /* ---- Type — line height ------------------------------------------ */
-  --cc-leading-none: 1; /* the display risk word */
-  --cc-leading-tight: 1.12; /* headings */
-  --cc-leading-snug: 1.35; /* subheads, short UI blocks */
+  --cc-leading-none: 0.92; /* the display risk word */
+  --cc-leading-tight: 1.04; /* display headings */
+  --cc-leading-heading: 1.18; /* sheet and section headings */
+  --cc-leading-snug: 1.38; /* subheads, short UI blocks */
   --cc-leading-normal: 1.6; /* sans body text */
-  --cc-leading-relaxed: 1.7; /* serif body — quoted contract excerpts */
+  --cc-leading-relaxed: 1.68; /* serif body: quoted contract excerpts */
 
-  /* ---- Type — letter spacing ---------------------------------------- */
-  --cc-tracking-tighter: -0.032em; /* display */
-  --cc-tracking-tight: -0.018em; /* headings */
+  /* ---- Type — letter spacing ----------------------------------------
+     Never past -0.04em: tighter than that and Host Grotesk's counters
+     start to touch at display sizes. */
+  --cc-tracking-tighter: -0.038em; /* display */
+  --cc-tracking-tight: -0.022em; /* headings */
+  --cc-tracking-snug: -0.01em; /* subheads */
   --cc-tracking-normal: 0;
   --cc-tracking-wide: 0.01em; /* small sans labels */
-  --cc-tracking-wider: 0.08em; /* the few remaining mono caps labels */
 
-  /* ---- Spacing rhythm ------------------------------------------------
-     A real 4px grid this time, which the previous 4/6/8/10/12/15/18 list
-     was not. Sizes that used to need an off-grid value get the next step
-     up; nothing in the app depended on a 15px gap being 15 rather than
-     16. */
+  /* ---- Spacing rhythm (4px grid) ------------------------------------ */
   --cc-space-1: 4px;
   --cc-space-2: 8px;
   --cc-space-3: 12px;
@@ -191,53 +195,244 @@
   --cc-space-12: 112px;
 
   /* ---- Borders and radius --------------------------------------------
-     SHAPE LOCK: one radius system for the whole app. Everything that is
-     a surface gets --cc-radius; everything that is a small mark (badge,
-     pill) gets --cc-radius-sm; controls that read as "pressable" get
-     --cc-radius-control. No fourth value, and no sharp corner mixed in
-     next to a soft one. The previous system was radius 0 everywhere
-     except 2px badges, which is a defensible choice but made every
-     surface read as a printed rule rather than a physical card. */
+     A radius per JOB, not one radius on everything: a sheet of paper, a
+     control you press, and a small mark are different objects and the
+     corners say so.
+       --cc-radius-sm      6px  inside-a-control marks, chips' inner bits
+       --cc-radius-control 10px buttons, inputs, menus
+       --cc-radius         16px sheets
+       --cc-radius-lg      24px the few large framed areas (dialog, auth)
+       --cc-radius-pill         segmented controls, filters, counts */
   --cc-border-width: 1px;
   --cc-border-width-accent: 2px;
   --cc-border-width-focus: 2px;
-  --cc-radius-sm: 4px;
-  --cc-radius-control: 8px;
-  --cc-radius: 12px;
-  --cc-radius-lg: 16px;
+  --cc-radius-sm: 6px;
+  --cc-radius-control: 10px;
+  --cc-radius: 16px;
+  --cc-radius-lg: 24px;
+  --cc-radius-pill: 999px;
+
+  /* ---- The flag ----------------------------------------------------------
+     The signature shape: a tab with its right end cut to a point, the
+     way a sign-here flag points at a line. One polygon, used everywhere
+     a flag appears, so every flag in the app is visibly the same object.
+     `--cc-flag-tip` is how far the point reaches back into the tab; a
+     flag sets its own (the verdict's is long, the brand mark's short).
+     The shape itself is declared per element, below this block. */
+  --cc-flag-tip: 12px;
 
   /* ---- Elevation ------------------------------------------------------
-     Tinted to the page's hue rather than pure black, so a raised surface
-     reads as lifted paper rather than as a drop shadow drawn on top of
-     it. Three levels only: resting, raised (hover), and modal. */
-  --cc-shadow-card:
-    0 1px 2px rgba(20, 26, 36, 0.04), 0 8px 20px -12px rgba(20, 26, 36, 0.16);
-  --cc-shadow-card-lg:
-    0 2px 4px rgba(20, 26, 36, 0.05), 0 16px 32px -16px rgba(20, 26, 36, 0.22);
-  --cc-shadow-modal: 0 32px 64px -24px rgba(16, 19, 23, 0.45);
-  --cc-shadow-popover: 0 8px 24px -8px rgba(20, 26, 36, 0.22);
-  /* An inset top highlight. On a light surface this is what makes an
-     edge look like a physical edge instead of a 1px line. */
-  --cc-shadow-inner-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+     DECLARED ONCE PER SURFACE: a sheet lying on the desk has an edge (a
+     1px rule) and no shadow; only things that FLOAT over the page cast
+     one: the sticky header, a raised segment, a popover, a dialog.
+     Tinted to the desk's hue rather than pure black. */
+  --cc-shadow-raised:
+    0 1px 2px rgba(21, 27, 48, 0.08), 0 2px 6px -2px rgba(21, 27, 48, 0.1);
+  --cc-shadow-float:
+    0 1px 0 rgba(21, 27, 48, 0.04), 0 8px 24px -12px rgba(21, 27, 48, 0.18);
+  --cc-shadow-popover:
+    0 12px 32px -12px rgba(21, 27, 48, 0.28), 0 0 0 1px rgba(21, 27, 48, 0.06);
+  --cc-shadow-modal:
+    0 40px 80px -24px rgba(12, 16, 36, 0.45), 0 0 0 1px rgba(21, 27, 48, 0.06);
+  /* A sheet laid OVER a cover band (see "Cover bands" below) is the one
+     sheet that floats: it straddles the band's edge, so it casts a long,
+     soft shadow onto both surfaces, and its edge is a hairline ring in the
+     shadow rather than a border. */
+  --cc-shadow-sheet:
+    0 0 0 1px rgba(21, 27, 48, 0.07), 0 2px 4px rgba(21, 27, 48, 0.04),
+    0 28px 56px -28px rgba(21, 27, 48, 0.32);
+  /* A pressed-in top highlight for a filled button, so the fill reads as
+     a physical face rather than a flat swatch. */
+  --cc-shadow-inner-top: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* The brand-coloured ring a focused text input gains, on top of the
+     global focus outline. Alpha, so it sits on any surface. */
+  --cc-ring-brand: 0 0 0 4px rgba(37, 64, 224, 0.16);
+
+  /* ---- Liquid glass -------------------------------------------------
+     A MATERIAL, not a blur. After Apple's Liquid Glass (2025): the
+     backdrop is blurred lightly and pushed to more saturation and a
+     little more light (vibrancy), the edge is lit like a bead of glass
+     (a bright specular line top-left, a softer reflection bottom-right,
+     a thin rim and an inner glow), and a diagonal sheen crosses the
+     face. What is left out on purpose is lensing (the backdrop bending
+     at the rim): on the web that needs an SVG displacement map sized to
+     each element by script, works in Chromium only, and in a prototype
+     here it bent the contract text behind the glass into noise.
+
+     Glass only where there is something behind it to see: a surface laid
+     over a cover band, an illustration, or the page itself (the header,
+     a dialog, a popover). Over a flat desk it would only be a tint, so
+     the plain reading sheets stay solid paper.
+
+     Every opacity below was chosen by the worst thing that can show
+     through it, not by the average (the sheen only ever adds light):
+       --cc-glass         sheets over a band. Muted ink 4.44:1 or better
+                          with the brand band behind, 5.58:1 over a tint.
+       --cc-glass-strong  dialog. Secondary ink 5.8:1, the brick title
+                          4.8:1 (large text, so 3:1 applies), even with
+                          solid black directly behind.
+       --cc-glass-popover glossary popover. Secondary ink 5.49:1 with
+                          solid black text directly behind.
+       --cc-glass-on-brand  a card ON the brand band. White type 4.64:1
+                          at the brightest point of its soft sheen.
+       --cc-glass-deep    the sign-in note over the white illustration.
+                          --cc-brand-pale 5.41:1 with the white sheet
+                          directly behind; no sheen on it for that reason.
+     prefers-reduced-transparency turns every one of them solid (below). */
+  --cc-glass: rgba(255, 255, 255, 0.8);
+  --cc-glass-strong: rgba(255, 255, 255, 0.84);
+  --cc-glass-popover: rgba(255, 255, 255, 0.82);
+  --cc-glass-on-brand: rgba(255, 255, 255, 0.12);
+  --cc-glass-deep: rgba(24, 38, 150, 0.8);
+  /* Vibrancy. (Safari reads -webkit-backdrop-filter, which does not
+     resolve custom properties, so every rule that uses this also writes
+     the same value out literally for the prefixed property.) */
+  --cc-glass-filter: blur(20px) saturate(1.9) brightness(1.05);
+  /* The lit edge of a bead of glass: specular top-left, a softer
+     reflection bottom-right, a thin rim, and an inner glow. */
+  --cc-glass-edge:
+    inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 0.95),
+    inset -1.5px -1.5px 1px -1px rgba(255, 255, 255, 0.7),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4), inset 0 0 24px rgba(255, 255, 255, 0.3);
+  --cc-glass-edge-on-color:
+    inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 0.55),
+    inset -1.5px -1.5px 1px -1px rgba(255, 255, 255, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18), inset 0 0 20px rgba(255, 255, 255, 0.08);
+  /* The sheen: light caught across the face, brightest at the top-left
+     corner, a second, fainter catch at the bottom-right. Background
+     layers, so they sit under the content, never over the type. */
+  --cc-glass-sheen: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.14) 22%,
+    rgba(255, 255, 255, 0) 45%,
+    rgba(255, 255, 255, 0) 70%,
+    rgba(255, 255, 255, 0.22) 100%
+  );
+  --cc-glass-sheen-soft: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.02) 30%,
+    rgba(255, 255, 255, 0) 55%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  /* A bar's sheen runs top to bottom rather than across. */
+  --cc-glass-sheen-bar: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.35),
+    rgba(255, 255, 255, 0) 70%
+  );
+  /* The raised bead inside a segmented control: white glass that stands
+     proud of its track, lit on its top edge. */
+  --cc-glass-bead:
+    inset 0 1px 0 rgba(255, 255, 255, 1), inset 0 -1px 0 rgba(21, 27, 48, 0.05),
+    0 1px 2px rgba(21, 27, 48, 0.12), 0 4px 12px -4px rgba(21, 27, 48, 0.22);
+  /* A segmented control's track: a shallow groove, its lower lip lit. */
+  --cc-glass-groove:
+    inset 0 1px 2px rgba(21, 27, 48, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.7);
 
   /* Dialog's full-screen backdrop. */
-  --cc-scrim: rgba(16, 19, 23, 0.52);
+  --cc-scrim: rgba(17, 21, 38, 0.48);
 
   /* ---- Motion --------------------------------------------------------
-     MOTION_INTENSITY 5: fluid CSS only. No animation library is
-     installed and none is wanted — FR-7.13's initial-JS budget is 200 KB
-     gzipped and every one of these moves is a transform or an opacity,
-     which CSS does on the compositor for free.
-     Every duration below is gated by prefers-reduced-motion in
-     global.css; nothing here animates for a reader who asked it not to. */
+     Fluid CSS only: no animation library is installed and none is wanted
+     (FR-7.13's 200 KB initial-JS budget). Every move is a transform, an
+     opacity on a decorative mark, or a colour, and all of it is turned
+     off by prefers-reduced-motion in global.css. */
   --cc-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --cc-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --cc-duration-fast: 120ms;
+  --cc-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --cc-duration-fast: 140ms;
   --cc-duration: 220ms;
-  --cc-duration-slow: 420ms;
+  --cc-duration-slow: 520ms;
+
+  /* ---- Icons ----------------------------------------------------------
+     One drawn set, 24px grid, 2px round stroke, used as CSS masks so each
+     takes its colour from `background: currentColor` where it is used.
+     Data URIs because FR-7.9's CSP is `img-src 'self' data:`: an icon
+     font or a hosted sprite from another origin would be blocked, and
+     these are a few hundred bytes each. Where the markup carries a text
+     glyph for a mark (CopyButton's, the analysing stages', the report's
+     "+" and check), the glyph stays in the DOM, aria-hidden as before,
+     and the drawn icon replaces it on screen: a Unicode character is not
+     an icon system, and two of them rendered as emoji on some phones. */
+  --cc-icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7.5v5.5M12 16.5h.01'/%3E%3C/svg%3E");
+  --cc-icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5M12 7.5h.01'/%3E%3C/svg%3E");
+  --cc-icon-warning: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 4.2 2.6 17.5a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0Z'/%3E%3Cpath d='M12 9.5v4M12 17h.01'/%3E%3C/svg%3E");
+  --cc-icon-chevron-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 18l-6-6 6-6'/%3E%3C/svg%3E");
+  --cc-icon-chevron-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18l6-6-6-6'/%3E%3C/svg%3E");
+  --cc-icon-copy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='11' height='11' rx='2.5'/%3E%3Cpath d='M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9'/%3E%3C/svg%3E");
+  --cc-icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  --cc-icon-plus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  --cc-icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z'/%3E%3Cpath d='M14 3v5h5M9 13h6M9 17h4'/%3E%3C/svg%3E");
+  --cc-icon-upload: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 15V4M7.5 8.5 12 4l4.5 4.5'/%3E%3Cpath d='M5 15v2.5A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5V15'/%3E%3C/svg%3E");
+  --cc-icon-book: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6.6C10.4 5.4 8.3 4.8 5.4 4.8H4v13.1h1.4c2.9 0 5 .6 6.6 1.8 1.6-1.2 3.7-1.8 6.6-1.8H20V4.8h-1.4c-2.9 0-5 .6-6.6 1.8Z'/%3E%3Cpath d='M12 6.6v13.1'/%3E%3C/svg%3E");
+  --cc-icon-lock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='10.5' width='14' height='10' rx='2.5'/%3E%3Cpath d='M8 10.5V8a4 4 0 0 1 8 0v2.5M12 14.5v2'/%3E%3C/svg%3E");
+  --cc-icon-mail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5.5' width='17' height='13' rx='2.5'/%3E%3Cpath d='m4.5 7.5 7.5 5.5 7.5-5.5'/%3E%3C/svg%3E");
+  --cc-icon-logout: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4.5h3.5A2.5 2.5 0 0 1 20 7v10a2.5 2.5 0 0 1-2.5 2.5H14'/%3E%3Cpath d='M9.5 8 5.5 12l4 4M5.5 12H15'/%3E%3C/svg%3E");
+  --cc-icon-download: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v11M7.5 10.5 12 15l4.5-4.5'/%3E%3Cpath d='M5 15v2.5A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5V15'/%3E%3C/svg%3E");
+  --cc-icon-trash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 7h15M9.5 7V5.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V7M6.5 7l.9 11.6A2 2 0 0 0 9.4 20.5h5.2a2 2 0 0 0 2-1.9L17.5 7M10 11v5.5M14 11v5.5'/%3E%3C/svg%3E");
+  --cc-icon-user: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.5' r='3.75'/%3E%3Cpath d='M4.75 20a7.25 7.25 0 0 1 14.5 0'/%3E%3C/svg%3E");
+  --cc-icon-shield: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5 5 6v5.5c0 4.3 3 7.8 7 9 4-1.2 7-4.7 7-9V6z'/%3E%3Cpath d='m9 12 2.2 2.2L15.5 10'/%3E%3C/svg%3E");
+  --cc-icon-report: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z'/%3E%3Cpath d='M14 3v5h5M8.5 12.5h3M8.5 16.5h7'/%3E%3Cpath d='M14 12.5h1.5' stroke-width='2.6'/%3E%3C/svg%3E");
+
+  /* The one illustration: a contract with three sign-here flags sticking
+     out past its edge, one per severity, in the severity colours. Plain
+     geometry (rounded bars for lines of text, three pointed tabs), so it
+     can be specified exactly and drawn crisply at any size; it is not a
+     picture pretending to be one. Shown where a screen would otherwise
+     open on nothing: the sign-in panel, the empty dropzone, an empty
+     history, the analysing screen. */
+  --cc-illustration-flagged: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 280' fill='none'%3E%3Cg transform='rotate(-5 160 140)'%3E%3Crect x='66' y='34' width='184' height='236' rx='12' fill='%230b1240' fill-opacity='.16'/%3E%3Crect x='58' y='22' width='184' height='236' rx='12' fill='%23fff' stroke='%23dce0e7'/%3E%3Crect x='80' y='46' width='92' height='8' rx='4' fill='%2315171c'/%3E%3Crect x='80' y='70' width='140' height='5' rx='2.5' fill='%23d5dae3'/%3E%3Crect x='80' y='83' width='126' height='5' rx='2.5' fill='%23d5dae3'/%3E%3Crect x='74' y='97' width='152' height='32' rx='5' fill='%23f7e9e7'/%3E%3Crect x='80' y='105' width='132' height='5' rx='2.5' fill='%23a32e22' fill-opacity='.5'/%3E%3Crect x='80' y='116' width='98' height='5' rx='2.5' fill='%23a32e22' fill-opacity='.5'/%3E%3Crect x='80' y='141' width='140' height='5' rx='2.5' fill='%23d5dae3'/%3E%3Crect x='80' y='154' width='116' height='5' rx='2.5' fill='%23d5dae3'/%3E%3Crect x='74' y='167' width='152' height='20' rx='5' fill='%23f5eedc'/%3E%3Crect x='80' y='175' width='122' height='5' rx='2.5' fill='%237a5a10' fill-opacity='.5'/%3E%3Crect x='80' y='199' width='134' height='5' rx='2.5' fill='%23d5dae3'/%3E%3Crect x='80' y='212' width='86' height='5' rx='2.5' fill='%23d5dae3'/%3E%3Crect x='74' y='222' width='152' height='19' rx='5' fill='%23e7ecef'/%3E%3Crect x='80' y='229' width='112' height='5' rx='2.5' fill='%23425763' fill-opacity='.5'/%3E%3Cpath d='M212 103h64l14 10-14 10h-64z' fill='%23a32e22'/%3E%3Cpath d='M212 167h54l14 10-14 10h-54z' fill='%237a5a10'/%3E%3Cpath d='M212 222h44l14 9.5-14 9.5h-44z' fill='%23425763'/%3E%3C/g%3E%3C/svg%3E");
 
   /* ---- Layout --------------------------------------------------------- */
   --cc-measure: 68ch; /* body copy line length */
-  --cc-container: 1140px;
-  --cc-container-narrow: 720px;
+  --cc-container: 1200px;
+  --cc-container-narrow: 760px;
+  --cc-gutter: var(--cc-space-7);
+}
+
+/**
+ * THE FLAG POLYGON IS DECLARED ON EVERY ELEMENT, NOT ON :root, and that
+ * is load-bearing. A custom property's var() references are resolved
+ * where the property is declared and then inherited as a finished value,
+ * so a shape declared once on :root would carry the root's 12px tip into
+ * every flag and silently ignore each flag's own `--cc-flag-tip`.
+ * Declared here, each element (and pseudo-element) computes the polygon
+ * from its own tip.
+ */
+*,
+*::before,
+*::after {
+  --cc-flag-shape: polygon(
+    0 0,
+    calc(100% - var(--cc-flag-tip)) 0,
+    100% 50%,
+    calc(100% - var(--cc-flag-tip)) 100%,
+    0 100%
+  );
+}
+
+/* Glass made solid for a reader who asked for less transparency: each
+   becomes the colour it averages to, and nothing is blurred. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --cc-surface-glass: #ffffff;
+    --cc-glass: #ffffff;
+    --cc-glass-strong: #ffffff;
+    --cc-glass-popover: #ffffff;
+    --cc-glass-on-brand: #3f57e4;
+    --cc-glass-deep: #1b2ba5;
+    --cc-glass-filter: none;
+    --cc-glass-sheen: none;
+    --cc-glass-sheen-soft: none;
+    --cc-glass-sheen-bar: none;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --cc-gutter: var(--cc-space-4);
+    --cc-band-overlap: 40px;
+  }
 }

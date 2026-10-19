@@ -1,8 +1,27 @@
+/**
+ * Modal dialog (WCAG 2.1.2 / 2.4.3 — see Dialog.jsx for the focus trap).
+ *
+ * A pane of liquid glass (tokens.css) over the page, which stays there,
+ * dimmed and out of focus, behind the question. The scrim darkens toward
+ * the edges of the window, so the eye lands in the middle where the
+ * dialog is; the dialog arrives on a spring and leaves nothing to
+ * decode: an icon that says what kind of question this is, the question,
+ * one sentence, and two capsule buttons of equal weight side by side.
+ * The same panel carries the account-deletion dialog (a list, the fine
+ * print and a password field), so nothing here assumes a short body.
+ */
+
 .cc-dialog-scrim {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: var(--cc-scrim);
+  background: radial-gradient(
+    120% 90% at 50% 45%,
+    rgba(13, 17, 40, 0.3),
+    rgba(13, 17, 40, 0.56)
+  );
+  -webkit-backdrop-filter: blur(6px) saturate(1.15);
+  backdrop-filter: blur(6px) saturate(1.15);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,32 +29,78 @@
 }
 
 .cc-dialog {
+  position: relative;
   width: 100%;
   max-width: 460px;
-  background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius-lg);
-  box-shadow: var(--cc-shadow-modal);
-  padding: var(--cc-space-7);
-  /* The dialog arrives; it does not blink into place. Same rise the rest
-     of the app uses, so a modal feels like part of the same surface
-     system rather than a separate widget. */
-  animation: cc-rise var(--cc-duration) var(--cc-ease);
+  max-height: calc(100dvh - var(--cc-space-8));
+  overflow-y: auto;
+  /* Liquid glass at 84%: secondary ink keeps 5.8:1 even with solid black
+     directly behind, which no dimmed, blurred page ever is. */
+  background: var(--cc-glass-sheen), var(--cc-glass-strong);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+  backdrop-filter: var(--cc-glass-filter);
+  border-radius: 28px;
+  box-shadow:
+    var(--cc-glass-edge),
+    0 48px 96px -32px rgba(8, 12, 36, 0.55),
+    0 8px 24px -12px rgba(8, 12, 36, 0.3);
+  padding: var(--cc-space-7) var(--cc-space-7) var(--cc-space-6);
+  /* Arrives on a spring. Transform only, so its text is never mid-fade
+     (see global.css). */
+  animation: cc-dialog-in 560ms var(--cc-ease-spring);
 }
 
-/* The destructive variant is marked by its title colour and its primary
-   action, not by a coloured edge — a red stripe on a dialog that asks a
-   yes/no question reads as an error that already happened. */
-.cc-dialog--danger .cc-dialog__title {
-  color: var(--cc-danger);
+@keyframes cc-dialog-in {
+  from {
+    transform: translate3d(0, 18px, 0) scale(0.94);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* ---- The danger mark --------------------------------------------------
+   A destructive question opens on a brick disc with a drawn warning in
+   it and a soft halo around it, rather than a red title or a coloured
+   edge: a red stripe on a yes/no question reads as an error that already
+   happened. The disc is the ::before, the drawn mark the ::after. */
+.cc-dialog--danger::before {
+  content: "";
+  display: block;
+  width: 52px;
+  height: 52px;
+  margin-bottom: var(--cc-space-5);
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      rgba(255, 255, 255, 0.85),
+      rgba(255, 255, 255, 0) 60%
+    ),
+    var(--cc-severity-high-tint);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--cc-severity-high-tint) 55%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cc-danger) 16%, transparent);
+}
+
+.cc-dialog--danger::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--cc-space-7) + 13px);
+  left: calc(var(--cc-space-7) + 13px);
+  width: 26px;
+  height: 26px;
+  background: var(--cc-danger);
+  -webkit-mask: var(--cc-icon-alert) center / contain no-repeat;
+  mask: var(--cc-icon-alert) center / contain no-repeat;
 }
 
 .cc-dialog__title {
-  margin: 0 0 var(--cc-space-3);
+  margin: 0 0 var(--cc-space-2);
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-2xl);
-  line-height: var(--cc-leading-tight);
-  font-weight: 600;
+  font-size: 1.375rem;
+  line-height: var(--cc-leading-heading);
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
@@ -47,8 +112,77 @@
   color: var(--cc-ink-secondary);
 }
 
+/* Two capsules of equal weight side by side, each at least as wide as
+   its own label; when two long labels cannot share a row they stack. */
 .cc-dialog__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cc-space-2);
+  gap: var(--cc-space-3);
+  margin-top: var(--cc-space-6);
+}
+
+.cc-dialog__actions .cc-button {
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: 48px;
+  border-radius: var(--cc-radius-pill);
+}
+
+/* The quiet choice is a capsule of clear glass with a lit rim. */
+.cc-dialog__actions .cc-button--secondary {
+  border-color: rgba(21, 27, 48, 0.14);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: var(--cc-glass-edge);
+}
+
+.cc-dialog__actions .cc-button--secondary:hover:not(:disabled) {
+  border-color: rgba(21, 27, 48, 0.24);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* The destructive choice: brick, lit along its top edge like the rest of
+   the glass. White on brick is 7.07:1. */
+.cc-dialog__actions .cc-button--destructive {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 8px 20px -10px color-mix(in srgb, var(--cc-danger) 70%, transparent);
+}
+
+/* ---- Phone: a sheet from the bottom ------------------------------------
+   The dialog rises from the bottom edge, where the thumb already is, and
+   its buttons stack full width. */
+@media (max-width: 480px) {
+  .cc-dialog-scrim {
+    align-items: flex-end;
+    padding: var(--cc-space-2);
+  }
+
+  .cc-dialog {
+    padding: var(--cc-space-6) var(--cc-space-5) var(--cc-space-5);
+    animation-name: cc-sheet-in;
+  }
+
+  .cc-dialog--danger::after {
+    top: calc(var(--cc-space-6) + 13px);
+    left: calc(var(--cc-space-5) + 13px);
+  }
+
+  .cc-dialog__actions {
+    flex-direction: column;
+  }
+
+  .cc-dialog__actions .cc-button {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@keyframes cc-sheet-in {
+  from {
+    transform: translate3d(0, 48px, 0);
+  }
+  to {
+    transform: none;
+  }
 }

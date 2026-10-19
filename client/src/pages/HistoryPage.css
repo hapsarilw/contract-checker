@@ -1,42 +1,298 @@
 /**
- * The history list.
+ * History: every contract the reader has handed over, newest first.
  *
- * The loading state used to be the sentence "Loading your contracts…" on
- * an otherwise empty page, which tells a reader that something is
- * happening but nothing about what is arriving. It is a skeleton now, in
- * the shape of the rows it is waiting for, so the page does not jump when
- * they land.
+ * A table in all but element: one sheet, one row per contract, the
+ * columns on a shared grid so dates, word counts and verdicts line up
+ * down the page and can be scanned. The verdict column carries a small
+ * severity flag, the same object as the report's verdict and each
+ * finding's, so a reader who has seen one report can read this column
+ * without being told what it is. Filenames are in the sans now, with a
+ * drawn file icon whose tile takes the contract's verdict tint.
+ *
+ * The page opens on the quiet cover band (tokens.css, "Cover bands"),
+ * the title and its sentence on it, the list floating over its lower
+ * edge. The band is carried by the title and the sentence themselves: a
+ * real background colour on each box (what axe measures their text
+ * against) and a border-image outset that takes the colour to the
+ * window's edges without being able to widen the page.
  */
 
 .cc-history {
   max-width: var(--cc-container);
   margin: 0 auto;
-  padding: var(--cc-space-9) var(--cc-space-6) var(--cc-space-10);
+  padding: 0 var(--cc-gutter) var(--cc-space-11);
+}
+
+.cc-history__title,
+.cc-history__blurb {
+  background-color: var(--cc-band-quiet);
+  border-image-source: linear-gradient(var(--cc-band-quiet), var(--cc-band-quiet));
+  border-image-slice: 0 fill;
+  border-image-width: 0;
+  border-image-outset: 0 100vmax;
 }
 
 .cc-history__title {
-  margin: 0 0 var(--cc-space-2);
+  /* The band runs up behind the frosted header too. */
+  border-image-outset: var(--cc-app-header-height, 0px) 100vmax 0;
+  margin: 0;
+  padding: var(--cc-space-10) 0 var(--cc-space-3);
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-4xl);
+  font-size: 3.25rem;
   line-height: var(--cc-leading-tight);
-  font-weight: 600;
-  letter-spacing: var(--cc-tracking-tight);
+  font-weight: 800;
+  letter-spacing: var(--cc-tracking-tighter);
   color: var(--cc-ink);
 }
 
+/* 6.87:1 on the band. */
 .cc-history__blurb {
-  margin: 0 0 var(--cc-space-7);
+  margin: 0;
+  padding-bottom: calc(var(--cc-band-overlap) + var(--cc-space-8));
   font-size: var(--cc-text-lg);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  max-width: var(--cc-measure);
 }
 
-/* ---- Loading skeleton -------------------------------------------------
-   Shapes, not a spinner: four bars per row at the widths the real
-   columns use, so the placeholder and the result occupy the same space.
-   The shimmer is a moving gradient on a background, which composites,
-   and it is gated with everything else by prefers-reduced-motion. */
+/* Whatever comes next (the list, its skeleton, the empty state, an
+   error) climbs back over the band's lower edge. */
+.cc-history__list,
+.cc-history__empty,
+.cc-history main > .cc-banner {
+  position: relative;
+  margin-top: calc(var(--cc-band-overlap) * -1);
+}
+
+/* ---- The sheet ---------------------------------------------------------- */
+
+.cc-history__list {
+  list-style: none;
+  margin-bottom: 0;
+  padding: var(--cc-space-2);
+  background: var(--cc-surface-card);
+  border-radius: var(--cc-radius-lg);
+  box-shadow: var(--cc-shadow-sheet);
+}
+
+/* On a wide screen the list (and the empty state) is frosted glass, the
+   band showing through its top edge under a lit rim; muted ink on it is
+   5.56:1 over the quiet band. Solid paper on a phone. */
+@media (min-width: 768px) {
+  .cc-history__list,
+  .cc-history__empty {
+    background: var(--cc-glass-sheen), var(--cc-glass);
+    -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+    backdrop-filter: var(--cc-glass-filter);
+    box-shadow: var(--cc-glass-edge), var(--cc-shadow-sheet);
+  }
+}
+
+.cc-history__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--cc-radius-control);
+  transition: background-color var(--cc-duration-fast) var(--cc-ease-out);
+}
+
+/* Hairlines between rows, inset so they stop short of the rounded
+   hover backing, and hidden either side of the hovered row. */
+.cc-history__row + .cc-history__row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--cc-space-4);
+  right: var(--cc-space-4);
+  height: 1px;
+  background: var(--cc-rule-soft);
+}
+
+.cc-history__list:not(.cc-history__list--skeleton) .cc-history__row:hover,
+.cc-history__row:has(:focus-visible) {
+  background: var(--cc-surface-sunken);
+}
+
+.cc-history__row:hover::before,
+.cc-history__row:hover + .cc-history__row::before {
+  opacity: 0;
+}
+
+/* The row's columns, on one grid shared by every row. */
+.cc-history__row-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem 7rem 8.5rem 7.5rem;
+  gap: var(--cc-space-2) var(--cc-space-5);
+  align-items: center;
+  padding: var(--cc-space-4);
+  border-radius: var(--cc-radius-control);
+  color: inherit;
+  text-decoration: none;
+}
+
+.cc-history__row-link:hover {
+  color: inherit;
+}
+
+.cc-history__row-link:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The filename: the row's title, led by a drawn file icon that takes the
+   brand colour while the row is pointed at. */
+.cc-history__row-name {
+  display: flex;
+  align-items: center;
+  gap: var(--cc-space-3);
+  min-width: 0;
+  font-size: var(--cc-text-md);
+  font-weight: 600;
+  letter-spacing: var(--cc-tracking-snug);
+  color: var(--cc-ink);
+  overflow-wrap: anywhere;
+}
+
+.cc-history__row-name::before {
+  content: "";
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--cc-radius-control);
+  background: var(--cc-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--cc-rule);
+  transition:
+    background-color var(--cc-duration-fast) var(--cc-ease-out),
+    box-shadow var(--cc-duration-fast) var(--cc-ease-out);
+}
+
+/* The icon is drawn by a mask over the tile, so it sits on its own
+   pseudo-element: the tile above is its backing. */
+.cc-history__row-link::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--cc-space-4) + 10px);
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translateY(-50%);
+  background: var(--cc-ink-muted);
+  -webkit-mask: var(--cc-icon-file) center / contain no-repeat;
+  mask: var(--cc-icon-file) center / contain no-repeat;
+  transition: background-color var(--cc-duration-fast) var(--cc-ease-out);
+  pointer-events: none;
+}
+
+.cc-history__row-link:hover::before {
+  background: var(--cc-brand);
+}
+
+.cc-history__row-link:hover .cc-history__row-name::before {
+  background-color: var(--cc-brand-tint);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-brand) 24%, transparent);
+}
+
+/* A checked contract's file tile takes its verdict: the tint behind, the
+   full colour on the icon. A row is read by colour before it is read. */
+.cc-history__row-link:has(.cc-history__row-risk--high) .cc-history__row-name::before {
+  background-color: var(--cc-severity-high-tint);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-severity-high) 22%, transparent);
+}
+.cc-history__row-link:has(.cc-history__row-risk--high)::before {
+  background: var(--cc-severity-high);
+}
+.cc-history__row-link:has(.cc-history__row-risk--medium) .cc-history__row-name::before {
+  background-color: var(--cc-severity-medium-tint);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--cc-severity-medium) 22%, transparent);
+}
+.cc-history__row-link:has(.cc-history__row-risk--medium)::before {
+  background: var(--cc-severity-medium);
+}
+.cc-history__row-link:has(.cc-history__row-risk--low) .cc-history__row-name::before {
+  background-color: var(--cc-severity-low-tint);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-severity-low) 22%, transparent);
+}
+.cc-history__row-link:has(.cc-history__row-risk--low)::before {
+  background: var(--cc-severity-low);
+}
+
+.cc-history__row-date,
+.cc-history__row-words,
+.cc-history__row-findings {
+  font-size: var(--cc-text-base);
+  color: var(--cc-ink-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The verdict: a small severity flag, white on the full colour (7.07:1,
+   6.37:1, 7.57:1), the dots and the word both inside it. */
+.cc-history__row-risk {
+  --cc-flag-tip: 9px;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cc-space-2);
+  min-height: 26px;
+  padding: 0 calc(var(--cc-space-3) + var(--cc-flag-tip)) 0 var(--cc-space-3);
+  clip-path: var(--cc-flag-shape);
+  font-size: var(--cc-text-sm);
+  font-weight: 650;
+  color: #ffffff;
+  white-space: nowrap;
+}
+.cc-history__row-risk--high {
+  background: var(--cc-severity-high);
+}
+.cc-history__row-risk--medium {
+  background: var(--cc-severity-medium);
+}
+.cc-history__row-risk--low {
+  background: var(--cc-severity-low);
+}
+/* No verdict yet: not a flag at all, just the words, because there is
+   nothing to flag. */
+.cc-history__row-risk--none {
+  padding: 0;
+  clip-path: none;
+  color: var(--cc-ink-muted);
+  font-weight: 500;
+}
+
+.cc-history__row-risk-mark {
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+}
+
+.cc-history__row-delete {
+  flex: none;
+  align-self: center;
+  margin-right: var(--cc-space-2);
+  min-width: 24px;
+  min-height: 34px;
+  padding: 0 var(--cc-space-3);
+  font-size: var(--cc-text-base);
+  font-weight: 600;
+  color: var(--cc-ink-muted);
+  background: none;
+  border: var(--cc-border-width) solid transparent;
+  border-radius: var(--cc-radius-control);
+  cursor: pointer;
+  transition:
+    color var(--cc-duration-fast) var(--cc-ease-out),
+    background-color var(--cc-duration-fast) var(--cc-ease-out),
+    border-color var(--cc-duration-fast) var(--cc-ease-out);
+}
+.cc-history__row-delete:hover {
+  color: var(--cc-danger);
+  background: var(--cc-severity-high-tint);
+  border-color: color-mix(in srgb, var(--cc-danger) 24%, transparent);
+}
+
+/* ---- Loading skeleton ---------------------------------------------------
+   Shapes, not a spinner: bars at the widths the real columns use, so the
+   placeholder and the result occupy the same space. */
 
 .cc-history__list--skeleton {
   pointer-events: none;
@@ -44,38 +300,39 @@
 
 .cc-history__skeleton-row {
   flex: 1 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cc-space-3) var(--cc-space-7);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem 7rem 8.5rem;
+  gap: var(--cc-space-5);
   align-items: center;
-  padding: var(--cc-space-5) var(--cc-space-6);
+  min-height: 66px;
+  padding: var(--cc-space-4);
   animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
   animation-delay: var(--cc-rise-delay, 0ms);
 }
 
 .cc-history__skeleton-bar {
-  height: 0.85rem;
-  border-radius: var(--cc-radius-sm);
+  height: 12px;
+  border-radius: var(--cc-radius-pill);
   background: linear-gradient(
     90deg,
-    var(--cc-surface-page) 0%,
-    var(--cc-surface-muted) 50%,
-    var(--cc-surface-page) 100%
+    var(--cc-surface-muted) 0%,
+    var(--cc-surface-sunken) 50%,
+    var(--cc-surface-muted) 100%
   );
   background-size: 200% 100%;
   animation: cc-shimmer 1.4s linear infinite;
 }
 
 .cc-history__skeleton-bar--name {
-  flex: 1 1 230px;
+  max-width: 280px;
 }
 .cc-history__skeleton-bar--meta {
-  flex: none;
-  width: 84px;
+  width: 80%;
 }
 .cc-history__skeleton-bar--risk {
-  flex: none;
-  width: 104px;
+  width: 88px;
+  height: 22px;
+  border-radius: var(--cc-radius-sm);
 }
 
 @keyframes cc-shimmer {
@@ -87,22 +344,35 @@
   }
 }
 
-/* ---- Empty state ----------------------------------------------------- */
+/* ---- Empty state ---------------------------------------------------------
+   Not "nothing here": the flagged contract, and the one action that
+   fills this page. */
 
 .cc-history__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  border-radius: var(--cc-radius-lg);
+  box-shadow: var(--cc-shadow-sheet);
   padding: var(--cc-space-10) var(--cc-space-6);
   text-align: center;
+}
+
+.cc-history__empty::before {
+  content: "";
+  width: 168px;
+  aspect-ratio: 320 / 280;
+  margin-bottom: var(--cc-space-6);
+  background: var(--cc-illustration-flagged) center / contain no-repeat;
 }
 
 .cc-history__empty-title {
   margin: 0 0 var(--cc-space-3);
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-3xl);
-  font-weight: 600;
+  line-height: var(--cc-leading-heading);
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
@@ -115,143 +385,13 @@
   color: var(--cc-ink-secondary);
 }
 
-/* ---- Populated list ---------------------------------------------------- */
-
-.cc-history__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
-  overflow: hidden;
-}
-
-.cc-history__row {
-  display: flex;
-  align-items: stretch;
-  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
-}
-
-.cc-history__row:first-child {
-  border-top: 0;
-}
-
-.cc-history__row-link {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cc-space-3) var(--cc-space-7);
-  align-items: baseline;
-  padding: var(--cc-space-5) var(--cc-space-6);
-  color: inherit;
-  text-decoration: none;
-  transition: background-color var(--cc-duration-fast) var(--cc-ease-out);
-}
-.cc-history__row-link:hover {
-  background: var(--cc-surface-page);
-}
-
-.cc-history__row-name {
-  flex: 1 1 230px;
-  min-width: 0;
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-md);
-  font-weight: 500;
-  color: var(--cc-ink);
-}
-
-.cc-history__row-date {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-sm);
-  color: var(--cc-ink-secondary);
-  flex: none;
-  min-width: 92px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* --cc-ink-secondary, not --cc-ink-muted: the muted ink clears 4.5:1 on
-   the card under this palette, but secondary is what every other piece of
-   row metadata uses and a table column should not be quieter than the one
-   beside it. */
-.cc-history__row-words {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-sm);
-  color: var(--cc-ink-secondary);
-  flex: none;
-  min-width: 80px;
-  font-variant-numeric: tabular-nums;
-}
-
-.cc-history__row-risk {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--cc-space-3);
-  flex: none;
-  min-width: 104px;
-  font-size: var(--cc-text-sm);
-  font-weight: 600;
-}
-.cc-history__row-risk--high {
-  color: var(--cc-severity-high);
-}
-.cc-history__row-risk--medium {
-  color: var(--cc-severity-medium);
-}
-.cc-history__row-risk--low {
-  color: var(--cc-severity-low);
-}
-.cc-history__row-risk--none {
-  color: var(--cc-ink-secondary);
-  font-weight: 400;
-}
-
-.cc-history__row-risk-mark {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-sm);
-  letter-spacing: 0.16em;
-}
-
-.cc-history__row-findings {
-  font-size: var(--cc-text-sm);
-  color: var(--cc-ink-secondary);
-  flex: none;
-  min-width: 88px;
-  font-variant-numeric: tabular-nums;
-}
-
-.cc-history__row-delete {
-  flex: none;
-  align-self: center;
-  margin-right: var(--cc-space-4);
-  min-width: 24px;
-  min-height: 24px;
-  padding: var(--cc-space-2) var(--cc-space-3);
-  font-size: var(--cc-text-base);
-  font-weight: 500;
-  color: var(--cc-ink-muted);
-  background: none;
-  border: var(--cc-border-width) solid transparent;
-  border-radius: var(--cc-radius-control);
-  cursor: pointer;
-  transition:
-    color var(--cc-duration-fast) var(--cc-ease-out),
-    background-color var(--cc-duration-fast) var(--cc-ease-out);
-}
-.cc-history__row-delete:hover {
-  color: var(--cc-danger);
-  background: var(--cc-severity-high-tint);
-}
-
-/* ---- Load more --------------------------------------------------------- */
+/* ---- Load more ------------------------------------------------------------- */
 
 .cc-history__load-more {
   margin-top: var(--cc-space-6);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--cc-space-4);
 }
 
@@ -259,25 +399,99 @@
   width: 100%;
 }
 
-/* Mobile: the row's columns stack rather than trying to hold five
-   baseline-aligned cells at 390px. */
+/* ---- Tablet: the word count drops out of the grid's columns ---------- */
+@media (max-width: 960px) {
+  .cc-history__row-link {
+    grid-template-columns: minmax(0, 1fr) 7rem 8.5rem 7rem;
+  }
+
+  .cc-history__row-words {
+    display: none;
+  }
+
+  .cc-history__skeleton-row {
+    grid-template-columns: minmax(0, 1fr) 7rem 8.5rem;
+  }
+
+  .cc-history__skeleton-bar--meta + .cc-history__skeleton-bar--meta {
+    display: none;
+  }
+}
+
+/* ---- Phone: each row becomes a two-line entry --------------------------- */
 @media (max-width: 767px) {
   .cc-history {
-    padding: var(--cc-space-7) var(--cc-space-4) var(--cc-space-9);
+    padding: 0 var(--cc-gutter) var(--cc-space-9);
   }
 
   .cc-history__title {
-    font-size: var(--cc-text-3xl);
+    padding-top: var(--cc-space-7);
+    font-size: 2.25rem;
   }
 
-  .cc-history__row-link,
+  .cc-history__blurb {
+    padding-bottom: calc(var(--cc-band-overlap) + var(--cc-space-6));
+  }
+
+  .cc-history__list {
+    padding: var(--cc-space-1);
+    border-radius: var(--cc-radius);
+  }
+
+  .cc-history__row {
+    align-items: flex-start;
+  }
+
+  /* Every line of the entry starts at the filename's text: the row is
+     indented past the file tile, and only the filename (which carries
+     the tile) pulls back out into that indent. So the date, the words,
+     the verdict flag and the count line up however they wrap. */
+  .cc-history__row-link {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cc-space-2) var(--cc-space-4);
+    padding: var(--cc-space-4) var(--cc-space-3) var(--cc-space-4)
+      calc(var(--cc-space-3) + 40px + var(--cc-space-3));
+  }
+
+  .cc-history__row-link::before {
+    top: calc(var(--cc-space-4) + 20px);
+    left: calc(var(--cc-space-3) + 10px);
+  }
+
+  .cc-history__row-name {
+    flex: 1 1 100%;
+    margin-left: calc((40px + var(--cc-space-3)) * -1);
+  }
+
+  .cc-history__row-words {
+    display: inline;
+  }
+
+  .cc-history__row-delete {
+    margin: var(--cc-space-4) var(--cc-space-1) 0 0;
+  }
+
   .cc-history__skeleton-row {
-    padding: var(--cc-space-4);
-    gap: var(--cc-space-2) var(--cc-space-5);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cc-space-3);
+    padding: var(--cc-space-4) var(--cc-space-3);
   }
 
-  .cc-history__row-name,
   .cc-history__skeleton-bar--name {
     flex: 1 1 100%;
+  }
+
+  .cc-history__skeleton-bar--meta {
+    width: 72px;
+  }
+
+  .cc-history__empty {
+    padding: var(--cc-space-8) var(--cc-space-4);
+  }
+
+  .cc-history__empty-title {
+    font-size: var(--cc-text-2xl);
   }
 }

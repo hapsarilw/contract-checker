@@ -1,7 +1,8 @@
 /**
  * Global base. Every value here comes from tokens.css; this file's job is
- * the document-level behaviour tokens cannot express — the paper surface,
- * the focus treatment, the reduced-motion contract, and the handful of
+ * the document-level behaviour tokens cannot express: the desk surface,
+ * the parts of the page the browser draws itself (selection, caret,
+ * scrollbars, focus), the reduced-motion contract, and the handful of
  * utility classes the accessibility work depends on.
  */
 
@@ -16,13 +17,19 @@ html {
      target under the sticky header. */
   scroll-behavior: smooth;
   /* Clear of the sticky app header, whose real height AppHeader measures
-     and publishes (60 px on a desktop, taller on a phone where the nav
-     wraps). A fixed 48 px here left anything the browser scrolled to the
-     top edge, Shift+Tab especially, wholly under the header on a phone
-     and partly under it everywhere: WCAG 2.2's 2.4.11, found by the
-     step-65 audit. With no header (the auth screens) it falls back to a
-     small margin. */
+     and publishes (taller on a phone, where the nav wraps). A fixed value
+     here once left anything the browser scrolled to the top edge,
+     Shift+Tab especially, under the header: WCAG 2.2's 2.4.11, found by
+     the step-65 audit. With no header (the auth screens) it falls back
+     to a small margin. */
   scroll-padding-top: calc(var(--cc-app-header-height, 0px) + var(--cc-space-4));
+  /* The parts of the page no stylesheet draws by default still belong to
+     the design: the scrollbar, the checkbox and the caret take the
+     palette instead of the browser's own grey and blue. */
+  scrollbar-color: var(--cc-rule-strong) transparent;
+  accent-color: var(--cc-brand);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -31,6 +38,12 @@ html {
   }
 }
 
+/**
+ * THE DESK. A flat cool grey and nothing on it: the grain texture the
+ * previous system laid over the page is gone. A noise field is the
+ * shorthand for "not flat" that generated pages reach for, and here the
+ * sheets lying on the desk already do that job with real edges.
+ */
 body {
   margin: 0;
   min-height: 100dvh;
@@ -39,55 +52,43 @@ body {
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-md);
   line-height: var(--cc-leading-normal);
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  caret-color: var(--cc-brand);
 }
 
-/**
- * THE PAPER GRAIN, and why it is drawn rather than downloaded.
- *
- * A flat fill is the single clearest "this was generated" signal in a
- * light interface: real printed and photographed surfaces are never one
- * uniform value. This adds a fractal-noise field at 3% opacity over the
- * page, which is enough to break the flatness and not enough to read as
- * a texture.
- *
- * It is an inline SVG data URI because FR-7.9's CSP is
- * `img-src 'self' data:` — a hosted texture from any other origin would
- * be blocked, and shipping a PNG would cost a request and a cache entry
- * for something that is 400 bytes of markup. `data:` is explicitly
- * allowed, so this is within the policy as written, not an exception to
- * it.
- *
- * Fixed and pointer-events:none, per the skill's DOM-cost rule: a grain
- * layer attached to a SCROLLING container repaints the filter on every
- * frame and destroys mobile frame rate. Attached to the viewport it is
- * composited once.
- */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.032;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Every real surface sits above the grain. */
 #root {
   position: relative;
-  z-index: 1;
+  isolation: isolate;
+}
+
+/* Headings never leave one word stranded on a last line; paragraphs
+   avoid a lone short last line where the browser can. Neither changes
+   what wraps where at the content's own width, only how it balances. */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p,
+li,
+dd,
+blockquote {
+  text-wrap: pretty;
 }
 
 a {
   color: var(--cc-brand);
   text-decoration: underline;
-  text-underline-offset: 0.18em;
+  text-underline-offset: 0.22em;
   text-decoration-thickness: 1px;
-  text-decoration-color: color-mix(in srgb, var(--cc-brand) 35%, transparent);
-  transition: text-decoration-color var(--cc-duration-fast) var(--cc-ease-out);
+  text-decoration-color: color-mix(in srgb, var(--cc-brand) 40%, transparent);
+  transition:
+    color var(--cc-duration-fast) var(--cc-ease-out),
+    text-decoration-color var(--cc-duration-fast) var(--cc-ease-out);
 }
 
 a:hover {
@@ -100,11 +101,16 @@ button {
   letter-spacing: inherit;
 }
 
+strong {
+  font-weight: 650;
+}
+
 /**
  * One focus treatment for the whole app: a 2px brand ring, offset so it
- * never sits on top of the control's own border. Kept as `:focus-visible`
- * rather than `:focus` so a pointer user does not see a ring they did not
- * ask for, which is the behaviour the prototype already had right.
+ * never sits on top of the control's own border. `:focus-visible` rather
+ * than `:focus`, so a pointer user does not see a ring they did not ask
+ * for. The step-65 keyboard audit checks for exactly this outline (2px
+ * or more) on every tab stop.
  */
 :focus-visible {
   outline: var(--cc-border-width-focus) solid var(--cc-brand);
@@ -113,7 +119,8 @@ button {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--cc-brand) 18%, transparent);
+  background: color-mix(in srgb, var(--cc-brand) 20%, transparent);
+  color: var(--cc-ink);
 }
 
 blockquote {
@@ -123,35 +130,46 @@ blockquote {
 input::placeholder,
 textarea::placeholder {
   color: var(--cc-placeholder);
+  opacity: 1;
 }
 
 /* ---- Motion primitives ---------------------------------------------
-   One entrance shape, `cc-rise`, used by every screen. It animates
-   transform only, so it stays on the compositor and can never affect a
-   contrast reading (see the note on the keyframes below).
+   `cc-rise`: the one entrance shape, transform only.
+   `cc-flag-in`: a flag being stuck onto the page, from behind its edge.
+   `cc-bead-in`: a segmented control's chosen segment settling in.
+   `cc-pulse`: the analysing screen's current-stage mark (decorative, no
+   text in it, so it is the one place opacity is animated).
+   `cc-scan`: the analysing screen's reading line.
 
-   `cc-pulse` is kept from the previous system because the analysing
-   screen's indicator depends on it. It is the one place opacity is
-   animated, and it is applied to a decorative mark with no text in it. */
-
-/**
- * TRANSFORM ONLY. NO OPACITY. This started as a fade-and-rise and the
- * fade had to go, for a reason worth recording because it is not
- * obvious: while an element is mid-fade its text is composited against
- * whatever is behind it, so its REAL contrast ratio during those few
- * hundred milliseconds is lower than the ratio the palette was designed
- * for. axe caught exactly that, reporting a 2.19:1 body paragraph on the
- * sign-in panel because it sampled the page while the panel sat at about
- * two thirds opacity.
- *
- * A reader with slow vision tracking, or anyone whose machine is busy
- * enough to stretch those milliseconds, sees the same thing axe did.
- * Sliding into place carries the same "this just arrived" meaning and
- * cannot make text unreadable at any frame.
- */
+   TRANSFORM ONLY on anything that carries text, never opacity. While an
+   element is mid-fade its text is composited against whatever is behind
+   it, so its REAL contrast during those milliseconds is lower than the
+   palette was designed for; axe once caught a 2.19:1 paragraph that way
+   on the sign-in panel. Sliding carries the same "this just arrived"
+   meaning and cannot make text unreadable at any frame. */
 @keyframes cc-rise {
   from {
-    transform: translate3d(0, 12px, 0);
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes cc-flag-in {
+  from {
+    transform: translate3d(-28px, 0, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* A glass bead (a segmented control's chosen segment) settling into
+   its groove: overshoots a little on the spring curve. */
+@keyframes cc-bead-in {
+  from {
+    transform: scale(0.9);
   }
   to {
     transform: none;
@@ -164,7 +182,16 @@ textarea::placeholder {
     opacity: 1;
   }
   50% {
-    opacity: 0.3;
+    opacity: 0.35;
+  }
+}
+
+@keyframes cc-scan {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, var(--cc-scan-distance, 120px), 0);
   }
 }
 
@@ -181,10 +208,10 @@ textarea::placeholder {
 
 /**
  * Screen-reader-only content: visible to assistive technology, invisible
- * on screen, and still perceivable by a screen reader (unlike
- * `display:none` or `visibility:hidden`), which is the entire point of a
- * live region. The standard clip-based pattern rather than
- * `width/height:0`, because some screen readers skip zero-size elements.
+ * on screen, still perceivable by a screen reader (unlike display:none),
+ * which is the entire point of a live region. The clip-based pattern
+ * rather than width/height:0, because some screen readers skip
+ * zero-size elements.
  */
 .cc-sr-only {
   position: absolute;
@@ -199,46 +226,54 @@ textarea::placeholder {
 }
 
 /**
- * SRS §7.15's Keyboard row: "a skip link to main." `.cc-sr-only`'s
- * clip-based hiding, but WITHOUT `position: absolute` baked in as fixed
- * off-screen — this needs to become visible in normal flow on focus, so
- * it is redefined here rather than composed with `.cc-sr-only`.
+ * SRS §7.15's Keyboard row: "a skip link to main." Off-screen until
+ * focused, then a brand flag in the top-left corner: the same shape as
+ * every other flag in the app, because it is pointing at something too.
  */
 .cc-skip-link {
   position: absolute;
   top: -999px;
   left: 0;
   z-index: 100;
-  padding: var(--cc-space-3) var(--cc-space-5);
+  padding: var(--cc-space-3) calc(var(--cc-space-5) + var(--cc-flag-tip))
+    var(--cc-space-3) var(--cc-space-5);
   background: var(--cc-brand);
   color: #ffffff;
   font-size: var(--cc-text-base);
-  font-weight: 500;
+  font-weight: 600;
   text-decoration: none;
-  border-bottom-right-radius: var(--cc-radius-control);
+  clip-path: var(--cc-flag-shape);
 }
 
 .cc-skip-link:focus-visible {
-  top: 0;
+  top: var(--cc-space-2);
+  /* The clip-path would cut the outline away; the flag's own fill is the
+     indicator, and the inset ring keeps a 2px edge the audit can see. */
+  outline: var(--cc-border-width-focus) solid #ffffff;
+  outline-offset: -5px;
 }
 
 /**
  * The reduced-motion contract, and it is absolute: every animation and
  * transition in this app is decoration over a layout that already works
- * standing still. Nothing here carries information a reduced variant
- * would have to preserve — `cc-rise` only slides content that is present
- * and readable either way, `cc-pulse` indicates work that the copy also
- * states in words — so the honest response to the preference is to turn
- * it all off rather than to substitute a smaller version of the thing
- * the reader asked not to see.
+ * standing still. Nothing carries information a reduced variant would
+ * have to preserve: `cc-rise` and `cc-flag-in` only slide content that
+ * is present and readable either way, and `cc-pulse` and `cc-scan`
+ * indicate work the copy also states in words. So the honest response
+ * is to turn it all off rather than substitute a smaller version of the
+ * thing the reader asked not to see.
  */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* A delayed entrance with `backwards` fill would otherwise hold its
+       offset start position for the length of the delay. */
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

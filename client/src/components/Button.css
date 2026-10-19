@@ -1,7 +1,11 @@
 /**
- * Button.jsx's visual styles. A plain CSS file rather than inline styles:
- * :hover and :active need a real stylesheet, and :focus-visible is
- * handled once globally in global.css, so this file never repeats it.
+ * Buttons.
+ *
+ * Three variants, one shape: a 10px-radius control, 44px tall, set in the
+ * sans at 15px/600. A filled button gets a 1px edge a shade darker than
+ * its face and an inset top highlight, so it reads as a key you press
+ * rather than a coloured rectangle; it casts no drop shadow, because it
+ * is lying on the sheet, not floating over it.
  */
 
 .cc-button {
@@ -9,68 +13,77 @@
   align-items: center;
   justify-content: center;
   gap: var(--cc-space-2);
-  /* WCAG 2.5.8: every target at least 24x24 CSS px. Padding does the
-     sizing, not a fixed min-height, so a button's own text can still
-     make it taller without a dead gap underneath. */
+  /* WCAG 2.5.8: every target at least 24x24 CSS px; padding does the
+     sizing, so a long label can still make the button taller. */
   min-width: 24px;
-  min-height: 24px;
-  padding: 11px 20px;
+  min-height: 44px;
+  padding: 10px 20px;
+  font-family: var(--cc-font-sans);
   font-size: var(--cc-text-md);
-  font-weight: 500;
-  letter-spacing: var(--cc-tracking-wide);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--cc-tracking-snug);
+  text-decoration: none;
+  text-align: center;
   cursor: pointer;
   border: var(--cc-border-width) solid transparent;
   border-radius: var(--cc-radius-control);
-  /* Transform and colour only: both composite, so a press stays smooth
-     on a mid-range phone. */
   transition:
     transform var(--cc-duration-fast) var(--cc-ease-out),
     background-color var(--cc-duration-fast) var(--cc-ease-out),
-    box-shadow var(--cc-duration-fast) var(--cc-ease-out);
+    border-color var(--cc-duration-fast) var(--cc-ease-out),
+    color var(--cc-duration-fast) var(--cc-ease-out);
 }
 
-/* Tactile feedback: the control gives under the finger and returns. 1px
-   is enough to feel and too little to reflow anything around it. */
+/* The control gives under the finger and comes back. */
 .cc-button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.985);
 }
 
 .cc-button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
-.cc-button--primary {
-  border: none;
-  background: var(--cc-brand);
-  /* Pure white, not the card surface: 8.08:1 on the brand fill. */
-  color: #ffffff;
-  box-shadow: var(--cc-shadow-card);
+/* A Link styled as a button (history's empty state, the 404) inherits
+   the link underline unless told otherwise. */
+a.cc-button,
+a.cc-button:hover {
+  text-decoration: none;
 }
-.cc-button--primary:hover:not(:disabled) {
+
+.cc-button--primary,
+a.cc-button--primary {
+  border-color: var(--cc-brand-hover);
+  background: var(--cc-brand);
+  /* Pure white: 7.27:1 on the brand face, 9.90:1 on hover. */
+  color: #ffffff;
+  box-shadow: var(--cc-shadow-inner-top);
+}
+.cc-button--primary:hover:not(:disabled),
+a.cc-button--primary:hover {
   background: var(--cc-brand-hover);
-  box-shadow: var(--cc-shadow-card-lg);
+  color: #ffffff;
 }
 
 .cc-button--secondary {
-  border: var(--cc-border-width) solid var(--cc-rule-input);
+  border-color: var(--cc-rule-input);
   background: var(--cc-surface-card);
   color: var(--cc-ink);
 }
 .cc-button--secondary:hover:not(:disabled) {
-  border-color: var(--cc-ink-muted);
-  background: var(--cc-surface-page);
+  border-color: var(--cc-ink-secondary);
+  background: var(--cc-surface-sunken);
 }
 
 .cc-button--destructive {
-  border: none;
+  border-color: var(--cc-danger-hover);
   background: var(--cc-danger);
   color: #ffffff;
-  box-shadow: var(--cc-shadow-card);
+  box-shadow: var(--cc-shadow-inner-top);
 }
 .cc-button--destructive:hover:not(:disabled) {
   background: var(--cc-danger-hover);
-  box-shadow: var(--cc-shadow-card-lg);
 }
 
 .cc-button--full-width {

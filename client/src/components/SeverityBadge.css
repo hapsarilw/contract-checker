@@ -1,62 +1,82 @@
 /**
- * FR-7.5: severity has to be legible without colour. The dot mark
- * carries the shape, the label carries the word, and colour only
- * reinforces what both already say.
+ * Severity, in two drawings.
+ *
+ * The default badge is a quiet tinted pill: severity ink on its own tint
+ * (high 5.98:1, medium 5.50:1, low 6.36:1, pinned by
+ * severityBadgeContrast.test.js).
+ *
+ * The inline variant, which heads every finding, is a FLAG: a sign-here
+ * tab in the full severity colour with white type (7.07:1, 6.37:1,
+ * 7.57:1), cut to a point at its right end. It is the system's signature
+ * shape doing its literal job, marking the clause a reader has to look
+ * at. Sentence case, not the tracked capitals it used to be.
+ *
+ * Colour is never the only channel (WCAG 1.4.1, FR-7.5): the label names
+ * the level, and the mark (●●● / ●●○ / ●○○) gives it a shape a reader
+ * can scan without colour. The mark stays aria-hidden in the component.
  */
+
 .cc-severity-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--cc-space-2);
-  padding: var(--cc-space-1) var(--cc-space-3);
+  min-height: 24px;
+  padding: 2px var(--cc-space-3);
   font-size: var(--cc-text-xs);
-  font-weight: 600;
-  letter-spacing: var(--cc-tracking-wider);
-  text-transform: uppercase;
-  border-radius: var(--cc-radius-sm);
-  border-left-style: solid;
-  border-left-width: var(--cc-border-width-accent);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: var(--cc-tracking-wide);
+  white-space: nowrap;
+  border-radius: var(--cc-radius-pill);
 }
 
 .cc-severity-badge__mark {
-  font-family: var(--cc-font-mono);
-  letter-spacing: 0.16em;
-  text-transform: none;
-  /* Decorative here — the text label carries the accessible name
-     (WCAG 1.4.1: text plus shape, never colour alone; the shape is for
-     sighted users who scan by pattern, which is why the glyph is
-     aria-hidden in the component). */
+  font-size: 0.7em;
+  letter-spacing: 0.18em;
+  line-height: 1;
 }
 
 .cc-severity-badge--high {
   background: var(--cc-severity-high-tint);
-  border-left-color: var(--cc-severity-high);
   color: var(--cc-severity-high);
 }
 
 .cc-severity-badge--medium {
   background: var(--cc-severity-medium-tint);
-  border-left-color: var(--cc-severity-medium);
   color: var(--cc-severity-medium);
 }
 
 .cc-severity-badge--low {
   background: var(--cc-severity-low-tint);
-  border-left-color: var(--cc-severity-low);
   color: var(--cc-severity-low);
 }
 
-/* The finding card's header treatment: text then mark, on the card's own
-   background. The severity inks clear 4.5:1 on their tints, and the card
-   surface is lighter than every tint, so they clear it here too. */
+/* ---- The flag ------------------------------------------------------- */
+
 .cc-severity-badge--inline {
-  align-items: baseline;
-  gap: var(--cc-space-2);
-  padding: 0;
-  background: none;
-  border-left: 0;
+  min-height: 28px;
+  padding: 0 calc(var(--cc-space-3) + var(--cc-flag-tip)) 0 var(--cc-space-3);
   border-radius: 0;
+  clip-path: var(--cc-flag-shape);
+  font-size: var(--cc-text-sm);
+  font-weight: 650;
+  letter-spacing: 0;
+  color: #ffffff;
+}
+
+.cc-severity-badge--inline.cc-severity-badge--high {
+  background: var(--cc-severity-high);
+  color: #ffffff;
+}
+.cc-severity-badge--inline.cc-severity-badge--medium {
+  background: var(--cc-severity-medium);
+  color: #ffffff;
+}
+.cc-severity-badge--inline.cc-severity-badge--low {
+  background: var(--cc-severity-low);
+  color: #ffffff;
 }
 
 .cc-severity-badge--inline .cc-severity-badge__mark {
-  font-size: var(--cc-text-sm);
+  font-size: 0.62em;
 }

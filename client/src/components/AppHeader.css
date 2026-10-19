@@ -1,27 +1,66 @@
 /**
- * The app chrome. Sticky, because on the report screen the nav is the
- * only way back out of a long document and making the reader scroll to
- * the top to find it is a tax on the screen they spend the most time on.
+ * The app header.
+ *
+ * Was a full-width near-black bar with underlined text links, which is
+ * the single most common chrome a generated dashboard ships with and
+ * the heaviest thing on every screen. Now it is a pane of frosted white
+ * glass: each screen's cover band runs up behind it (so on upload it is
+ * frosted blue, on a High report frosted pink), and the page scrolls
+ * under it, blurred. Present without being a slab.
+ *
+ * The blur is functional, not decoration: content really does pass
+ * under this bar, and blurring it keeps the nav legible over a quote or
+ * a filled button without a solid fill cutting the page in two. The
+ * glass is 72% white (tokens.css), which keeps the quietest text here
+ * at 5.22:1 even with the brand band directly behind it.
  */
 
 .cc-app-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--cc-header-bg);
+  background: var(--cc-glass-sheen-bar), var(--cc-surface-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+  backdrop-filter: var(--cc-glass-filter);
+  border-bottom: var(--cc-border-width) solid
+    color-mix(in srgb, var(--cc-rule) 70%, transparent);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* Where a scroll timeline exists, the hairline appears only once
+   something has scrolled under it: at the top of the page there is
+   nothing to separate the header from. Without support, the hairline is
+   simply always there. */
+@supports (animation-timeline: scroll()) {
+  .cc-app-header {
+    animation: cc-header-lift linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 72px;
+  }
+}
+
+@keyframes cc-header-lift {
+  from {
+    border-bottom-color: transparent;
+    box-shadow: none;
+  }
+  to {
+    border-bottom-color: color-mix(in srgb, var(--cc-rule) 70%, transparent);
+    box-shadow:
+      inset 0 -1px 0 rgba(255, 255, 255, 0.55),
+      0 10px 30px -24px rgba(21, 27, 48, 0.4);
+  }
 }
 
 .cc-app-header__inner {
   max-width: var(--cc-container);
   margin: 0 auto;
-  padding: 0 var(--cc-space-6);
+  padding: 0 var(--cc-gutter);
   display: flex;
   flex-wrap: wrap;
-  gap: 0 var(--cc-space-7);
-  align-items: stretch;
-  /* Nav height cap: comfortably under the 80px ceiling, and on one line
-     at every desktop width. */
-  min-height: 60px;
+  gap: var(--cc-space-2) var(--cc-space-7);
+  align-items: center;
+  min-height: 68px;
 }
 
 .cc-app-header__brand {
@@ -31,73 +70,152 @@
   padding: var(--cc-space-3) 0;
 }
 
+/**
+ * THE BRAND MARK IS A FLAG: the one signature shape of the system, at
+ * its smallest. A sign-here tab in signing-pen blue, pointing at the
+ * name. The same polygon draws the report's verdict and every finding's
+ * severity, so the mark is a promise the report keeps.
+ */
 .cc-app-header__brand-mark {
+  --cc-flag-tip: 7px;
   display: inline-block;
-  width: 6px;
-  height: 18px;
-  border-radius: var(--cc-radius-sm);
-  background: var(--cc-header-brand-accent);
+  width: 24px;
+  height: 16px;
+  background: var(--cc-brand);
+  clip-path: var(--cc-flag-shape);
 }
 
-/* SANS, not the serif it used to be. Under the type system the serif is
-   the DOCUMENT's voice; the product's own name is the product speaking. */
+/* Sans, heavy and tight: the product speaking, not the document. */
 .cc-app-header__brand-name {
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-lg);
-  font-weight: 600;
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
-  color: var(--cc-header-text);
+  color: var(--cc-ink);
 }
 
+/**
+ * A segmented control: one sunken track, the current destination a
+ * raised white segment inside it. Standard navigation, read at a glance;
+ * the only liberty taken is that it is quieter than the underlined text
+ * links it replaces.
+ */
 .cc-app-header__nav {
   display: flex;
-  gap: var(--cc-space-6);
-  margin-left: auto;
   align-items: center;
+  gap: 2px;
+  margin-left: auto;
   flex: 0 0 auto;
+  padding: 4px;
+  border-radius: var(--cc-radius-pill);
+  /* A groove pressed into the header's glass: a lighter pane (so the
+     links on it gain contrast over a coloured band instead of losing it,
+     6.53:1 over the brand band), shaded along its top inside edge and lit
+     along its bottom lip. */
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: var(--cc-glass-groove);
 }
 
 .cc-app-header__link {
-  font-size: var(--cc-text-md);
-  font-weight: 400;
-  padding: var(--cc-space-1) 1px;
+  display: inline-flex;
+  align-items: center;
+  /* WCAG 2.5.8: comfortably over 24 px in both directions. */
+  min-height: 34px;
+  padding: 0 var(--cc-space-4);
   border: 0;
-  border-bottom: var(--cc-border-width-focus) solid transparent;
+  border-radius: var(--cc-radius-pill);
   background: none;
   cursor: pointer;
   white-space: nowrap;
   flex: none;
-  color: var(--cc-header-text-muted);
+  font-size: var(--cc-text-base);
+  font-weight: 500;
+  color: var(--cc-ink-secondary);
   text-decoration: none;
-  transition: color var(--cc-duration-fast) var(--cc-ease-out);
+  transition:
+    color var(--cc-duration-fast) var(--cc-ease-out),
+    background-color var(--cc-duration-fast) var(--cc-ease-out),
+    box-shadow var(--cc-duration-fast) var(--cc-ease-out);
 }
 
 .cc-app-header__link:hover {
-  color: var(--cc-header-text);
+  color: var(--cc-ink);
+  background: color-mix(in srgb, var(--cc-surface-card) 60%, transparent);
 }
 
-.cc-app-header__link--active {
-  font-weight: 500;
-  color: var(--cc-header-text);
-  border-bottom-color: var(--cc-header-brand-accent);
+/* The current page is a bead of white glass standing proud of the
+   groove, and it settles into place with a little spring when a page
+   opens (transform only; off with reduced motion). */
+.cc-app-header__link--active,
+.cc-app-header__link--active:hover {
+  font-weight: 600;
+  color: var(--cc-ink);
+  background: var(--cc-surface-card);
+  box-shadow: var(--cc-glass-bead);
+  animation: cc-bead-in 520ms var(--cc-ease-spring) backwards;
 }
 
+.cc-app-header__link:focus-visible {
+  outline-offset: 1px;
+  border-radius: var(--cc-radius-pill);
+}
+
+/* An action, not a destination: set off from the three places by a
+   hairline inside the track. In secondary ink like the links, not the
+   muted ink it used to be: over the brand band behind the glass, muted
+   ink falls to 3.61:1, secondary holds 5.22:1. */
 .cc-app-header__sign-out {
-  color: var(--cc-header-text-quiet);
+  position: relative;
+  margin-left: var(--cc-space-2);
+  color: var(--cc-ink-secondary);
 }
 
-/* Four nav items (New contract, History, Settings, Sign out) are wider than
-   a 320px screen, so on a phone the nav sits on its own row and is allowed
-   to wrap rather than push the page sideways (SRS §7.15). */
+.cc-app-header__sign-out::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--cc-space-1) * -1 - 1px);
+  top: 50%;
+  width: 1px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: var(--cc-rule-strong);
+}
+
+/* Four items are wider than a 320px screen, so on a phone the nav takes
+   its own row and may wrap rather than push the page sideways
+   (SRS §7.15). A wrapped track would read as two broken controls, so on
+   a phone the track goes and each item stands as its own pill. */
 @media (max-width: 767px) {
   .cc-app-header__inner {
-    padding: 0 var(--cc-space-4);
+    min-height: 56px;
+    gap: 0;
   }
+
   .cc-app-header__nav {
     flex: 1 1 100%;
     flex-wrap: wrap;
-    gap: var(--cc-space-1) var(--cc-space-5);
-    margin-left: 0;
-    padding-bottom: var(--cc-space-3);
+    gap: var(--cc-space-1);
+    margin: 0 0 var(--cc-space-3) calc(var(--cc-space-3) * -1);
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .cc-app-header__link {
+    min-height: 32px;
+    padding: 0 var(--cc-space-3);
+  }
+
+  .cc-app-header__link--active,
+  .cc-app-header__link--active:hover {
+    background: var(--cc-surface-card);
+  }
+
+  .cc-app-header__sign-out {
+    margin-left: auto;
+  }
+
+  .cc-app-header__sign-out::before {
+    display: none;
   }
 }

@@ -1,46 +1,81 @@
+/**
+ * 404, and the session-unavailable screen that shares this card.
+ *
+ * The status code is drawn as a flag, the system's one signature shape,
+ * in the brand colour: the address is what got flagged. White on the
+ * brand is 7.27:1. The session-unavailable screen has no code, so it is
+ * the card alone.
+ */
+
 .cc-not-found {
   max-width: var(--cc-container);
   margin: 0 auto;
-  padding: var(--cc-space-10) var(--cc-space-6);
+  padding: var(--cc-space-11) var(--cc-gutter);
 }
 
 .cc-not-found__card {
-  max-width: var(--cc-container-narrow);
-  margin: var(--cc-space-8) auto;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--cc-space-9) var(--cc-space-8);
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-top: var(--cc-border-width-accent) solid var(--cc-brand);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
-  padding: var(--cc-space-9) var(--cc-space-7);
-  text-align: center;
+  border-radius: var(--cc-radius-lg);
+  animation: cc-rise var(--cc-duration-slow) var(--cc-ease) backwards;
 }
 
 .cc-not-found__code {
-  margin: 0 0 var(--cc-space-3);
-  font-family: var(--cc-font-mono);
+  --cc-flag-tip: 26px;
+  display: inline-block;
+  margin: 0 0 var(--cc-space-6) calc((var(--cc-space-8) + 14px) * -1);
+  padding: var(--cc-space-2) calc(var(--cc-flag-tip) + var(--cc-space-5))
+    var(--cc-space-2) calc(var(--cc-space-8) + 14px);
+  clip-path: var(--cc-flag-shape);
+  background: var(--cc-brand);
+  font-family: var(--cc-font-sans);
   font-size: var(--cc-text-display);
-  font-weight: 400;
-  line-height: var(--cc-leading-none);
+  font-weight: 750;
+  line-height: 1.1;
   letter-spacing: var(--cc-tracking-tighter);
-  /* --cc-ink-muted, not a rule colour: this is text carrying the actual
-     HTTP status, and at 1.64:1 the first attempt failed even the 3:1
-     large-text floor. 5.14:1 on the card. */
-  color: var(--cc-ink-muted);
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+  animation: cc-flag-in var(--cc-duration-slow) var(--cc-ease) 100ms backwards;
 }
 
 .cc-not-found__title {
-  margin: 0 0 var(--cc-space-5);
+  margin: 0 0 var(--cc-space-4);
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-3xl);
-  font-weight: 600;
+  line-height: var(--cc-leading-heading);
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
 .cc-not-found__body {
-  margin: 0 0 var(--cc-space-8);
+  margin: 0 0 var(--cc-space-7);
   font-size: var(--cc-text-lg);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
+  max-width: 52ch;
+}
+
+@media (max-width: 767px) {
+  .cc-not-found {
+    padding: var(--cc-space-8) var(--cc-gutter);
+  }
+
+  .cc-not-found__card {
+    padding: var(--cc-space-7) var(--cc-space-5);
+    border-radius: var(--cc-radius);
+  }
+
+  .cc-not-found__code {
+    margin-left: calc(var(--cc-space-5) * -1 - 1px);
+    padding-left: var(--cc-space-5);
+    font-size: var(--cc-text-4xl);
+  }
+
+  .cc-not-found__title {
+    font-size: var(--cc-text-2xl);
+  }
 }

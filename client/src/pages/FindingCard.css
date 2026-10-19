@@ -1,41 +1,83 @@
 /**
  * One finding: the contract's words on the left, ours on the right.
  *
- * That split is the reason this card exists, and the type system now says
- * it without a label having to. The quote is Literata, the explanation is
- * Geist; a reader can tell which text came out of their own file at a
- * glance, from across the room, before reading a word of either.
+ * Each finding is its own sheet, headed by its severity FLAG, stuck on
+ * from a little past the sheet's left edge (SeverityBadge.css draws the
+ * flag). The two halves are told apart three ways, none of them a label:
  *
- * The two uppercase mono eyebrows per card are gone. At four findings
- * they were eight of the twelve on the screen, and they were labelling
- * two columns that the typeface, the tinted quote block and the severity
- * rule already distinguish. They are sentence-case now, and small.
+ *   - typeface: the quote is Literata, the document's voice; the
+ *     explanation is the app's sans;
+ *   - surface: the quote sits on the white paper itself, the explanation
+ *     in a sunken well, like a note clipped beside the page;
+ *   - the margin: the quote carries a CHANGE BAR down its left side, the
+ *     mark a redlined contract uses for "this passage is in question".
+ *     Its colour and thickness encode severity (3px / 2px / 1px), a
+ *     second non-colour channel beside the flag's label; e2e/report.spec
+ *     asserts both.
+ *
+ * The layout responds to the finding's own width (a container query),
+ * not the viewport's, so it is right wherever the list is placed.
  */
 
+.cc-report__findings > li {
+  container-type: inline-size;
+  container-name: finding;
+}
+
 .cc-finding {
-  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
-  padding: var(--cc-space-6);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cc-space-6) var(--cc-space-7);
-  transition: background-color var(--cc-duration) var(--cc-ease-out);
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-areas:
+    "head head"
+    "quote detail";
+  gap: var(--cc-space-5) var(--cc-space-7);
+  padding: var(--cc-space-6) var(--cc-space-7) var(--cc-space-7);
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius);
 }
 
-/* A whole-card hover, so a long list of findings reads as a list of
-   separable things rather than as one undifferentiated wall. */
-.cc-finding:hover {
-  background: color-mix(in srgb, var(--cc-surface-page) 55%, transparent);
-}
-
+/* The head is a strip across the sheet's top in the finding's own
+   severity tint, so a long report reads down the page as a rhythm of
+   brick, ochre and slate before a word of it is read. The strip bleeds
+   to the sheet's edges (negative margins over the sheet's padding). */
 .cc-finding__head {
-  flex: 1 1 100%;
+  grid-area: head;
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--cc-space-2) var(--cc-space-4);
-  padding-bottom: var(--cc-space-3);
+  margin: calc(var(--cc-space-6) * -1) calc(var(--cc-space-7) * -1) var(--cc-space-1);
+  padding: var(--cc-space-4) var(--cc-space-7);
+  border-radius: calc(var(--cc-radius) - 1px) calc(var(--cc-radius) - 1px) 0 0;
   border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
+  background: var(--cc-surface-sunken);
+}
+
+.cc-finding--high .cc-finding__head {
+  background: var(--cc-severity-high-tint);
+  border-bottom-color: color-mix(in srgb, var(--cc-severity-high) 16%, transparent);
+}
+.cc-finding--medium .cc-finding__head {
+  background: var(--cc-severity-medium-tint);
+  border-bottom-color: color-mix(in srgb, var(--cc-severity-medium) 18%, transparent);
+}
+.cc-finding--low .cc-finding__head {
+  background: var(--cc-severity-low-tint);
+  border-bottom-color: color-mix(in srgb, var(--cc-severity-low) 18%, transparent);
+}
+
+/* The flag comes first and sticks out past the sheet's edge. In the
+   markup it follows the heading (the heading names the finding; the
+   severity qualifies it), and reading order stays that way: only the
+   drawing moves it. */
+.cc-finding .cc-finding__severity {
+  order: -1;
+  /* From 10px outside the sheet's edge, with the label starting where
+     the sheet's own content does. */
+  margin-left: calc((var(--cc-space-7) + 10px) * -1);
+  padding-left: calc(var(--cc-space-7) + 10px);
 }
 
 /* Sans: the category is the app's classification of the clause, not a
@@ -43,70 +85,65 @@
 .cc-finding__category {
   margin: 0;
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-xl);
-  font-weight: 600;
+  font-size: 1.375rem;
+  font-weight: 750;
+  line-height: var(--cc-leading-heading);
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
-.cc-finding__severity {
-  margin-left: auto;
-}
-
 .cc-finding__quote-col {
-  flex: 1 1 380px;
+  grid-area: quote;
   min-width: 0;
 }
 
 .cc-finding__detail-col {
-  flex: 1 1 288px;
+  grid-area: detail;
   min-width: 0;
-  border-left: var(--cc-border-width) solid var(--cc-rule-soft);
-  padding-left: var(--cc-space-6);
+  align-self: start;
+  padding: var(--cc-space-5);
+  border-radius: var(--cc-radius-control);
+  background: var(--cc-surface-sunken);
 }
 
-/* Sentence case, sans, small. A column label, not a design element. */
+/* Small sentence-case column labels: a caption, not a design element. */
 .cc-finding__eyebrow {
   margin: 0 0 var(--cc-space-2);
   font-family: var(--cc-font-sans);
-  font-size: var(--cc-text-base);
-  font-weight: 500;
+  font-size: var(--cc-text-sm);
+  font-weight: 600;
   color: var(--cc-ink-muted);
-  letter-spacing: var(--cc-tracking-wide);
 }
 
 .cc-finding__eyebrow--quote {
   margin-bottom: var(--cc-space-3);
 }
 
-/* The rule's colour AND thickness encode severity (3px / 2px / 1px), a
-   second non-colour channel alongside the card's text label. */
 .cc-finding__quote {
   margin: 0;
+  padding: var(--cc-space-1) 0 var(--cc-space-1) var(--cc-space-5);
   font-family: var(--cc-font-serif);
   font-size: var(--cc-text-xl);
   line-height: var(--cc-leading-relaxed);
   color: var(--cc-ink);
-  padding: var(--cc-space-5) var(--cc-space-6);
-  border-radius: 0 var(--cc-radius-control) var(--cc-radius-control) 0;
   border-left-style: solid;
+  /* The opening quotation mark hangs into the margin, so the text's left
+     edge lines up with itself rather than with the punctuation. */
+  text-indent: -0.42em;
   /* Model output can be one long unbroken token; without this it forces
      horizontal scrolling at 320px (SRS §7.15). */
   overflow-wrap: anywhere;
 }
 
 .cc-finding--high .cc-finding__quote {
-  background: var(--cc-severity-high-tint);
   border-left-width: 3px;
   border-left-color: var(--cc-severity-high);
 }
 .cc-finding--medium .cc-finding__quote {
-  background: var(--cc-severity-medium-tint);
   border-left-width: 2px;
   border-left-color: var(--cc-severity-medium);
 }
 .cc-finding--low .cc-finding__quote {
-  background: var(--cc-severity-low-tint);
   border-left-width: 1px;
   border-left-color: var(--cc-severity-low);
 }
@@ -115,33 +152,74 @@
 .cc-finding__ask {
   font-size: var(--cc-text-md);
   line-height: var(--cc-leading-normal);
-  color: var(--cc-ink-secondary);
   overflow-wrap: anywhere;
 }
 
+/* 8.38:1 on the well. */
 .cc-finding__why {
   margin: 0 0 var(--cc-space-5);
+  color: var(--cc-ink-secondary);
 }
 
+/* The ask is the thing to say back to the client, so it is set a step
+   stronger than the explanation above it. */
 .cc-finding__ask {
   margin: 0 0 var(--cc-space-4);
+  font-weight: 500;
+  color: var(--cc-ink);
 }
 
-/* Mobile: the two columns stack, and the left rule that separated them
-   would read as a stray vertical line once they do. */
-@media (max-width: 767px) {
+/* ---- Narrow findings: one column -------------------------------------- */
+@container finding (max-width: 640px) {
   .cc-finding {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "quote"
+      "detail";
+    gap: var(--cc-space-4);
     padding: var(--cc-space-5) var(--cc-space-4);
-    gap: var(--cc-space-5);
   }
 
-  .cc-finding__detail-col {
-    border-left: 0;
-    padding-left: 0;
+  .cc-finding__head {
+    margin: calc(var(--cc-space-5) * -1) calc(var(--cc-space-4) * -1) 0;
+    padding: var(--cc-space-4);
+  }
+
+  /* No protrusion: on a narrow sheet the flag sits inside the edge. */
+  .cc-finding .cc-finding__severity {
+    margin-left: 0;
+    padding-left: var(--cc-space-3);
+  }
+
+  .cc-finding__head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .cc-finding__quote {
-    padding: var(--cc-space-4);
+    padding-left: var(--cc-space-4);
     font-size: var(--cc-text-lg);
+  }
+
+  .cc-finding__detail-col {
+    padding: var(--cc-space-4);
+  }
+}
+
+/* ---- The flags stick on as the reader arrives ----------------------------
+   Where scroll-driven animation exists and motion is welcome, each
+   finding's flag slides in from behind the sheet's edge as the finding
+   scrolls into view: the signature shape doing what a real flag does,
+   once per finding, tied to the reader's own scrolling rather than to a
+   timer. Transform only, so the white type on the flag is at full
+   contrast on every frame. Without support, the flags are simply there. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .cc-finding .cc-finding__severity {
+      animation: cc-flag-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 80%;
+    }
   }
 }

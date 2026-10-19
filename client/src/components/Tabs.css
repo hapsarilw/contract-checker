@@ -1,52 +1,69 @@
+/**
+ * Tabs, drawn as a segmented control: a sunken track with the selected
+ * tab raised out of it. The ARIA pattern underneath is unchanged
+ * (tablist, roving tabindex, arrow keys); only the drawing moved from
+ * underlined text with a tinted backing to the control a reader already
+ * knows how to use from every OS settings screen.
+ */
+
 .cc-tablist {
-  display: flex;
-  gap: var(--cc-space-2);
-  padding: var(--cc-space-2) var(--cc-space-2) 0;
-  border-bottom: var(--cc-border-width) solid var(--cc-rule-soft);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--cc-radius-pill);
+  background: var(--cc-surface-muted);
+  /* A groove, shaded inside its top edge, lit along its bottom lip. */
+  box-shadow: var(--cc-glass-groove);
+  max-width: 100%;
 }
 
 .cc-tab {
-  position: relative;
-  font-size: var(--cc-text-md);
-  padding: var(--cc-space-3) var(--cc-space-4);
+  display: inline-flex;
+  align-items: center;
+  /* WCAG 2.5.8: well over the 24 px minimum target. */
+  min-height: 36px;
+  padding: 0 var(--cc-space-5);
   white-space: nowrap;
   flex: none;
   border: none;
-  border-radius: var(--cc-radius-control) var(--cc-radius-control) 0 0;
+  border-radius: var(--cc-radius-pill);
   background: none;
   cursor: pointer;
-  color: var(--cc-ink-secondary);
+  font-size: var(--cc-text-base);
   font-weight: 500;
-  /* WCAG 2.5.8: 24x24 CSS px minimum target. */
-  min-height: 24px;
+  /* 7.00:1 on the track. */
+  color: var(--cc-ink-on-muted);
   transition:
     color var(--cc-duration-fast) var(--cc-ease-out),
-    background-color var(--cc-duration-fast) var(--cc-ease-out);
+    background-color var(--cc-duration-fast) var(--cc-ease-out),
+    box-shadow var(--cc-duration-fast) var(--cc-ease-out);
 }
 
 .cc-tab:hover:not([aria-selected="true"]) {
   color: var(--cc-ink);
-  background: var(--cc-surface-page);
+  background: color-mix(in srgb, var(--cc-surface-card) 55%, transparent);
 }
 
+/* The selected tab: a bead of white glass standing proud of the groove,
+   settling in with a little spring when it is chosen. */
 .cc-tab[aria-selected="true"] {
-  color: var(--cc-brand);
-  background: var(--cc-brand-wash);
+  color: var(--cc-ink);
+  background: var(--cc-surface-card);
   font-weight: 600;
+  box-shadow: var(--cc-glass-bead);
+  animation: cc-bead-in 520ms var(--cc-ease-spring) backwards;
 }
 
-/* The selected marker sits on the shared bottom rule rather than on the
-   button, so it reads as one continuous edge with the panel below. */
-.cc-tab[aria-selected="true"]::after {
-  content: "";
-  position: absolute;
-  left: var(--cc-space-3);
-  right: var(--cc-space-3);
-  bottom: -1px;
-  height: var(--cc-border-width-focus);
-  background: var(--cc-brand);
+.cc-tab:focus-visible {
+  border-radius: var(--cc-radius-pill);
 }
 
 .cc-tabpanel {
-  padding: var(--cc-space-6);
+  margin-top: var(--cc-space-5);
+  border-radius: var(--cc-radius);
+}
+
+.cc-tabpanel:focus-visible {
+  outline-offset: 4px;
 }

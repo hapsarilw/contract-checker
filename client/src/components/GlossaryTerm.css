@@ -1,3 +1,22 @@
+/**
+ * Plain-language glossary terms inside a finding's explanation.
+ *
+ * THE UNDERLINE IS A TEXT DECORATION NOW, NOT A BORDER, and that fixes
+ * a visible bug. The term's 24 px hit area (WCAG 2.5.8) comes from 11 px
+ * of vertical padding taken back out of the line by a negative margin;
+ * a border-bottom is drawn at the bottom of that padding, so the dotted
+ * line landed 11 px below the word, across the next line of text, and
+ * read as a strikethrough on the words under it ("than when", "project
+ * pays"). An underline sits under the word itself, whatever the padding.
+ *
+ * THE DEFINITION is a bubble of liquid glass (tokens.css), a book mark
+ * before the term, and a spring that grows it out from under the word,
+ * which stays highlighted while it is open. The paragraph it covers stays
+ * visible behind it, blurred, so the reader never loses their place. No
+ * tail: the bubble's own blur stops a tail from blurring what is under
+ * it, so a tail sat as an opaque chip over the next line's letters.
+ */
+
 .cc-glossary {
   position: relative;
   display: inline-block;
@@ -7,38 +26,61 @@
   font: inherit;
   color: var(--cc-ink);
   background: transparent;
+  background-clip: content-box;
   border: 0;
+  text-decoration: underline dotted;
   /* A non-text boundary, so WCAG 1.4.11's 3:1 applies: --cc-ink-muted
-     clears 5.14:1 against the card under this palette. */
-  border-bottom: var(--cc-border-width) dotted var(--cc-ink-muted);
-  /* The prototype's 24px-plus target (WCAG 2.5.8) without changing the
-     line's height: padding grows the hit area, the negative margin
-     takes it back out of the layout. */
+     clears 5.79:1 against the sheet. */
+  text-decoration-color: var(--cc-ink-muted);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.24em;
   padding: 11px 1px;
   margin: -11px 0;
+  border-radius: 3px;
   cursor: help;
-  transition: background-color var(--cc-duration-fast) var(--cc-ease-out);
+  transition:
+    background-color var(--cc-duration-fast) var(--cc-ease-out),
+    text-decoration-color var(--cc-duration-fast) var(--cc-ease-out);
 }
 
-.cc-glossary__term--open {
-  background: var(--cc-brand-wash);
-  border-bottom-color: var(--cc-brand);
+.cc-glossary__term:hover {
+  text-decoration-color: var(--cc-brand);
 }
+
+/* Open: the term is marked like a highlighted word, only behind the word
+   itself (content-box), never spilling over the lines around it. */
+.cc-glossary__term--open {
+  background-color: var(--cc-brand-tint);
+  text-decoration-style: solid;
+  text-decoration-color: var(--cc-brand);
+}
+
+/* ---- The bubble -------------------------------------------------------- */
 
 .cc-glossary__popover {
   position: absolute;
   top: 100%;
-  left: 0;
+  left: -6px;
   z-index: 30;
-  margin-top: var(--cc-space-2);
-  width: min(300px, calc(100vw - 32px));
+  margin-top: 10px;
+  /* GlossaryTerm.jsx flips the bubble inward when the word sits less
+     than this width from the window's right edge; the two must agree. */
+  width: min(296px, calc(100vw - 32px));
   display: block;
   text-align: left;
-  background: var(--cc-surface-card);
-  border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius-control);
-  box-shadow: var(--cc-shadow-popover);
-  padding: 13px 15px;
+  /* Liquid glass at 82%, with the top-down sheen: secondary ink keeps
+     5.49:1 even with solid black text directly behind the bubble. */
+  background: var(--cc-glass-sheen-bar), var(--cc-glass-popover);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
+  backdrop-filter: var(--cc-glass-filter);
+  border-radius: 18px;
+  box-shadow:
+    var(--cc-glass-edge),
+    0 0 0 1px rgba(21, 27, 48, 0.06),
+    0 20px 44px -18px rgba(12, 18, 48, 0.38),
+    0 2px 6px rgba(12, 18, 48, 0.08);
+  padding: var(--cc-space-4) var(--cc-space-5) var(--cc-space-4) var(--cc-space-4);
+  transform-origin: 24px -8px;
 }
 
 .cc-glossary__popover[hidden] {
@@ -47,24 +89,44 @@
 
 .cc-glossary__popover--flip {
   left: auto;
-  right: 0;
+  right: -6px;
+  transform-origin: calc(100% - 24px) -8px;
 }
 
+/* The term, led by a drawn book: this is the glossary speaking. */
 .cc-glossary__popover-term {
-  display: block;
-  font-size: var(--cc-text-base);
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--cc-space-2);
+  font-size: var(--cc-text-md);
+  font-weight: 700;
+  letter-spacing: var(--cc-tracking-snug);
   color: var(--cc-ink);
 }
 
+.cc-glossary__popover-term::before {
+  content: "";
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: var(--cc-brand);
+  -webkit-mask: var(--cc-icon-book) center / contain no-repeat;
+  mask: var(--cc-icon-book) center / contain no-repeat;
+}
+
+/* The meaning, set in from the book so it reads as the term's own line. */
 .cc-glossary__popover-meaning {
   display: block;
+  margin-top: var(--cc-space-1);
+  padding-left: calc(18px + var(--cc-space-2));
   font-size: var(--cc-text-base);
   line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  margin-top: var(--cc-space-2);
 }
 
+/* On a phone the definition opens in the flow, under the paragraph,
+   rather than as a floating bubble the screen is too narrow to hold: a
+   brand-tinted note with the same book mark, no glass. */
 @media (max-width: 600px) {
   .cc-glossary {
     display: inline;
@@ -73,20 +135,30 @@
   .cc-glossary__popover--flip {
     position: static;
     width: auto;
-    margin: var(--cc-space-3) 0 var(--cc-space-3);
-    box-shadow: none;
-    border: 0;
-    border-radius: 0;
-    border-left: var(--cc-border-width-focus) solid var(--cc-rule);
-    padding: 0 0 0 var(--cc-space-4);
-    background: transparent;
+    margin: var(--cc-space-3) 0;
+    border-radius: 14px;
+    padding: var(--cc-space-3) var(--cc-space-4);
+    background: var(--cc-brand-tint);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-brand) 14%, transparent);
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .cc-glossary__popover:not([hidden]) {
-    /* Slide, not fade: a fading popover is unreadable for the length of
-       the fade, and this one exists to be read. */
-    animation: cc-rise 140ms var(--cc-ease-out);
+    /* Grows from under the word on a spring. Transform only, never a fade:
+       a fading bubble is unreadable for the length of the fade, and this
+       one exists to be read. */
+    animation: cc-bubble-in 380ms var(--cc-ease-spring);
+  }
+}
+
+@keyframes cc-bubble-in {
+  from {
+    transform: translate3d(0, -6px, 0) scale(0.92);
+  }
+  to {
+    transform: none;
   }
 }

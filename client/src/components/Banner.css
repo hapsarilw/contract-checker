@@ -1,40 +1,81 @@
+/**
+ * Banners: a tinted panel with a drawn icon in its own column, title and
+ * body beside it. The thick coloured left edge the previous system used
+ * is gone; a stripe down one side of a box is the generated-callout
+ * signature, and here the icon and the tint already say what kind of
+ * message this is before a word of it is read.
+ */
+
 .cc-banner {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: var(--cc-space-3);
+  align-items: start;
   border: var(--cc-border-width) solid transparent;
-  border-left-width: 3px;
   border-radius: var(--cc-radius-control);
-  padding: var(--cc-space-4) var(--cc-space-5);
+  padding: var(--cc-space-4) var(--cc-space-5) var(--cc-space-4) var(--cc-space-4);
+}
+
+/* The icon: decorative (the role and the title carry the meaning), so a
+   pseudo-element rather than markup. It spans every row the banner has. */
+.cc-banner::before {
+  content: "";
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  background: currentColor;
+  -webkit-mask: var(--cc-icon-info) center / contain no-repeat;
+  mask: var(--cc-icon-info) center / contain no-repeat;
+}
+
+.cc-banner__title,
+.cc-banner__body {
+  grid-column: 2;
 }
 
 .cc-banner__title {
   font-size: var(--cc-text-md);
-  font-weight: 600;
+  font-weight: 650;
+  line-height: var(--cc-leading-snug);
   color: var(--cc-ink);
   margin: 0 0 var(--cc-space-1);
-  letter-spacing: var(--cc-tracking-tight);
+  letter-spacing: var(--cc-tracking-snug);
 }
 
 .cc-banner__body {
   font-size: var(--cc-text-md);
   line-height: var(--cc-leading-normal);
+  /* 7.09:1 on the danger tint, 7.24:1 on the warning tint, 7.13:1 on
+     the brand tint. */
   color: var(--cc-ink-secondary);
   margin: 0;
   max-width: var(--cc-measure);
 }
 
 .cc-banner--danger {
-  border-color: color-mix(in srgb, var(--cc-danger) 22%, transparent);
-  border-left-color: var(--cc-danger);
+  border-color: color-mix(in srgb, var(--cc-danger) 24%, transparent);
   background: var(--cc-severity-high-tint);
+  color: var(--cc-danger);
+}
+.cc-banner--danger::before {
+  -webkit-mask-image: var(--cc-icon-alert);
+  mask-image: var(--cc-icon-alert);
 }
 
 .cc-banner--warning {
-  border-color: color-mix(in srgb, var(--cc-severity-medium) 22%, transparent);
-  border-left-color: var(--cc-severity-medium);
+  border-color: color-mix(in srgb, var(--cc-severity-medium) 26%, transparent);
   background: var(--cc-severity-medium-tint);
+  color: var(--cc-severity-medium);
+}
+.cc-banner--warning::before {
+  -webkit-mask-image: var(--cc-icon-warning);
+  mask-image: var(--cc-icon-warning);
 }
 
 .cc-banner--info {
-  border-color: color-mix(in srgb, var(--cc-brand) 18%, transparent);
-  border-left-color: var(--cc-brand);
-  background: var(--cc-brand-wash);
+  border-color: color-mix(in srgb, var(--cc-brand) 22%, transparent);
+  background: var(--cc-brand-tint);
+  color: var(--cc-brand);
 }

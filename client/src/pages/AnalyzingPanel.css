@@ -1,148 +1,292 @@
 /**
- * The analysing screen. The STAGES, their labels and their honesty note
- * are still the prototype's and FR-7.4's (see AnalyzingPanel.jsx); what
- * is no longer the prototype's is the surface it all sits on, which was
- * restyled with the rest of the app when the visual language changed.
+ * The analysing screen (FR-7.4): about thirty seconds of waiting, made
+ * legible.
+ *
+ * Two columns. On the left, what is happening in words: the title, the
+ * keep-this-tab-open note, and the stages as a vertical stepper whose
+ * drawn nodes replace the old text glyphs (the glyphs stay in the DOM,
+ * aria-hidden as before, at zero size). On the right, the
+ * flagged-contract illustration with a reading line passing over it: the
+ * screen's one piece of ambient motion, and it is there because it says
+ * something true (the document is being read), which the copy also says
+ * in words for anyone with motion turned off.
+ *
+ * The illustration and the reading line are the frame's two
+ * pseudo-elements, placed in the grid's second column; they appear only
+ * while the stages are on screen (`:has`), never on the error card.
  */
 
 .cc-analyzing {
-  max-width: var(--cc-container-narrow);
+  max-width: 1040px;
   margin: 0 auto;
-  padding: var(--cc-space-10) var(--cc-space-6);
+  padding: var(--cc-space-10) var(--cc-gutter) var(--cc-space-11);
 }
 
 .cc-analyzing__frame {
-  max-width: 544px;
+  max-width: 560px;
+}
+
+.cc-analyzing__frame:has(.cc-analyzing__stages) {
+  max-width: none;
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+  column-gap: var(--cc-space-10);
+  align-items: start;
+}
+
+.cc-analyzing__frame:has(.cc-analyzing__stages) > main {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+/* The contract being read. */
+.cc-analyzing__frame:has(.cc-analyzing__stages)::after {
+  content: "";
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
+  width: min(100%, 340px);
+  aspect-ratio: 320 / 280;
+  background: var(--cc-illustration-flagged) center / contain no-repeat;
+}
+
+/* The reading line: a soft brand band with a crisp leading edge,
+   travelling down the sheet and back. Painted over the illustration. */
+.cc-analyzing__frame:has(.cc-analyzing__stages)::before {
+  --cc-scan-distance: 210px;
+  content: "";
+  grid-column: 2;
+  grid-row: 1;
+  z-index: 1;
+  align-self: center;
+  justify-self: center;
+  width: min(60%, 206px);
+  height: 36px;
+  /* Start above the sheet's middle, and a little left of the frame's
+     centre because the drawn sheet is; the animation's transform moves
+     it down from here (`translate` composes with `transform`). */
+  translate: -14px -120px;
+  border-bottom: 2px solid var(--cc-brand);
+  background: linear-gradient(to bottom, transparent, rgba(37, 64, 224, 0.14));
+  animation: cc-scan 2.6s var(--cc-ease-out) infinite alternate;
+  pointer-events: none;
 }
 
 .cc-analyzing__meta {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-xs);
-  color: var(--cc-ink-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cc-space-2);
+  min-height: 30px;
   margin-bottom: var(--cc-space-6);
+  padding: 0 var(--cc-space-3) 0 var(--cc-space-2);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius-pill);
+  background: var(--cc-surface-card);
+  font-size: var(--cc-text-sm);
+  font-weight: 500;
+  color: var(--cc-ink-secondary);
   font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.cc-analyzing__meta::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background: var(--cc-ink-muted);
+  -webkit-mask: var(--cc-icon-file) center / contain no-repeat;
+  mask: var(--cc-icon-file) center / contain no-repeat;
 }
 
 .cc-analyzing__title {
-  margin: 0 0 var(--cc-space-5);
+  margin: 0 0 var(--cc-space-4);
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-4xl);
-  line-height: 1.14;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  line-height: var(--cc-leading-tight);
+  font-weight: 750;
+  letter-spacing: var(--cc-tracking-tighter);
   color: var(--cc-ink);
 }
 
 .cc-analyzing__subhead {
-  margin: 0 0 var(--cc-space-11);
+  margin: 0 0 var(--cc-space-8);
   font-size: var(--cc-text-lg);
-  line-height: 1.62;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  max-width: 52ch;
+  max-width: 48ch;
 }
 
+/* ---- The stepper -------------------------------------------------------- */
+
 .cc-analyzing__stages {
+  padding: var(--cc-space-3) var(--cc-space-6);
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow-card), var(--cc-shadow-inner-top);
+  border-radius: var(--cc-radius-lg);
 }
 
 .cc-analyzing__stage {
-  display: flex;
-  gap: var(--cc-space-6);
-  align-items: flex-start;
-  padding: var(--cc-space-6) var(--cc-space-9);
-  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: var(--cc-space-4);
+  align-items: start;
+  padding: var(--cc-space-4) 0;
 }
 
-.cc-analyzing__stage:first-child {
-  border-top: none;
+/* The connector from this node down to the next one. */
+.cc-analyzing__stage:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: calc(var(--cc-space-4) + 32px);
+  bottom: calc(var(--cc-space-1) * -1);
+  width: 2px;
+  border-radius: 1px;
+  background: var(--cc-rule);
 }
 
+/* A completed step's connector is drawn in brand: progress reads down
+   the line. */
+.cc-analyzing__stage:has(.cc-analyzing__stage-mark--done):not(:last-child)::after {
+  background: var(--cc-brand);
+}
+
+/* The node. Its text glyph (✓ ● ○) is kept for the DOM at zero size. */
 .cc-analyzing__stage-mark {
-  font-family: var(--cc-font-mono);
-  font-size: var(--cc-text-sm);
-  line-height: 1.6;
-  width: 13px;
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0;
+  color: transparent;
   flex: none;
+  box-sizing: border-box;
 }
 
 .cc-analyzing__stage-mark--done {
-  color: var(--cc-brand);
+  background: var(--cc-brand);
 }
+
+.cc-analyzing__stage-mark--done::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  background: #ffffff;
+  -webkit-mask: var(--cc-icon-check) center / contain no-repeat;
+  mask: var(--cc-icon-check) center / contain no-repeat;
+}
+
 .cc-analyzing__stage-mark--current {
-  color: var(--cc-ink);
-  animation: cc-pulse 2s ease-in-out infinite;
+  border: 2px solid var(--cc-brand);
+  background: var(--cc-surface-card);
+  box-shadow: var(--cc-ring-brand);
 }
+
+.cc-analyzing__stage-mark--current::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--cc-brand);
+  animation: cc-pulse 1.6s ease-in-out infinite;
+}
+
+/* 3.87:1 boundary on the sheet: a non-text mark, so WCAG 1.4.11's 3:1. */
 .cc-analyzing__stage-mark--pending {
-  /* Not --cc-ink-muted: the prototype's own #7F857D here clears only
-     3.62:1 against this card's background — needs 4.5:1 (WCAG 1.4.3,
-     axe's color-contrast rule, caught running this screen's own axe
-     test). --cc-ink-secondary clears 6.89:1 against the same
-     background and is already this app's "still legible, just less
-     emphasised" tone elsewhere. */
-  color: var(--cc-ink-secondary);
+  border: 2px solid var(--cc-rule-input);
+  background: var(--cc-surface-card);
 }
 
 .cc-analyzing__stage-label {
+  padding-top: 3px;
   font-size: var(--cc-text-md);
-  line-height: 1.5;
-  letter-spacing: -0.006em;
+  line-height: var(--cc-leading-snug);
+  letter-spacing: var(--cc-tracking-snug);
 }
 
 .cc-analyzing__stage-label--done {
-  color: var(--cc-brand);
-  font-weight: 400;
+  color: var(--cc-ink-secondary);
+  font-weight: 500;
 }
 .cc-analyzing__stage-label--current {
   color: var(--cc-ink);
-  font-weight: 600;
+  font-weight: 700;
 }
+/* Not --cc-ink-muted's lighter siblings: pending text still has to
+   clear 4.5:1 (axe caught the prototype's 3.62:1 here). 8.38:1. */
 .cc-analyzing__stage-label--pending {
-  /* Same fix, same reason as the mark above. */
   color: var(--cc-ink-secondary);
-  font-weight: 400;
+  font-weight: 500;
 }
 
 .cc-analyzing__stage-note {
   font-size: var(--cc-text-sm);
-  line-height: 1.55;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
   margin-top: var(--cc-space-1);
   max-width: 52ch;
 }
 
 .cc-analyzing__honesty-note {
-  margin: var(--cc-space-7) 0 0;
+  margin: var(--cc-space-6) 0 0;
   font-size: var(--cc-text-base);
-  line-height: 1.58;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
-  max-width: 50ch;
+  max-width: 52ch;
 }
 
-/* ---- The analyze-error card (replaces the stages entirely) --------- */
+/* ---- The analyse-error card (replaces the stages entirely) --------- */
 
 .cc-analyzing-error {
+  position: relative;
   background: var(--cc-surface-card);
   border: var(--cc-border-width) solid var(--cc-rule);
-  border-top: var(--cc-border-width-focus) solid var(--cc-danger);
-  padding: var(--cc-space-6);
+  border-radius: var(--cc-radius-lg);
+  padding: var(--cc-space-7);
+}
+
+/* A drawn warning on a danger-tinted tile opens the card, in place of
+   the coloured top edge it used to carry. */
+.cc-analyzing-error::before {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--cc-space-5);
+  border-radius: var(--cc-radius-control);
+  background: var(--cc-severity-high-tint);
+}
+
+.cc-analyzing-error::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--cc-space-7) + 11px);
+  left: calc(var(--cc-space-7) + 11px);
+  width: 22px;
+  height: 22px;
+  background: var(--cc-danger);
+  -webkit-mask: var(--cc-icon-alert) center / contain no-repeat;
+  mask: var(--cc-icon-alert) center / contain no-repeat;
 }
 
 .cc-analyzing-error__title {
-  margin: 0 0 var(--cc-space-4);
-  font-size: var(--cc-text-2xl);
-  line-height: 1.26;
-  font-weight: 600;
-  letter-spacing: -0.018em;
+  margin: 0 0 var(--cc-space-3);
+  font-size: var(--cc-text-3xl);
+  line-height: var(--cc-leading-heading);
+  font-weight: 750;
+  letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
 }
 
 .cc-analyzing-error__body {
-  margin: 0 0 var(--cc-space-9);
+  margin: 0 0 var(--cc-space-7);
   font-size: var(--cc-text-lg);
-  line-height: 1.62;
+  line-height: var(--cc-leading-normal);
   color: var(--cc-ink-secondary);
 }
 
@@ -152,13 +296,83 @@
   gap: var(--cc-space-3);
 }
 
+/* A code: the mono face's one job. */
 .cc-analyzing-error__code {
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
-  /* --cc-ink-secondary, not the prototype's #9A857A — that literal
-     value clears only 3.02:1 against a light card background too (see
-     UploadPage.css/AuthForm.css's own notes on this same prototype
-     pattern, fixed twice already in step 33). */
   color: var(--cc-ink-secondary);
-  margin-top: var(--cc-space-8);
+  margin-top: var(--cc-space-6);
+  padding-top: var(--cc-space-4);
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
+}
+
+/* With motion off the reading line would only sit frozen across the top
+   of the sheet, saying nothing; the stepper already says it in words. */
+@media (prefers-reduced-motion: reduce) {
+  .cc-analyzing__frame:has(.cc-analyzing__stages)::before {
+    display: none;
+  }
+}
+
+/* ---- Tablet and phone: one column, the picture on top ----------------
+   The contract being read moves above the title, smaller, with its
+   reading line still passing over it: on a phone this is the whole
+   screen for half a minute, and it should show that something is
+   happening, not only say so. */
+@media (max-width: 900px) {
+  .cc-analyzing__frame:has(.cc-analyzing__stages) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--cc-space-5);
+  }
+
+  .cc-analyzing__frame:has(.cc-analyzing__stages) > main {
+    grid-row: 2;
+  }
+
+  .cc-analyzing__frame:has(.cc-analyzing__stages)::after {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    width: 176px;
+  }
+
+  /* Centred on the drawn sheet, which sits a little left of the
+     picture's middle. */
+  .cc-analyzing__frame:has(.cc-analyzing__stages)::before {
+    --cc-scan-distance: 104px;
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    width: 108px;
+    height: 24px;
+    translate: 29px -60px;
+  }
+}
+
+@media (max-width: 767px) {
+  .cc-analyzing {
+    padding: var(--cc-space-7) var(--cc-gutter) var(--cc-space-9);
+  }
+
+  .cc-analyzing__title {
+    font-size: var(--cc-text-3xl);
+  }
+
+  .cc-analyzing__stages {
+    padding: var(--cc-space-2) var(--cc-space-4);
+    border-radius: var(--cc-radius);
+  }
+
+  .cc-analyzing-error {
+    padding: var(--cc-space-6) var(--cc-space-4);
+  }
+
+  .cc-analyzing-error::after {
+    top: calc(var(--cc-space-6) + 11px);
+    left: calc(var(--cc-space-4) + 11px);
+  }
+
+  .cc-analyzing-error__title {
+    font-size: var(--cc-text-2xl);
+  }
 }

@@ -1,25 +1,46 @@
+/**
+ * The render-error fallback (step 31). Deliberately plain: it has to look
+ * right even when the thing that broke was a stylesheet's neighbour. A
+ * sheet, a heading, a sentence, the request id for support, one action.
+ */
+
 .cc-error-boundary {
-  max-width: var(--cc-container-narrow);
-  margin: var(--cc-space-10) auto;
-  padding: 0 var(--cc-space-5);
+  max-width: 640px;
+  margin: var(--cc-space-11) auto;
+  padding: var(--cc-space-8) var(--cc-space-7);
+  background: var(--cc-surface-card);
+  border: var(--cc-border-width) solid var(--cc-rule);
+  border-radius: var(--cc-radius-lg);
 }
 
 .cc-error-boundary__title {
   font-family: var(--cc-font-sans);
   font-size: var(--cc-text-3xl);
-  font-weight: 600;
+  line-height: var(--cc-leading-heading);
+  font-weight: 750;
   letter-spacing: var(--cc-tracking-tight);
   color: var(--cc-ink);
   margin: 0 0 var(--cc-space-3);
 }
 
+/* A code: the mono face's one job. */
 .cc-error-boundary__request-id {
   font-family: var(--cc-font-mono);
   font-size: var(--cc-text-xs);
   color: var(--cc-ink-secondary);
-  margin: var(--cc-space-4) 0 0;
+  margin: var(--cc-space-5) 0 0;
+  padding-top: var(--cc-space-4);
+  border-top: var(--cc-border-width) solid var(--cc-rule-soft);
 }
 
 .cc-error-boundary__action {
   margin-top: var(--cc-space-6);
+}
+
+@media (max-width: 767px) {
+  .cc-error-boundary {
+    margin: var(--cc-space-7) var(--cc-gutter);
+    padding: var(--cc-space-6) var(--cc-space-4);
+    border-radius: var(--cc-radius);
+  }
 }
