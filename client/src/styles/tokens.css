@@ -68,6 +68,12 @@
      under. 72% is the floor: the header's quietest text (secondary ink)
      is 5.22:1 on it even with the brand band directly behind. */
   --cc-surface-glass: rgba(255, 255, 255, 0.72);
+  /* Once the page scrolls under the header, its glass thickens to this
+     and its vibrancy calms (--cc-glass-filter-bar): a saturated block
+     passing under it, such as a red verdict flag, then shows as a faint
+     blush instead of the hot-pink smear the full liquid-glass filter
+     made of it. */
+  --cc-surface-glass-scrolled: rgba(255, 255, 255, 0.9);
 
   /* ---- Palette — ink ----------------------------------------------
      On the sheet: 17.93:1, 8.38:1 and 5.79:1. On the desk: 16.00:1,
@@ -271,8 +277,12 @@
        --cc-glass-strong  dialog. Secondary ink 5.8:1, the brick title
                           4.8:1 (large text, so 3:1 applies), even with
                           solid black directly behind.
-       --cc-glass-popover glossary popover. Secondary ink 5.49:1 with
-                          solid black text directly behind.
+       --cc-glass-popover glossary popover. Thicker than the rest, because
+                          it is the one glass that sits over running text:
+                          at 82% the blurred ghost of each letter under the
+                          bubble's edge sat right where the crisp letters
+                          stopped and read as a strikethrough. 90% leaves
+                          a faint haze. Secondary ink 6.6:1 or better.
        --cc-glass-on-brand  a card ON the brand band. White type 4.64:1
                           at the brightest point of its soft sheen.
        --cc-glass-deep    the sign-in note over the white illustration.
@@ -281,13 +291,20 @@
      prefers-reduced-transparency turns every one of them solid (below). */
   --cc-glass: rgba(255, 255, 255, 0.8);
   --cc-glass-strong: rgba(255, 255, 255, 0.84);
-  --cc-glass-popover: rgba(255, 255, 255, 0.82);
+  --cc-glass-popover: rgba(255, 255, 255, 0.9);
   --cc-glass-on-brand: rgba(255, 255, 255, 0.12);
   --cc-glass-deep: rgba(24, 38, 150, 0.8);
   /* Vibrancy. (Safari reads -webkit-backdrop-filter, which does not
      resolve custom properties, so every rule that uses this also writes
      the same value out literally for the prefixed property.) */
   --cc-glass-filter: blur(20px) saturate(1.9) brightness(1.05);
+  /* The header's own filter: content scrolls under a bar, unlike the
+     sheets, which lie still over flat bands, so it blurs wider and
+     saturates less. */
+  --cc-glass-filter-bar: blur(28px) saturate(1.35) brightness(1.04);
+  /* The popover's: wide and calm, so text behind it is a haze, not a
+     ghost of letters. */
+  --cc-glass-filter-over-text: blur(36px) saturate(1.3) brightness(1.04);
   /* The lit edge of a bead of glass: specular top-left, a softer
      reflection bottom-right, a thin rim, and an inner glow. */
   --cc-glass-edge:
@@ -418,12 +435,15 @@
 @media (prefers-reduced-transparency: reduce) {
   :root {
     --cc-surface-glass: #ffffff;
+    --cc-surface-glass-scrolled: #ffffff;
     --cc-glass: #ffffff;
     --cc-glass-strong: #ffffff;
     --cc-glass-popover: #ffffff;
     --cc-glass-on-brand: #3f57e4;
     --cc-glass-deep: #1b2ba5;
     --cc-glass-filter: none;
+    --cc-glass-filter-bar: none;
+    --cc-glass-filter-over-text: none;
     --cc-glass-sheen: none;
     --cc-glass-sheen-soft: none;
     --cc-glass-sheen-bar: none;

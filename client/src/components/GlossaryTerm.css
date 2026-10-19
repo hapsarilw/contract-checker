@@ -62,17 +62,24 @@
   top: 100%;
   left: -6px;
   z-index: 30;
-  margin-top: 10px;
+  /* No gap, on purpose: the bubble's top edge has to sit exactly on the
+     boundary between the word's line and the next one (measured: the
+     word's line ends at its wrapper's bottom, the next line's letters
+     start 2px lower). A 10px gap put the edge through the middle of the
+     next line, so the top half of its letters stayed crisp and the
+     bottom half blurred under the glass, which read as a strikethrough. */
+  margin-top: 0;
   /* GlossaryTerm.jsx flips the bubble inward when the word sits less
      than this width from the window's right edge; the two must agree. */
   width: min(296px, calc(100vw - 32px));
   display: block;
   text-align: left;
-  /* Liquid glass at 82%, with the top-down sheen: secondary ink keeps
-     5.49:1 even with solid black text directly behind the bubble. */
+  /* Liquid glass, thicker than elsewhere (90%, with a wide calm blur):
+     this is the one glass that sits over running text, and its edges
+     cross lines of it (tokens.css, --cc-glass-popover). */
   background: var(--cc-glass-sheen-bar), var(--cc-glass-popover);
-  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
-  backdrop-filter: var(--cc-glass-filter);
+  -webkit-backdrop-filter: blur(36px) saturate(1.3) brightness(1.04);
+  backdrop-filter: var(--cc-glass-filter-over-text);
   border-radius: 18px;
   box-shadow:
     var(--cc-glass-edge),

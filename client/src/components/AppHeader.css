@@ -19,9 +19,12 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--cc-glass-sheen-bar), var(--cc-surface-glass);
-  -webkit-backdrop-filter: blur(20px) saturate(1.9) brightness(1.05);
-  backdrop-filter: var(--cc-glass-filter);
+  /* The thick glass is the default; where a scroll timeline exists the
+     header starts thinner, tinted by the band behind it, and thickens as
+     the page scrolls under (cc-header-lift below). */
+  background: var(--cc-glass-sheen-bar), var(--cc-surface-glass-scrolled);
+  -webkit-backdrop-filter: blur(28px) saturate(1.35) brightness(1.04);
+  backdrop-filter: var(--cc-glass-filter-bar);
   border-bottom: var(--cc-border-width) solid
     color-mix(in srgb, var(--cc-rule) 70%, transparent);
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.55);
@@ -41,10 +44,12 @@
 
 @keyframes cc-header-lift {
   from {
+    background-color: var(--cc-surface-glass);
     border-bottom-color: transparent;
     box-shadow: none;
   }
   to {
+    background-color: var(--cc-surface-glass-scrolled);
     border-bottom-color: color-mix(in srgb, var(--cc-rule) 70%, transparent);
     box-shadow:
       inset 0 -1px 0 rgba(255, 255, 255, 0.55),
